@@ -1,6 +1,7 @@
 pub async fn root() -> &'static str {
-    "Welcome to Echo Server!"
+    "Welcome to Echo Server!\n"
 }
+
 
 pub async fn get_handler(headers: axum::http::HeaderMap) -> axum::Json<serde_json::Value> {
     axum::Json(serde_json::json!({
