@@ -4,3 +4,4 @@ pub mod put;
 pub mod patch;
 pub mod delete;
 pub mod options;
+pub mod status;

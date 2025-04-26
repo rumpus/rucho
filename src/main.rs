@@ -14,7 +14,9 @@ use routes::{
     patch as patch_routes,
     delete as delete_routes,
     options as options_routes,
+    status as status_routes, // <-- NEW
 };
+
 
 #[tokio::main]
 async fn main() {
@@ -28,6 +30,7 @@ async fn main() {
     .route("/patch", patch(patch_routes::patch_handler))
     .route("/delete", delete(delete_routes::delete_handler))
     .route("/options", options(options_routes::options_handler))
+    .route("/status/:code", get(status_routes::status_handler))
     .layer(TraceLayer::new_for_http());
 
 
