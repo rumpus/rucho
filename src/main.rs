@@ -31,10 +31,23 @@ async fn main() {
     .route("/delete", delete(delete_routes::delete_handler))
     .route("/options", options(options_routes::options_handler))
     .route("/status/:code", get(status_routes::status_handler))
-    .layer(TraceLayer::new_for_http());
+    .layer(
+        TraceLayer::new_for_http()
+            .make_span_with(
+                tower_http::trace::DefaultMakeSpan::new()
+                    .level(tracing::Level::INFO),
+            )
+            .on_request(
+                tower_http::trace::DefaultOnRequest::new()
+                    .level(tracing::Level::INFO),
+            )
+            .on_response(
+                tower_http::trace::DefaultOnResponse::new()
+                    .level(tracing::Level::INFO),
+            ),
+    );
 
-
-
+    
     let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
     tracing::info!("Listening on {}", listener.local_addr().unwrap());
 
