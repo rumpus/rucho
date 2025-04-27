@@ -1,2 +1,5 @@
+// Make the `routes` module public so it can be accessed from other parts of the project
 pub mod routes;
-pub mod utils; // <-- NEW
+
+// Make the `utils` module public so it can be accessed from other parts of the project
+pub mod utils;

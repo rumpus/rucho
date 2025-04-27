@@ -1,7 +1,11 @@
-use axum::extract::Json;
-use serde_json::Value;
-use crate::utils::json_response::format_json_response;
+// Import necessary types
+use axum::extract::Json;                                // Extractor for automatically parsing JSON bodies
+use serde_json::Value;                                  // Represents arbitrary JSON values
+use crate::utils::json_response::format_json_response;  // Custom utility to format JSON responses
 
+// Handler for the `/put` endpoint
+// Accepts a JSON payload and echoes it back in the response
 pub async fn put_handler(Json(payload): Json<Value>) -> axum::response::Response {
+    // Use the utility function to format and return the JSON payload
     format_json_response(&payload)
 }
