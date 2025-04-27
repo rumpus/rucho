@@ -1,7 +1,9 @@
-# Echo Server (Rust, Axum)
+# 🚀 Echo Server (Rust + Axum)
 
-Simple HTTP echo server built using Rust and Axum.  
-It demonstrates basic request handling, header echoing, and request tracing.
+Simple, fast, and scalable HTTP echo server built using Rust and Axum.  
+Designed for testing, debugging, and simulating various HTTP behaviors.
+
+---
 
 ## 🛠 Tech Stack
 
@@ -11,22 +13,34 @@ It demonstrates basic request handling, header echoing, and request tracing.
 - [Tower-HTTP](https://docs.rs/tower-http/latest/tower_http/)
 - [Hyper](https://hyper.rs/)
 
+---
+
 ## 📂 Project Structure
 
 ```bash
 src/
-├── main.rs          # Application entrypoint
-├── lib.rs           # Library module definitions
-└── handlers/
-    └── echo.rs      # HTTP request handlers
+├── main.rs             # Application entrypoint
+├── lib.rs              # Library module declarations
+├── routes/             # HTTP route handlers
+│   ├── delete.rs
+│   ├── get.rs
+│   ├── options.rs
+│   ├── patch.rs
+│   ├── post.rs
+│   ├── put.rs
+│   └── status.rs
+└── utils/
+    └── json_response.rs  # Shared JSON response helper
 ```
+
+---
 
 ## 🚀 Getting Started
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
-   cd echo-server
+   git clone https://github.com/SheriffTwinkie/rust-echo.git
+   cd rust-echo
    ```
 
 2. **Build the project**
@@ -39,27 +53,72 @@ src/
    cargo run
    ```
 
-Server will start on:
+Server will start at:
 
-```
+```bash
 http://localhost:8080
 ```
 
+---
+
 ## 📜 Available Endpoints
 
-| Method | Path   | Description                     |
-|:------:|:------:|:--------------------------------:|
-| GET    | `/`    | Returns a simple welcome message |
-| GET    | `/get` | Echoes back request headers as JSON |
+| Method   | Path              | Description                                      |
+|:--------:|:------------------:|:------------------------------------------------:|
+| GET      | `/`                | Welcome message ("Hello, World!")                |
+| GET      | `/get`             | Echo request headers as JSON                    |
+| POST     | `/post`            | Echo request body as JSON                       |
+| PUT      | `/put`             | Echo request body as JSON                       |
+| PATCH    | `/patch`           | Echo request body as JSON                       |
+| DELETE   | `/delete`          | Echo request body as JSON                       |
+| OPTIONS  | `/options`         | Returns allowed HTTP methods                   |
+| GET      | `/status/:code`    | Responds with requested HTTP status code        |
 
+---
+
+## 🧹 Features
+
+- 📜 Clean JSON response formatting with newline.
+- 📈 Automatic request tracing and logging using `TraceLayer`.
+- 🔥 Support for all major HTTP methods (GET, POST, PUT, PATCH, DELETE, OPTIONS).
+- ⚡ Dynamic HTTP status simulation (`/status/200`, `/status/503`, etc).
+- 🧹 Organized modular structure for easy expansion and maintenance.
+
+---
+
+## 🛠 Example Usage
+
+### Basic curl examples:
+
+```bash
+# Simple GET
+curl -s http://localhost:8080
+
+# GET headers echoed as JSON
+curl -s http://localhost:8080/get | jq
+
+# POST body echoed
+curl -s -X POST http://localhost:8080/post -H "Content-Type: application/json" -d "{\"test\": \"value\"}" | jq
+
+# Simulate a 503 response
+curl -i http://localhost:8080/status/503
+```
+
+✅ Output is always clean, newline-separated, and JSON-formatted where appropriate.
+
+---
 
 ## 📝 Notes
 
-- `TraceLayer` is applied for basic request logging.
-- `serde` and `serde_json` are used to format JSON responses.
-- `.gitignore` excludes `target/`, `*.rs.bk` backup files, and `Cargo.lock`.
+- `TraceLayer` provides request/response logging automatically.
+- JSON formatting is consistent across all echo endpoints.
+- `.gitignore` excludes `target/`, `*.rs.bk` backups, and `Cargo.lock`.
+- Project structure follows best practices for Rust Axum services.
 
+---
 
 ## 📢 License
 
-This project is open-sourced under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
+
+---
