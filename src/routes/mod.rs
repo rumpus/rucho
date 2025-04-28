@@ -8,3 +8,4 @@ pub mod delete;     // Handles DELETE requests (/delete)
 pub mod options;    // Handles OPTIONS requests (/options)
 pub mod status;     // Handles dynamic status code responses (/status/:code)
 pub mod anything;   // Handles dynamic echoing of any request method (/anything)
+pub mod healthz; 
