@@ -24,6 +24,7 @@ use routes::{
     options as options_routes,
     status as status_routes,   // Handles dynamic status code responses
     anything::anything_handler, // Handles /anything route for any method
+    healthz::healthz_handler,
 };
 
 #[tokio::main]
@@ -42,6 +43,8 @@ async fn main() {
         .route("/options", options(options_routes::options_handler))
         .route("/status/:code", get(status_routes::status_handler))
         .route("/anything", axum::routing::any(anything_handler))
+        .route("/healthz", axum::routing::get(healthz_handler))
+
         // Add a middleware layer to trace HTTP requests and responses
         .layer(
             TraceLayer::new_for_http()
@@ -75,7 +78,7 @@ async fn main() {
 // Graceful shutdown function
 async fn shutdown_signal() {
     // Wait for Ctrl+C
-    tokio::signal::ctrl_c()
+    signal::ctrl_c()
         .await
         .expect("failed to install Ctrl+C handler");
     tracing::info!("Signal received, starting graceful shutdown");
