@@ -26,3 +26,15 @@ pub async fn get_handler(headers: HeaderMap) -> axum::response::Response {
     // Use the utility function to format the JSON into an Axum Response
     format_json_response(&payload)
 }
+
+use axum::{
+    response::{IntoResponse, Response},
+    http::StatusCode,
+};
+
+pub async fn head_handler() -> impl IntoResponse {
+    Response::builder()
+        .status(StatusCode::OK)
+        .body(axum::body::Body::empty())
+        .unwrap()
+}
