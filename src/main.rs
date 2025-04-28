@@ -12,6 +12,7 @@ use axum::{
 use tower_http::trace::TraceLayer;                      // Middleware for automatic HTTP request/response tracing
 use tracing_subscriber;                                 // Structured logging with tracing
 use tokio::net::TcpListener;                            // Async TCP listener
+use tokio::signal;
 
 // Bring in grouped route handlers, namespaced by HTTP METHOD
 use routes::{
@@ -65,5 +66,17 @@ async fn main() {
     tracing::info!("Listening on {}", listener.local_addr().unwrap());
 
     // Serve the app using the listener
-    serve(listener, app).await.unwrap();
+    serve(listener, app)
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .unwrap();
+}
+
+// Graceful shutdown function
+async fn shutdown_signal() {
+    // Wait for Ctrl+C
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to install Ctrl+C handler");
+    tracing::info!("Signal received, starting graceful shutdown");
 }
