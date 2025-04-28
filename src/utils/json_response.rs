@@ -1,22 +1,26 @@
-// Import necessary types
+// Import necessary types from Axum and Serde
 use axum::{
-    body::Body,           // Represents the HTTP response body
-    http::Response,       // Represents the full HTTP Response
+    response::{IntoResponse, Response}, // For building HTTP responses
+    http::StatusCode,                   // HTTP status codes (like 200 OK)
+    Json,                                // Axum's wrapper for JSON responses (optional now)
 };
-use serde_json::Value;     // Represents arbitrary JSON values
+use serde_json::Value;                   // Represents arbitrary JSON values
 
 /// Takes a JSON Value and returns a properly formatted HTTP Response
-pub fn format_json_response(payload: &Value) -> Response<Body> {
-    // Serialize the JSON Value into a String
-    let mut body = serde_json::to_string(payload).unwrap();
-    
-    // Append a newline at the end for nicer formatting (optional, but nice for curl/readability)
-    body.push('\n');
+/// 
+/// `pretty`: controls whether the JSON is compact (default) or pretty-printed (indented).
+pub fn format_json_response(data: Value, pretty: bool) -> Response {
+    // Serialize the JSON Value to a String based on the `pretty` flag
+    let body = if pretty {
+        serde_json::to_string_pretty(&data).unwrap()  // Pretty-formatted (indented JSON)
+    } else {
+        serde_json::to_string(&data).unwrap()          // Compact (single-line JSON)
+    };
 
     // Build and return the HTTP Response
     Response::builder()
-        .status(200)                             // Always returns HTTP 200 OK
-        .header("Content-Type", "application/json") // Set the Content-Type header manually
-        .body(Body::from(body))                  // Set the response body
-        .unwrap()                                // Safe unwrap: static, known-good response building
+        .status(StatusCode::OK)                        // Always returns HTTP 200 OK
+        .header("Content-Type", "application/json")    // Explicit Content-Type header
+        .body(axum::body::Body::from(body))             // Set serialized JSON as body
+        .unwrap()                                       // Safe unwrap (controlled internal serialization)
 }
