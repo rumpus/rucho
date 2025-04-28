@@ -1,8 +1,7 @@
 // Import necessary types from Axum and Serde
 use axum::{
-    response::{IntoResponse, Response}, // For building HTTP responses
+    response::{Response}, // For building HTTP responses
     http::StatusCode,                   // HTTP status codes (like 200 OK)
-    Json,                                // Axum's wrapper for JSON responses (optional now)
 };
 use serde_json::Value;                   // Represents arbitrary JSON values
 
