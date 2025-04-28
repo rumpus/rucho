@@ -36,6 +36,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(get_routes::root))
         .route("/get", get(get_routes::get_handler))
+        .route("/get", axum::routing::head(get_routes::head_handler))
         .route("/post", post(post_routes::post_handler))
         .route("/put", put(put_routes::put_handler))
         .route("/patch", patch(patch_routes::patch_handler))
