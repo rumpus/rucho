@@ -4,29 +4,41 @@
 
 use axum::{
     body::Bytes,
-    extract::OriginalUri,
+    extract::{OriginalUri, Query},
     http::{Method, HeaderMap},
-    response::Json,
+    response::IntoResponse,
 };
+use serde::Deserialize;
 use serde_json::json;
-use std::collections::HashMap;
+use crate::utils::json_response::format_json_response;
+
+// Struct for parsing optional query parameters
+#[derive(Debug, Deserialize)]
+pub struct PrettyQuery {
+    pub pretty: Option<bool>, // ?pretty=true/false
+}
 
 pub async fn anything_handler(
     method: Method,
     OriginalUri(uri): OriginalUri,
     headers: HeaderMap,
+    Query(pretty_query): Query<PrettyQuery>,
     body: Bytes,
-) -> Json<serde_json::Value> {
+) -> impl IntoResponse {
+    let pretty = pretty_query.pretty.unwrap_or(false);
+
     let body_text = String::from_utf8_lossy(&body);
 
-    Json(json!({
+    let payload = json!({
         "method": method.to_string(),
         "path": uri.path(),
         "query": uri.query().unwrap_or("").to_string(),
         "headers": headers
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("<invalid utf8>").to_string()))
-            .collect::<HashMap<_, _>>(),
+            .collect::<serde_json::Value>(),
         "body": body_text,
-    }))
+    });
+
+    format_json_response(payload, pretty)
 }
