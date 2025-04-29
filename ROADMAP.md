@@ -11,26 +11,23 @@
 
 ---
 
-## 🥈 Tier 2: Developer Utility Endpoints (In Progress 🚧)
+## 🥈 Tier 2: Developer Utility Endpoints (Completed ✅)
 
-- [ ] `/uuid` — return random UUID
-- [ ] `/ip` — return requester IP
-- [ ] `/user-agent` — return User-Agent
-- [ ] `/headers` — echo headers
-- [ ] `/delay/:n` — delay response by `n` seconds
-- [ ] `/redirect/:n` — perform chained redirects
-- [ ] `/stream/:n` — stream multiple JSON objects
+- ✅ `/delay/:n` — delay response by `n` seconds
+- [ ] `/status/XXX` — return specified HTTP status code
+- [ ] WebSocket echo support
+- [ ] gRPC echo server
+- [ ] Add support for HTTP/2 or HTTP/3
+- [ ] Add HTTPS support
 
 ---
 
 ## 🥉 Tier 3: Productionization Features
 
-- [ ] Expose `/metrics` for Prometheus
 - [ ] JSON structured server logs
 - [ ] Panic recovery middleware
 - [ ] Request/response size metrics
 - [ ] Dockerfile for container builds
-- [ ] GitHub Actions (CI/CD automation)
 - [ ] Helm Chart for Kubernetes deployment
 - [ ] OpenAPI/Swagger documentation
 
@@ -38,9 +35,21 @@
 
 ## 🚀 Future Bonus Ideas
 
+- [ ] `/uuid` — return random UUID
+- [ ] `/ip` — return requester IP
+- [ ] `/user-agent` — return User-Agent
+- [ ] `/headers` — echo headers
+- [ ] `/redirect/:n` — perform chained redirects
+- [ ] `/stream/:n` — stream multiple JSON objects
+- [ ] Expose `/metrics` for Prometheus
+- [ ] GitHub Actions (CI/CD automation)
 - [ ] Request size limiting
-- [ ] WebSocket echo support
-- [ ] gRPC echo server
+- [ ] Implement connection pooling for better scalability
+- [ ] Add rate limiting middleware to prevent abuse
+- [ ] Implement CORS support for cross-origin requests
+- [ ] Add authentication/authorization middleware (e.g., JWT or OAuth2)
+- [ ] Add support for environment-based configuration (e.g., `.env` files)
+- [ ] Provide Terraform scripts for cloud infrastructure provisioning
 - [ ] Request replay feature
 - [ ] Plugin system for extensibility (Lua, Wasm)
 
@@ -51,7 +60,7 @@
 ✅ Basic Echo Server working  
 ✅ /anything endpoint live  
 ✅ Modular routes and utils organized  
-🚧 Tier 2 endpoints under development  
+🚧 Tier 3 features under development  
 
 ---
 
@@ -73,8 +82,8 @@ MIT License
 | Phase | Focus |
 |:---|:---|
 | Phase 1 | ✅ Finish Tier 1 (Core improvements) |
-| Phase 2 | 🚧 Build developer-focused endpoints (Tier 2) |
-| Phase 3 | Productionize (Tier 3: Metrics, Docker, CI/CD) |
+| Phase 2 | ✅ Complete `/delay/:n` endpoint |
+| Phase 3 | 🚧 Productionize (Tier 3: Logs, Middleware, Docker) |
 | Phase 4 | (Optional) Bonus Protocols like WebSockets, gRPC |
 
 ---
