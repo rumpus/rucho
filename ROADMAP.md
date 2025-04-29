@@ -2,16 +2,16 @@
 
 ---
 
-## 🥇 Tier 1: Core Platform Improvements
+## 🥇 Tier 1: Core Platform Improvements (Completed ✅)
 
-- [ ] `/healthz` endpoint
-- [ ] Optional pretty JSON output (`?pretty=true`)
-- [ ] Graceful shutdown handling (SIGINT/SIGTERM)
-- [ ] Support additional HTTP methods (HEAD, OPTIONS)
+- ✅ `/healthz` endpoint
+- ✅ Optional pretty JSON output (`?pretty=true`)
+- ✅ Graceful shutdown handling (SIGINT/SIGTERM)
+- ✅ Support additional HTTP methods (HEAD, OPTIONS)
 
 ---
 
-## 🥈 Tier 2: Developer Utility Endpoints
+## 🥈 Tier 2: Developer Utility Endpoints (In Progress 🚧)
 
 - [ ] `/uuid` — return random UUID
 - [ ] `/ip` — return requester IP
@@ -51,7 +51,7 @@
 ✅ Basic Echo Server working  
 ✅ /anything endpoint live  
 ✅ Modular routes and utils organized  
-✅ Ready to expand feature set
+🚧 Tier 2 endpoints under development  
 
 ---
 
@@ -72,8 +72,8 @@ MIT License
 
 | Phase | Focus |
 |:---|:---|
-| Phase 1 | Finish Tier 1 (Core improvements) |
-| Phase 2 | Build developer-focused endpoints (Tier 2) |
+| Phase 1 | ✅ Finish Tier 1 (Core improvements) |
+| Phase 2 | 🚧 Build developer-focused endpoints (Tier 2) |
 | Phase 3 | Productionize (Tier 3: Metrics, Docker, CI/CD) |
 | Phase 4 | (Optional) Bonus Protocols like WebSockets, gRPC |
 
