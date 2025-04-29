@@ -5,7 +5,6 @@
 ## 🥇 Tier 1: Core Platform Improvements
 
 - [ ] `/healthz` endpoint
-- [ ] Request size limiting
 - [ ] Optional pretty JSON output (`?pretty=true`)
 - [ ] Graceful shutdown handling (SIGINT/SIGTERM)
 - [ ] Support additional HTTP methods (HEAD, OPTIONS)
@@ -39,6 +38,7 @@
 
 ## 🚀 Future Bonus Ideas
 
+- [ ] Request size limiting
 - [ ] WebSocket echo support
 - [ ] gRPC echo server
 - [ ] Request replay feature
