@@ -25,6 +25,7 @@ use routes::{
     status as status_routes,   // Handles dynamic status code responses
     anything::anything_handler, // Handles /anything route for any method
     healthz::healthz_handler,
+    delay::delay_handler, // Import the delay handler
 };
 
 #[tokio::main]
@@ -45,6 +46,7 @@ async fn main() {
         .route("/status/:code", get(status_routes::status_handler))
         .route("/anything", axum::routing::any(anything_handler))
         .route("/healthz", axum::routing::get(healthz_handler))
+        .route("/delay/:n", axum::routing::get(delay_handler)) // Add the delay route
 
         // Add a middleware layer to trace HTTP requests and responses
         .layer(
