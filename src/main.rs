@@ -1,20 +1,26 @@
 // Main entry point for the Echo Server
 
-// Declare the `routes` and `utils` modules (located in src/routes and src/utils folders)
 mod routes;
 mod utils;
 
-// Bring in necessary items from external crates
 use axum::{
-    routing::{get, post, put, patch, delete, options},  // HTTP method handlers
-    Router, serve                                       // Main Router and serve function
+    routing::{get, post, put, patch, delete, options},
+    Router,
 };
-use tower_http::trace::TraceLayer;                      // Middleware for automatic HTTP request/response tracing
-use tracing_subscriber;                                 // Structured logging with tracing
-use tokio::net::TcpListener;                            // Async TCP listener
+use tower_http::trace::TraceLayer;
+use tracing_subscriber;
+use tokio::net::TcpListener;
 use tokio::signal;
 
-// Bring in grouped route handlers, namespaced by HTTP METHOD
+//use axum_server::Server;
+//use rustls::Connection::Server;
+//use rustls::Side::Server;
+//use rustls::quic::Connection::Server;
+
+use axum_server::{Handle, Server, bind_rustls};
+use utils::server_config::try_load_rustls_config;
+
+// Route modules
 use routes::{
     get as get_routes,
     post as post_routes,
@@ -22,18 +28,20 @@ use routes::{
     patch as patch_routes,
     delete as delete_routes,
     options as options_routes,
-    status as status_routes,   // Handles dynamic status code responses
-    anything::anything_handler, // Handles /anything route for any method
+    status as status_routes,
+    anything::anything_handler,
     healthz::healthz_handler,
-    delay::delay_handler, // Import the delay handler
+    delay::delay_handler,
 };
 
 #[tokio::main]
 async fn main() {
-    // Initialize the tracing subscriber for structured logs
     tracing_subscriber::fmt::init();
 
-    // Build the application router
+    // Shared shutdown handle
+    let handle = Handle::new();
+    let shutdown = shutdown_signal(handle.clone());
+
     let app = Router::new()
         .route("/", get(get_routes::root))
         .route("/get", get(get_routes::get_handler))
@@ -45,44 +53,49 @@ async fn main() {
         .route("/options", options(options_routes::options_handler))
         .route("/status/:code", get(status_routes::status_handler))
         .route("/anything", axum::routing::any(anything_handler))
-        .route("/healthz", axum::routing::get(healthz_handler))
-        .route("/delay/:n", axum::routing::get(delay_handler)) // Add the delay route
-
-        // Add a middleware layer to trace HTTP requests and responses
+        .route("/healthz", get(healthz_handler))
+        .route("/delay/:n", get(delay_handler))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(
                     tower_http::trace::DefaultMakeSpan::new()
-                        .level(tracing::Level::INFO),  // Set log level for span creation
+                        .level(tracing::Level::INFO),
                 )
                 .on_request(
                     tower_http::trace::DefaultOnRequest::new()
-                        .level(tracing::Level::INFO),  // Log incoming requests
+                        .level(tracing::Level::INFO),
                 )
                 .on_response(
                     tower_http::trace::DefaultOnResponse::new()
-                        .level(tracing::Level::INFO),  // Log outgoing responses
+                        .level(tracing::Level::INFO),
                 ),
         );
 
-    // Bind a TCP listener to 0.0.0.0:8080 (listen on all interfaces, port 8080)
-    let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
+    if let Some(rustls_config) = try_load_rustls_config().await {
+        tracing::info!("Starting HTTPS server on https://0.0.0.0:8443");
 
-    // Log the address that the server is listening on
-    tracing::info!("Listening on {}", listener.local_addr().unwrap());
+        bind_rustls("0.0.0.0:8443".parse().unwrap(), rustls_config)
+            .handle(handle)
+            .serve(app.into_make_service())
+            .await
+            .unwrap();
+    } else {
+        let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
+        let std_listener = listener.into_std().unwrap(); // Convert to std::net::TcpListener
+        tracing::info!("Starting HTTP server on http://{}", std_listener.local_addr().unwrap());
 
-    // Serve the app using the listener
-    serve(listener, app)
-    .with_graceful_shutdown(shutdown_signal())
-    .await
-    .unwrap();
+        Server::from_tcp(std_listener)
+            .serve(app.into_make_service())
+            //.with_graceful_shutdown(shutdown)
+            .await
+            .unwrap();
+    }
 }
 
-// Graceful shutdown function
-async fn shutdown_signal() {
-    // Wait for Ctrl+C
+async fn shutdown_signal(handle: Handle) {
     signal::ctrl_c()
         .await
         .expect("failed to install Ctrl+C handler");
     tracing::info!("Signal received, starting graceful shutdown");
+    handle.graceful_shutdown(Some(std::time::Duration::from_secs(5)));
 }

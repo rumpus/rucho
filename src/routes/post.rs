@@ -1,7 +1,7 @@
 // Import necessary types
 use axum::{
     extract::{Json, Query},        // For parsing query params and JSON bodies
-    http::{HeaderMap, StatusCode},  // For accessing request headers and setting status codes
+    http::{HeaderMap},  // For accessing request headers and setting status codes
     response::IntoResponse,         // For building HTTP responses
 };
 use serde::{Deserialize, Serialize}; // For (de)serializing JSON payloads

@@ -10,8 +10,11 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tower = "0.5"               # <-- bump to 0.5
-tower-http = { version = "0.5", features = ["trace"] }  # <-- bump to 0.5
-hyper = { version = "1.0", features = ["full"] }
+tower = "0.5"        
+tower-http = { version = "0.5", features = ["trace"] }  
+tokio-rustls = "0.25"
+rustls = "0.23"
+rustls-pemfile = "1.0"
+hyper = { version = "1.0", features = ["server"] }
 http = "1.0"
-
+axum-server = { version = "0.7", features = ["tls-rustls"] }
