@@ -1,8 +1,10 @@
-use axum::{
-    response::IntoResponse,
-    http::StatusCode,
-};
+// healthz.rs
+use axum::{routing::get, Router, response::IntoResponse, http::StatusCode};
 
-pub async fn healthz_handler() -> impl IntoResponse {
+pub fn router() -> Router {
+    Router::new().route("/healthz", get(healthz_handler))
+}
+
+async fn healthz_handler() -> impl IntoResponse {
     (StatusCode::OK, "OK")
 }

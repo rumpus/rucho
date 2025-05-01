@@ -1,15 +1,10 @@
-// OPTIONS request handler for Echo Server
+// options.rs
+use axum::{routing::options, Router, response::{IntoResponse, Response}, http::{header, StatusCode}};
 
-use axum::{
-    response::{IntoResponse, Response},
-    http::{header, StatusCode},
-};
+pub fn router() -> Router {
+    Router::new().route("/options", options(options_handler))
+}
 
-// Handles OPTIONS requests by returning allowed HTTP methods
-pub async fn options_handler() -> impl IntoResponse {
-    Response::builder()
-        .status(StatusCode::NO_CONTENT)               // 204 No Content
-        .header(header::ALLOW, "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD") // Allowed methods
-        .body(axum::body::Body::empty())                // No body returned
-        .unwrap()
+async fn options_handler() -> impl IntoResponse {
+    Response::builder().status(StatusCode::NO_CONTENT).header(header::ALLOW, "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD").body(axum::body::Body::empty()).unwrap()
 }
