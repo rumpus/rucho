@@ -1,52 +1,42 @@
-// Import necessary types
-use axum::{
-    extract::{Query},
-    http::HeaderMap,                     // Represents the incoming HTTP request headers
-    response::{IntoResponse, Response},  // For building responses
-};
-use serde::Deserialize;                  // For parsing query parameters
-use serde_json::json;                     // Macro for easily creating JSON objects
-use crate::utils::json_response::format_json_response;  // Custom helper to format JSON responses
+use axum::{routing::{get, head}, Router, extract::Query, http::HeaderMap, response::{IntoResponse, Response}};
+use serde::Deserialize;
+use serde_json::json;
+use crate::utils::json_response::format_json_response;
 
-// Struct for parsing optional query parameters
 #[derive(Debug, Deserialize)]
 pub struct PrettyQuery {
-    pub pretty: Option<bool>,             // ?pretty=true/false
+    pub pretty: Option<bool>,
 }
 
-// Handler for the root endpoint `/`
-// Just returns a static welcome message
-pub async fn root() -> &'static str {
+pub fn router() -> Router {
+    Router::new()
+        .route("/", get(root))
+        .route("/get", get(get_handler))
+        .route("/get", head(head_handler))
+}
+
+async fn root() -> &'static str {
     "Welcome to Echo Server!\n"
 }
 
-// Handler for the `/get` endpoint
-// Returns a JSON response with the request method and headers
-// Supports optional `?pretty=true` query parameter for pretty-printed output
-pub async fn get_handler(
-    headers: HeaderMap,                  // Incoming request headers
-    Query(pretty_query): Query<PrettyQuery>, // Extracted query parameters
+async fn get_handler(
+    headers: HeaderMap,
+    Query(pretty_query): Query<PrettyQuery>,
 ) -> Response {
-    let pretty = pretty_query.pretty.unwrap_or(false); // Default to compact unless ?pretty=true
+    let pretty = pretty_query.pretty.unwrap_or(false);
 
     let payload = json!({
-        "method": "GET",                                                // Indicate the HTTP method
-        "headers": headers
-            .iter()
-            .map(|(k, v)| (
-                k.to_string(),                                          // Convert header key to String
-                v.to_str().unwrap_or("<invalid utf8>").to_string()      // Safely convert value or show placeholder
-            ))
-            .collect::<serde_json::Value>(),                            // Collect into a JSON object
+        "method": "GET",
+        "headers": headers.iter().map(|(k, v)| (
+            k.to_string(),
+            v.to_str().unwrap_or("<invalid utf8>").to_string()
+        )).collect::<serde_json::Value>(),
     });
 
-    // Use the utility function to format the JSON into an Axum Response
     format_json_response(payload, pretty)
 }
 
-// Handler for HEAD requests to `/get`
-// Returns only status code and headers (no body)
-pub async fn head_handler() -> impl IntoResponse {
+async fn head_handler() -> impl IntoResponse {
     Response::builder()
         .status(axum::http::StatusCode::OK)
         .body(axum::body::Body::empty())
