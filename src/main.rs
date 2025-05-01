@@ -4,19 +4,15 @@ mod routes;
 mod utils;
 
 use axum::{
-    routing::{get, post, put, patch, delete, options},
+    routing::{get, post, put, patch, delete, options, any},
     Router,
 };
+
 use tower_http::trace::TraceLayer;
 use tracing_subscriber;
 use tokio::net::TcpListener;
 use tokio::signal;
-
-//use axum_server::Server;
-//use rustls::Connection::Server;
-//use rustls::Side::Server;
-//use rustls::quic::Connection::Server;
-
+//use std::sync::Arc;
 use axum_server::{Handle, Server, bind_rustls};
 use utils::server_config::try_load_rustls_config;
 
@@ -28,7 +24,8 @@ use routes::{
     patch as patch_routes,
     delete as delete_routes,
     options as options_routes,
-    status as status_routes,
+    status::status_handler,
+    //status as status_routes,
     anything::anything_handler,
     healthz::healthz_handler,
     delay::delay_handler,
@@ -51,10 +48,10 @@ async fn main() {
         .route("/patch", patch(patch_routes::patch_handler))
         .route("/delete", delete(delete_routes::delete_handler))
         .route("/options", options(options_routes::options_handler))
-        .route("/status/:code", get(status_routes::status_handler))
-        .route("/anything", axum::routing::any(anything_handler))
+        .route("/status/:code", any(status_handler))
+        .route("/anything", any(anything_handler))
         .route("/healthz", get(healthz_handler))
-        .route("/delay/:n", get(delay_handler))
+        .route("/delay/:n", any(delay_handler))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(
@@ -71,24 +68,45 @@ async fn main() {
                 ),
         );
 
+    let app1 = app.clone();
+    let app2 = app.clone();    
+
     if let Some(rustls_config) = try_load_rustls_config().await {
         tracing::info!("Starting HTTPS server on https://0.0.0.0:8443");
 
         bind_rustls("0.0.0.0:8443".parse().unwrap(), rustls_config)
             .handle(handle)
-            .serve(app.into_make_service())
+            .serve(app.clone().into_make_service()) //.serve(app.into_make_service())
             .await
             .unwrap();
     } else {
-        let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
-        let std_listener = listener.into_std().unwrap(); // Convert to std::net::TcpListener
-        tracing::info!("Starting HTTP server on http://{}", std_listener.local_addr().unwrap());
+        let listener1 = TcpListener::bind("0.0.0.0:8080").await.unwrap();
+        let listener2 = TcpListener::bind("0.0.0.0:9090").await.unwrap();
 
-        Server::from_tcp(std_listener)
-            .serve(app.into_make_service())
-            //.with_graceful_shutdown(shutdown)
-            .await
-            .unwrap();
+        let std_listener1 = listener1.into_std().unwrap(); // Convert to std::net::TcpListener
+        let std_listener2 = listener2.into_std().unwrap(); // Convert to std::net::TcpListener
+
+        tracing::info!("Starting HTTP server on http://0.0.0.0:8080 and http://0.0.0.0:9090"); // tracing::info!("Starting HTTP server on http://0.0.0.0:8080 and http://0.0.0.0:9090");
+
+        let serve1 = Server::from_tcp(std_listener1).serve(app1.clone().into_make_service());
+        let serve2 = Server::from_tcp(std_listener2).serve(app2.clone().into_make_service());
+
+        //let serve1 = Server::from_tcp(std_listener1).serve(app1.into_make_service());
+        //let serve2 = Server::from_tcp(std_listener2).serve(app2.into_make_service());
+
+        tokio::select! {
+            _ = serve1 => {},
+            _ = serve2 => {},
+            _ = shutdown => {
+                tracing::info!("Shutting down server");
+            }
+        }
+
+        // Server::from_tcp(std_listener)
+        //     .serve(app.into_make_service())
+        //     //.with_graceful_shutdown(shutdown)
+        //     .await
+        //     .unwrap();
     }
 }
 
