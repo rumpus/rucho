@@ -1,7 +1,7 @@
 FROM ubuntu:latest
 
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN apt-get update && apt-get install -y curl build-essential && \
+RUN apt-get update && apt-get install -y curl build-essential jq && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
