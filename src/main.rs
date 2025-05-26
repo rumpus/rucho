@@ -20,16 +20,9 @@ async fn main() {
     let shutdown = shutdown_signal(handle.clone());
 
     let app = Router::new()
-        .merge(routes::get::router())
-        .merge(routes::post::router())
-        .merge(routes::put::router())
-        .merge(routes::patch::router())
-        .merge(routes::delete::router())
-        .merge(routes::options::router())
-        .merge(routes::status::router())
-        .merge(routes::anything::router())
-        .merge(routes::healthz::router())
-        .merge(routes::delay::router())
+        .merge(routes::core_routes::router()) // Consolidated routes
+        .merge(routes::healthz::router())     // Preserved
+        .merge(routes::delay::router())       // Preserved
         // ----------------------------------------------------------
         // 🧱 Middleware Stack (applied top-down to all routes)
         //
