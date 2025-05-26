@@ -18,6 +18,38 @@ use crate::utils::{
 #[derive(Debug, Deserialize, Serialize)]
 struct Payload(serde_json::Value);
 
+#[derive(Serialize, Debug, Clone, Copy)] // Added Serialize
+pub struct EndpointInfo {
+    path: &'static str,
+    method: &'static str,
+    description: &'static str,
+}
+
+static API_ENDPOINTS: &[EndpointInfo] = &[
+    // Routes from former get.rs
+    EndpointInfo { path: "/", method: "GET", description: "Root welcome message." },
+    EndpointInfo { path: "/get", method: "GET", description: "Echoes request details for GET." },
+    EndpointInfo { path: "/get", method: "HEAD", description: "Responds with headers for GET query." },
+    // Routes from former post.rs
+    EndpointInfo { path: "/post", method: "POST", description: "Echoes request details for POST, expects JSON body." },
+    // Routes from former put.rs
+    EndpointInfo { path: "/put", method: "PUT", description: "Echoes request details for PUT, expects JSON body." },
+    // Routes from former patch.rs
+    EndpointInfo { path: "/patch", method: "PATCH", description: "Echoes request details for PATCH, expects JSON body." },
+    // Routes from former delete.rs
+    EndpointInfo { path: "/delete", method: "DELETE", description: "Echoes request details for DELETE." },
+    // Routes from former options.rs
+    EndpointInfo { path: "/options", method: "OPTIONS", description: "Responds with allowed HTTP methods." },
+    // Routes from former status.rs
+    EndpointInfo { path: "/status/:code", method: "ANY", description: "Returns the specified HTTP status code." },
+    // Routes from former anything.rs
+    EndpointInfo { path: "/anything", method: "ANY", description: "Echoes request details for any HTTP method." },
+    EndpointInfo { path: "/anything/*path", method: "ANY", description: "Echoes request details for any HTTP method under a specific path." },
+
+    // Add the new entry for /endpoints itself
+    EndpointInfo { path: "/endpoints", method: "GET", description: "Lists all available API endpoints." } 
+];
+
 pub fn router() -> Router {
     Router::new()
         // Routes from get.rs
@@ -39,6 +71,8 @@ pub fn router() -> Router {
         // Routes from anything.rs
         .route("/anything", any(anything_handler))
         .route("/anything/*path", any(anything_handler))
+        // Route for /endpoints
+        .route("/endpoints", get(endpoints_handler))
 }
 
 // From get.rs
@@ -67,6 +101,20 @@ async fn head_handler() -> impl IntoResponse {
         .status(axum::http::StatusCode::OK)
         .body(axum::body::Body::empty())
         .unwrap()
+}
+
+// Handler for /endpoints
+async fn endpoints_handler(
+    Query(pretty_query): Query<PrettyQuery>,
+) -> Response {
+    let pretty = pretty_query.pretty.unwrap_or(false);
+    
+    match serde_json::to_value(API_ENDPOINTS) {
+        Ok(json_value) => format_json_response(json_value, pretty),
+        Err(_) => {
+            format_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Failed to serialize endpoint data.")
+        }
+    }
 }
 
 // From status.rs
