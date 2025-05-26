@@ -1,10 +1,12 @@
 mod routes;
 mod utils;
 
+use crate::utils::config::Config; // Added import
 use clap::Parser;
 use std::fs;
 use std::io::Write; // Read is unused
 use std::process;
+use std::str::FromStr; // Added import
 use sysinfo::{Pid, Signal, System}; // SystemExt will be used via the System struct directly
 use axum::Router; // Request and ServiceExt are unused
 use tokio::{net::TcpListener, signal};
@@ -13,6 +15,7 @@ use tower_http::{
     normalize_path::NormalizePathLayer,
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
 };
+use tracing::Level; // Added import
 use tracing_subscriber;
 use axum_server::Handle; // bind_rustls and Server are unused
 // crate::utils::server_config::try_load_rustls_config will be used directly with crate:: prefix
@@ -40,6 +43,15 @@ const PID_FILE: &str = "echo-server.pid";
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    let config = Config::load_config(); // Load config
+
+    // Initialize tracing subscriber with log level from config
+    let log_level = Level::from_str(&config.log_level.to_uppercase())
+        .unwrap_or_else(|_| {
+            eprintln!("Warning: Invalid log level '{}' in config, defaulting to INFO.", config.log_level);
+            Level::INFO
+        });
+    tracing_subscriber::fmt().with_max_level(log_level).init(); // Initialize tracing
 
     match args.command {
         CliCommand::Start {} => {
@@ -57,7 +69,7 @@ async fn main() {
                     eprintln!("Error: Could not create PID file {}: {}", PID_FILE, e);
                 }
             }
-            run_server().await;
+            run_server(&config).await; // Pass config to run_server
         }
         CliCommand::Stop {} => {
             match fs::read_to_string(PID_FILE) {
@@ -145,8 +157,8 @@ async fn main() {
     }
 }
 
-async fn run_server() {
-    tracing_subscriber::fmt::init();
+async fn run_server(config: &Config) { // Takes config as an argument
+    // tracing_subscriber::fmt::init(); // This is now done in main
 
     let handle = Handle::new();
     let shutdown = shutdown_signal(handle.clone());
@@ -172,11 +184,17 @@ async fn run_server() {
             .await
             .unwrap();
     } else {
-        let listener1 = TcpListener::bind("0.0.0.0:8080").await.unwrap();
-        let listener2 = TcpListener::bind("0.0.0.0:9090").await.unwrap();
+        let listener1 = TcpListener::bind(&config.server_listen_primary).await.unwrap_or_else(|e| {
+            eprintln!("Error binding to primary address {}: {}", config.server_listen_primary, e);
+            process::exit(1);
+        });
+        let listener2 = TcpListener::bind(&config.server_listen_secondary).await.unwrap_or_else(|e| {
+            eprintln!("Error binding to secondary address {}: {}", config.server_listen_secondary, e);
+            process::exit(1);
+        });
         let std_listener1 = listener1.into_std().unwrap();
         let std_listener2 = listener2.into_std().unwrap();
-        tracing::info!("Starting HTTP servers on :8080 and :9090");
+        tracing::info!("Starting HTTP servers on {} and {}", config.server_listen_primary, config.server_listen_secondary);
         let serve1 = axum_server::Server::from_tcp(std_listener1).serve(app.clone().into_make_service());
         let serve2 = axum_server::Server::from_tcp(std_listener2).serve(app.into_make_service());
 
