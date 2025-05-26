@@ -14,4 +14,4 @@ RUN cargo build --release
 EXPOSE 8080
 EXPOSE 9090
 
-CMD ["/app/target/release/rucho", "start"]
+CMD ["/app/target/release/echo-server", "start"]
