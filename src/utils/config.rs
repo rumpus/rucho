@@ -102,6 +102,28 @@ impl Config {
 
         config
     }
+
+    /// Loads the configuration for the application.
+    ///
+    /// It applies configurations in the following order (later stages override earlier ones):
+    /// 1. Sets hardcoded default values.
+    /// 2. Attempts to read and apply settings from `/etc/rucho/rucho.conf`.
+    /// 3. Attempts to read and apply settings from `./rucho.conf` (current working directory).
+    /// 4. Applies any settings from environment variables prefixed with `RUCHO_`.
+    ///
+    /// The configuration files (`/etc/rucho/rucho.conf`, `./rucho.conf`) should contain
+    /// `key = value` pairs, one per line. Lines starting with `#` are comments.
+    ///
+    /// Refer to `config_samples/rucho.conf.default` for a template.
+    ///
+    /// Supported keys in config files and corresponding environment variables:
+    /// - `prefix` (`RUCHO_PREFIX`)
+    /// - `log_level` (`RUCHO_LOG_LEVEL`)
+    /// - `server_listen_primary` (`RUCHO_SERVER_LISTEN_PRIMARY`)
+    /// - `server_listen_secondary` (`RUCHO_SERVER_LISTEN_SECONDARY`)
+    pub fn load() -> Self {
+        Self::load_from_paths(None, None)
+    }
 }
 
 #[cfg(test)]
