@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf}; // Added PathBuf
+use std::path::PathBuf; // Modified to remove unused Path
 
 /// Holds the application configuration.
 ///
@@ -35,6 +35,7 @@ impl Default for Config {
 impl Config {
     // Helper function to parse file contents (remains the same)
     // No changes needed to the doc comment for parse_file_contents as it's an internal helper.
+    #[cfg_attr(not(test), allow(dead_code))]
     fn parse_file_contents(config: &mut Config, contents: String) {
         for line in contents.lines() {
             if line.starts_with('#') || line.trim().is_empty() {
@@ -59,6 +60,7 @@ impl Config {
 
     /// Loads configuration using specified paths, primarily for testing.
     /// Falls back to default paths if overrides are not provided.
+    #[cfg_attr(not(test), allow(dead_code))]
     fn load_from_paths(etc_path_override: Option<PathBuf>, local_path_override: Option<PathBuf>) -> Self {
         let mut config = Config::default();
 

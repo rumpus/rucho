@@ -43,7 +43,7 @@ const PID_FILE: &str = "echo-server.pid";
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
-    let config = Config::load_config(); // Load config
+    let config = Config::load(); // Load config
 
     // Initialize tracing subscriber with log level from config
     let log_level = Level::from_str(&config.log_level.to_uppercase())
