@@ -12,7 +12,7 @@ prefix = /usr/local/rucho
 # Logging level.
 # Supported levels (case-insensitive): TRACE, DEBUG, INFO, NOTICE, WARN, ERROR
 # Example: log_level = info
-log_level = notice
+log_level = info
 
 # Primary server listen address and port.
 # Example: server_listen_primary = 127.0.0.1:8000

@@ -192,7 +192,7 @@ mod tests {
         let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
         
         assert_eq!(config.prefix, "/usr/local/rucho");
-        assert_eq!(config.log_level, "notice");
+        assert_eq!(config.log_level, "info");
         assert_eq!(config.server_listen_primary, "0.0.0.0:8080");
         assert_eq!(config.server_listen_secondary, "0.0.0.0:9090");
     }
