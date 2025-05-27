@@ -1,0 +1,23 @@
+# Rucho Configuration File
+#
+# This is a sample configuration file. Lines starting with '#' are comments.
+# You can copy this file to /etc/rucho/rucho.conf for a system-wide configuration
+# or to ./rucho.conf (in the directory where you run rucho) for a local override.
+# Environment variables (e.g., RUCHO_PREFIX) will override any values set in these files.
+
+# Default prefix for installation or data paths.
+# Example: prefix = /opt/rucho
+prefix = /usr/local/rucho
+
+# Logging level.
+# Supported levels (case-insensitive): TRACE, DEBUG, INFO, NOTICE, WARN, ERROR
+# Example: log_level = info
+log_level = info
+
+# Primary server listen address and port.
+# Example: server_listen_primary = 127.0.0.1:8000
+server_listen_primary = 0.0.0.0:8080
+
+# Secondary server listen address and port.
+# Example: server_listen_secondary = 127.0.0.1:9000
+server_listen_secondary = 0.0.0.0:9090
