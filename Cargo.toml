@@ -21,3 +21,6 @@ rustls-pemfile = "1.0"
 hyper = { version = "1.0", features = ["server"] }
 http = "1.0"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
+
+[dev-dependencies]
+tempfile = "3.8.0"
