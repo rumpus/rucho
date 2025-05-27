@@ -25,7 +25,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             prefix: "/usr/local/rucho".to_string(),
-            log_level: "notice".to_string(),
+            log_level: "info".to_string(),
             server_listen_primary: "0.0.0.0:8080".to_string(),
             server_listen_secondary: "0.0.0.0:9090".to_string(),
         }

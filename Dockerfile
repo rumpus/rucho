@@ -12,8 +12,8 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN cargo build --release
 
-# Install binary, create config/doc directories, set initial ownership
-RUN cp /app/target/release/echo-server /usr/local/bin/rucho &&     mkdir -p /etc/rucho &&     mkdir -p /usr/share/doc/rucho/examples &&     chown rucho:rucho /usr/local/bin/rucho &&     chown rucho:rucho /etc/rucho
+# Install binary, create config/doc/run directories, set initial ownership
+RUN cp /app/target/release/rucho /usr/local/bin/rucho &&     mkdir -p /etc/rucho &&     mkdir -p /usr/share/doc/rucho/examples &&     mkdir -p /var/run/rucho &&     chown rucho:rucho /usr/local/bin/rucho &&     chown rucho:rucho /etc/rucho &&     chown rucho:rucho /var/run/rucho
 
 # Copy configuration files
 COPY config_samples/rucho.conf.default /usr/share/doc/rucho/examples/rucho.conf.default

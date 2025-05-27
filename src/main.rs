@@ -38,7 +38,7 @@ pub enum CliCommand {
     Version {},
 }
 
-const PID_FILE: &str = "echo-server.pid";
+const PID_FILE: &str = "/var/run/rucho/rucho.pid";
 
 #[tokio::main]
 async fn main() {
@@ -142,7 +142,7 @@ async fn main() {
                                 println!("Health check functionality is currently disabled.");
                             } else {
                                 println!("Server is stopped (PID file {} found, but process {} not running).", PID_FILE, pid);
-                                println!("Consider running 'echo-server stop' to attempt cleanup or manually deleting {}.", PID_FILE);
+                                println!("Consider running 'rucho stop' to attempt cleanup or manually deleting {}.", PID_FILE);
                             }
                         }
                         Err(_) => eprintln!("Error: Invalid PID format in {}. Consider deleting it.", PID_FILE),
