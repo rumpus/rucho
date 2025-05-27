@@ -8,7 +8,8 @@ use std::io::Write; // Read is unused
 use std::process;
 use std::str::FromStr; // Added import
 use sysinfo::{Pid, Signal, System}; // SystemExt will be used via the System struct directly
-use axum::Router; // Request and ServiceExt are unused
+use axum::Router;
+use std::net::SocketAddr; // Already added in a previous step, but good to confirm
 use tokio::{net::TcpListener, signal};
 use tower_http::{
     cors::CorsLayer,
@@ -164,9 +165,9 @@ async fn run_server(config: &Config) { // Takes config as an argument
     let shutdown = shutdown_signal(handle.clone());
 
     let app = Router::new()
-        .merge(routes::core_routes::router()) 
-        .merge(routes::healthz::router())     
-        .merge(routes::delay::router())       
+        .merge(routes::core_routes::router())
+        .merge(routes::healthz::router())
+        .merge(routes::delay::router())
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(tracing::Level::INFO))
@@ -176,35 +177,71 @@ async fn run_server(config: &Config) { // Takes config as an argument
         .layer(CorsLayer::permissive())
         .layer(NormalizePathLayer::trim_trailing_slash());
 
-    if let Some(rustls_config) = crate::utils::server_config::try_load_rustls_config().await { // Corrected path
-        tracing::info!("Starting HTTPS server on https://0.0.0.0:8443");
-        axum_server::bind_rustls("0.0.0.0:8443".parse().unwrap(), rustls_config)
-            .handle(handle)
-            .serve(app.clone().into_make_service())
-            .await
-            .unwrap();
-    } else {
-        let listener1 = TcpListener::bind(&config.server_listen_primary).await.unwrap_or_else(|e| {
-            eprintln!("Error binding to primary address {}: {}", config.server_listen_primary, e);
-            process::exit(1);
-        });
-        let listener2 = TcpListener::bind(&config.server_listen_secondary).await.unwrap_or_else(|e| {
-            eprintln!("Error binding to secondary address {}: {}", config.server_listen_secondary, e);
-            process::exit(1);
-        });
-        let std_listener1 = listener1.into_std().unwrap();
-        let std_listener2 = listener2.into_std().unwrap();
-        tracing::info!("Starting HTTP servers on {} and {}", config.server_listen_primary, config.server_listen_secondary);
-        let serve1 = axum_server::Server::from_tcp(std_listener1).serve(app.clone().into_make_service());
-        let serve2 = axum_server::Server::from_tcp(std_listener2).serve(app.into_make_service());
+    let mut listeners_to_start: Vec<(String, bool)> = Vec::new();
 
-        tokio::select! {
-            _ = serve1 => {},
-            _ = serve2 => {},
-            _ = shutdown => {
-                tracing::info!("Shutting down server");
+    if let Some(parsed) = crate::utils::server_config::parse_listen_address(&config.server_listen_primary) {
+        listeners_to_start.push(parsed);
+    }
+    if let Some(parsed) = crate::utils::server_config::parse_listen_address(&config.server_listen_secondary) {
+        listeners_to_start.push(parsed);
+    }
+
+    let mut server_handles: Vec<tokio::task::JoinHandle<Result<(), std::io::Error>>> = Vec::new();
+
+    for (address_str, is_ssl) in listeners_to_start {
+        let app_clone = app.clone();
+        let handle_clone = handle.clone();
+
+        let sock_addr: std::net::SocketAddr = match address_str.parse() {
+            Ok(addr) => addr,
+            Err(e) => {
+                tracing::error!("Failed to parse address '{}': {}. Skipping this listener.", address_str, e);
+                continue;
+            }
+        };
+
+        if is_ssl {
+            match crate::utils::server_config::try_load_rustls_config(config.ssl_cert.as_deref(), config.ssl_key.as_deref()).await {
+                Some(rustls_config) => {
+                    tracing::info!("Starting HTTPS server on https://{}", sock_addr);
+                    let server_future = axum_server::bind_rustls(sock_addr, rustls_config)
+                        .handle(handle_clone)
+                        .serve(app_clone.into_make_service());
+                    server_handles.push(tokio::spawn(server_future));
+                }
+                None => {
+                    tracing::error!("Failed to load Rustls config for {}: HTTPS server not started. Check SSL certificate/key configuration and paths.", sock_addr);
+                }
+            }
+        } else {
+            match tokio::net::TcpListener::bind(sock_addr).await {
+                Ok(listener) => {
+                    match listener.into_std() {
+                        Ok(std_listener) => {
+                            tracing::info!("Starting HTTP server on http://{}", sock_addr);
+                            let server_future = axum_server::Server::from_tcp(std_listener)
+                                .handle(handle_clone)
+                                .serve(app_clone.into_make_service());
+                            server_handles.push(tokio::spawn(server_future));
+                        }
+                        Err(e) => {
+                             tracing::error!("Failed to convert tokio listener to std for {}: {}. Skipping this listener.", sock_addr, e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to bind HTTP listener for {}: {}. Skipping this listener.", sock_addr, e);
+                }
             }
         }
+    }
+
+    if !server_handles.is_empty() {
+        tracing::info!("{} server(s) started. Waiting for shutdown signal...", server_handles.len());
+        shutdown.await; // This is `shutdown_signal(handle.clone())` passed from main
+        tracing::info!("Shutdown signal received, all servers are stopping via shared handle.");
+    } else {
+        tracing::warn!("No server instances were configured or able to start.");
     }
 }
 
