@@ -15,9 +15,15 @@ prefix = /usr/local/rucho
 log_level = info
 
 # Primary server listen address and port.
+# Use 'ssl' suffix to enable TLS, e.g., 0.0.0.0:8043 ssl
 # Example: server_listen_primary = 127.0.0.1:8000
 server_listen_primary = 0.0.0.0:8080
 
 # Secondary server listen address and port.
+# Use 'ssl' suffix to enable TLS, e.g., 0.0.0.0:9043 ssl
 # Example: server_listen_secondary = 127.0.0.1:9000
 server_listen_secondary = 0.0.0.0:9090
+
+# SSL certificate and key paths (required if using 'ssl' suffix in server_listen_*)
+# Example: ssl_cert = /path/to/your/cert.pem
+# Example: ssl_key = /path/to/your/key.pem
