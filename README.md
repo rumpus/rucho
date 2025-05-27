@@ -162,6 +162,9 @@ You can use this as a template:
 
 Configuration files should use `key = value` pairs, one per line. Lines starting with `#` are treated as comments.
 
+**Note for Docker users:** The sample configuration file is also available inside the official Docker image at `/usr/share/doc/rucho/examples/rucho.conf.default`. You can copy it out of a running container using a command like:
+`docker cp <container_name_or_id>:/usr/share/doc/rucho/examples/rucho.conf.default ./rucho.conf.default`
+
 ---
 
 ## 📝 Notes

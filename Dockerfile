@@ -11,6 +11,10 @@ COPY src ./src
 
 RUN cargo build --release
 
+# Create directory for documentation and copy sample configuration
+RUN mkdir -p /usr/share/doc/rucho/examples
+COPY config_samples/rucho.conf.default /usr/share/doc/rucho/examples/rucho.conf.default
+
 EXPOSE 8080
 EXPOSE 9090
 
