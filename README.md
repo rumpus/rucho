@@ -108,6 +108,24 @@ curl -i http://localhost:8080/status/503
 
 ---
 
+## Running with Docker
+
+**User:** The application inside the Docker container runs as the non-root `rucho` user for enhanced security.
+
+**Configuration:**
+*   The Docker image comes with a default configuration file located at `/etc/rucho/rucho.conf`.
+*   You can customize the configuration by providing your own `rucho.conf` and mounting it to `/etc/rucho/rucho.conf` in the container. For example:
+    ```bash
+    docker run -v ./my-rucho.conf:/etc/rucho/rucho.conf <image_name>
+    ```
+*   Alternatively, you can use environment variables as described in the "Configuration" section to override specific settings.
+*   A clean sample configuration file (`rucho.conf.default`) is also available within the image at `/usr/share/doc/rucho/examples/rucho.conf.default` if you wish to use it as a template. You can copy it out using:
+    ```bash
+    docker cp <container_name_or_id>:/usr/share/doc/rucho/examples/rucho.conf.default ./rucho.conf.default
+    ```
+
+---
+
 ## Configuration
 
 Rucho can be configured through configuration files and environment variables.
@@ -161,9 +179,6 @@ You can use this as a template:
     ```
 
 Configuration files should use `key = value` pairs, one per line. Lines starting with `#` are treated as comments.
-
-**Note for Docker users:** The sample configuration file is also available inside the official Docker image at `/usr/share/doc/rucho/examples/rucho.conf.default`. You can copy it out of a running container using a command like:
-`docker cp <container_name_or_id>:/usr/share/doc/rucho/examples/rucho.conf.default ./rucho.conf.default`
 
 ---
 
