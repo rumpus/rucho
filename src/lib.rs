@@ -1,5 +1,9 @@
-// Make the `routes` module public so it can be accessed from other parts of the project
+/// The `routes` module contains all the route handlers for the Rucho web server.
+///
+/// This module defines the API endpoints and their corresponding logic.
 pub mod routes;
 
-// Make the `utils` module public so it can be accessed from other parts of the project
+/// The `utils` module provides utility functions and structures used throughout the Rucho application.
+///
+/// This includes configuration management, server setup, and other helper functionalities.
 pub mod utils;

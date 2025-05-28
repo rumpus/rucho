@@ -1,10 +1,9 @@
 use axum::{
     routing::{get, post, put, patch, delete, options, head, any}, 
     Router,
-    extract::{Json, Query, Path, OriginalUri}, 
-    http::{HeaderMap, Method, StatusCode}, 
+    extract::{Json, Query}, 
+    http::{HeaderMap, StatusCode}, 
     response::{IntoResponse, Response},
-    body::{Body, to_bytes},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -13,15 +12,23 @@ use crate::utils::{
     error_response::format_error_response,
     request_models::PrettyQuery,
 };
+use utoipa::ToSchema;
 
 // This Payload struct is used by post, put, patch, delete handlers. Define it once.
-#[derive(Debug, Deserialize, Serialize)]
-struct Payload(serde_json::Value);
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct Payload(serde_json::Value);
 
-#[derive(Serialize, Debug, Clone, Copy)] // Added Serialize
+/// Represents information about an API endpoint.
+#[derive(Serialize, Debug, Clone, Copy, ToSchema)] 
 pub struct EndpointInfo {
+    /// The path of the endpoint (e.g., "/get").
+    #[schema(example = "/get")]
     path: &'static str,
+    /// The HTTP method of the endpoint (e.g., "GET").
+    #[schema(example = "GET")]
     method: &'static str,
+    /// A brief description of the endpoint's purpose.
+    #[schema(example = "Echoes request details for GET.")]
     description: &'static str,
 }
 
@@ -45,11 +52,29 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
     // Routes from former anything.rs
     EndpointInfo { path: "/anything", method: "ANY", description: "Echoes request details for any HTTP method." },
     EndpointInfo { path: "/anything/*path", method: "ANY", description: "Echoes request details for any HTTP method under a specific path." },
-
+    
+    // Health check endpoint
+    EndpointInfo { path: "/healthz", method: "GET", description: "Performs a health check." },
+    // Delay endpoint
+    EndpointInfo { 
+        path: "/delay/:n", 
+        method: "ANY", 
+        description: "Delays the response by 'n' seconds. Replace :n with a number." 
+    },
+    // Swagger UI endpoint
+    EndpointInfo { 
+        path: "/swagger-ui", 
+        method: "GET", 
+        description: "Displays the OpenAPI/Swagger UI." 
+    },
     // Add the new entry for /endpoints itself
-    EndpointInfo { path: "/endpoints", method: "GET", description: "Lists all available API endpoints." } 
+    EndpointInfo { path: "/endpoints", method: "GET", description: "Lists all available API endpoints." }
 ];
 
+/// Creates and returns the Axum router for the core API endpoints.
+///
+/// This router includes routes for various HTTP methods (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD),
+/// status code testing, an "anything" endpoint, and a listing of all available endpoints.
 pub fn router() -> Router {
     Router::new()
         // Routes from get.rs
@@ -75,12 +100,123 @@ pub fn router() -> Router {
         .route("/endpoints", get(endpoints_handler))
 }
 
+// Handler definitions moved before router()
+
+// From status.rs
+/// Returns the specified HTTP status code.
+/// The status code is provided as a path parameter.
+#[utoipa::path(
+    get, post, put, patch, delete, options, head,
+    path = "/status/{code}",
+    params(
+        ("code" = u16, Path, description = "HTTP status code to return")
+    ),
+    responses(
+        (status = 200, description = "Returns the specified status code"),
+        (status = 400, description = "Invalid status code provided")
+        // Other status codes are returned directly as specified by `code`
+    )
+)]
+async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _method: axum::http::Method) -> Response {
+    StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_REQUEST).into_response()
+}
+
+// From anything.rs
+/// Echoes request details for any HTTP method.
+/// Supports `pretty` query parameter for formatted JSON response.
+/// Also handles requests to `/anything/*path`.
+#[utoipa::path(
+    get, post, put, patch, delete, options, head,
+    path = "/anything",
+    params(
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Echoes request details", body = serde_json::Value)
+    )
+)]
+pub async fn anything_handler(
+    method: axum::http::Method, 
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri, 
+    headers: HeaderMap, 
+    Query(query): Query<PrettyQuery>, 
+    body: axum::body::Body
+) -> impl IntoResponse {
+    let pretty = query.pretty.unwrap_or(false); 
+    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
+        Ok(bytes) => bytes,
+        Err(_) => return format_json_response(json!({"error": "Failed to read body"}), pretty), 
+    };
+
+    let headers_json: serde_json::Value = headers.iter().map(|(k, v)| (
+        k.to_string(),
+        serde_json::Value::String(v.to_str().unwrap_or("<invalid utf8>").to_string())
+    )).collect::<serde_json::Map<_, _>>().into();
+
+    let resp = json!({
+        "method": method.to_string(),
+        "path": uri.path(),
+        "query": uri.query().unwrap_or(""),
+        "headers": headers_json,
+        "body": String::from_utf8_lossy(&body_bytes),
+    });
+
+    format_json_response(resp, pretty)
+}
+
+#[utoipa::path(
+    get, post, put, patch, delete, options, head,
+    path = "/anything/{path:.*}",
+    params(
+        ("path" = String, Path, description = "Subpath for anything endpoint"),
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
+    )
+)]
+#[allow(dead_code)] // To suppress warnings as it's not called directly by our code
+pub async fn anything_path_handler(
+    // Signature can mirror anything_handler but must include the Path extractor for "path"
+    // utoipa needs to see axum::extract::Path here for the {path:.*} parameter.
+    #[allow(unused_variables)] method: axum::http::Method, 
+    #[allow(unused_variables)] uri: axum::extract::OriginalUri, 
+    #[allow(unused_variables)] headers: axum::http::HeaderMap, 
+    #[allow(unused_variables)] query: axum::extract::Query<PrettyQuery>, 
+    #[allow(unused_variables)] path_param: axum::extract::Path<String>, // This is key for utoipa
+    #[allow(unused_variables)] body: axum::body::Body
+) -> Response { // Changed to concrete Response type
+    // Body is not used for actual routing, only for type checking and OpenAPI generation
+    (axum::http::StatusCode::NOT_IMPLEMENTED, "This handler is only for OpenAPI documentation of /anything/*path. It should not be called.".to_string()).into_response()
+}
+
 // From get.rs
+/// Root endpoint that returns a welcome message.
+#[utoipa::path(
+    get,
+    path = "/",
+    responses(
+        (status = 200, description = "Welcome message", body = String)
+    )
+)]
 async fn root_handler() -> &'static str {
     "Welcome to Echo Server!
 "
 }
 
+/// Handler for GET requests to `/get`.
+/// Echoes request details including headers.
+/// Supports `pretty` query parameter for formatted JSON response.
+#[utoipa::path(
+    get,
+    path = "/get",
+    params(
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Echoes request details", body = serde_json::Value)
+    )
+)]
 async fn get_handler(
     headers: HeaderMap,
     Query(pretty_query): Query<PrettyQuery>,
@@ -96,6 +232,15 @@ async fn get_handler(
     format_json_response(payload, pretty)
 }
 
+/// Handler for HEAD requests to `/get`.
+/// Responds with headers for a GET query, but no body.
+#[utoipa::path(
+    head,
+    path = "/get",
+    responses(
+        (status = 200, description = "Responds with headers for GET query")
+    )
+)]
 async fn head_handler() -> impl IntoResponse {
     Response::builder()
         .status(axum::http::StatusCode::OK)
@@ -104,6 +249,19 @@ async fn head_handler() -> impl IntoResponse {
 }
 
 // Handler for /endpoints
+/// Lists all available API endpoints.
+/// Supports `pretty` query parameter for formatted JSON response.
+#[utoipa::path(
+    get,
+    path = "/endpoints",
+    params(
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Lists all available API endpoints", body = Vec<EndpointInfo>),
+        (status = 500, description = "Failed to serialize endpoint data")
+    )
+)]
 async fn endpoints_handler(
     Query(pretty_query): Query<PrettyQuery>,
 ) -> Response {
@@ -117,44 +275,22 @@ async fn endpoints_handler(
     }
 }
 
-// From status.rs
-async fn status_handler(Path(code): Path<u16>, _method: Method) -> Response {
-    StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_REQUEST).into_response()
-}
-
-// From anything.rs
-async fn anything_handler(
-    method: Method, 
-    OriginalUri(uri): OriginalUri, 
-    headers: HeaderMap, 
-    Query(query): Query<PrettyQuery>, // Uses crate::utils::request_models::PrettyQuery
-    body: Body
-) -> impl IntoResponse {
-    let pretty = query.pretty.unwrap_or(false); // Adjusted to use the imported PrettyQuery
-    let body_bytes = match to_bytes(body, usize::MAX).await {
-        Ok(bytes) => bytes,
-        // format_json_response is already in scope
-        Err(_) => return format_json_response(json!({"error": "Failed to read body"}), pretty), 
-    };
-
-    // serde_json::Value is Value, Map is Map, json! macro is available
-    let headers_json: serde_json::Value = headers.iter().map(|(k, v)| (
-        k.to_string(),
-        serde_json::Value::String(v.to_str().unwrap_or("<invalid utf8>").to_string())
-    )).collect::<serde_json::Map<_, _>>().into();
-
-    let resp = json!({
-        "method": method.to_string(),
-        "path": uri.path(),
-        "query": uri.query().unwrap_or(""),
-        "headers": headers_json,
-        "body": String::from_utf8_lossy(&body_bytes), // This is correct
-    });
-
-    format_json_response(resp, pretty)
-}
-
 // From post.rs
+/// Handler for POST requests to `/post`.
+/// Echoes request details including headers and JSON body.
+/// Supports `pretty` query parameter for formatted JSON response.
+#[utoipa::path(
+    post,
+    path = "/post",
+    params(
+        PrettyQuery
+    ),
+    request_body = Payload,
+    responses(
+        (status = 200, description = "Echoes request details", body = serde_json::Value),
+        (status = 400, description = "Invalid JSON payload")
+    )
+)]
 async fn post_handler(
     headers: HeaderMap, 
     Query(pretty_query): Query<PrettyQuery>, 
@@ -178,6 +314,21 @@ async fn post_handler(
 }
 
 // From put.rs
+/// Handler for PUT requests to `/put`.
+/// Echoes request details including headers and JSON body.
+/// Supports `pretty` query parameter for formatted JSON response.
+#[utoipa::path(
+    put,
+    path = "/put",
+    params(
+        PrettyQuery
+    ),
+    request_body = Payload,
+    responses(
+        (status = 200, description = "Echoes request details", body = serde_json::Value),
+        (status = 400, description = "Invalid JSON payload")
+    )
+)]
 async fn put_handler(
     headers: HeaderMap, 
     Query(pretty_query): Query<PrettyQuery>, 
@@ -201,6 +352,21 @@ async fn put_handler(
 }
 
 // From patch.rs
+/// Handler for PATCH requests to `/patch`.
+/// Echoes request details including headers and JSON body.
+/// Supports `pretty` query parameter for formatted JSON response.
+#[utoipa::path(
+    patch,
+    path = "/patch",
+    params(
+        PrettyQuery
+    ),
+    request_body = Payload,
+    responses(
+        (status = 200, description = "Echoes request details", body = serde_json::Value),
+        (status = 400, description = "Invalid JSON payload")
+    )
+)]
 async fn patch_handler(
     headers: HeaderMap, 
     Query(pretty_query): Query<PrettyQuery>, 
@@ -224,6 +390,20 @@ async fn patch_handler(
 }
 
 // From delete.rs
+/// Handler for DELETE requests to `/delete`.
+/// Echoes request details including headers and JSON body (if provided).
+/// Supports `pretty` query parameter for formatted JSON response.
+#[utoipa::path(
+    delete,
+    path = "/delete",
+    params(
+        PrettyQuery
+    ),
+    request_body = Option<Payload>,
+    responses(
+        (status = 200, description = "Echoes request details", body = serde_json::Value)
+    )
+)]
 async fn delete_handler(
     headers: HeaderMap, 
     Query(pretty_query): Query<PrettyQuery>, 
@@ -257,6 +437,15 @@ async fn delete_handler(
 }
 
 // From options.rs
+/// Handler for OPTIONS requests to `/options`.
+/// Responds with allowed HTTP methods in the `Allow` header.
+#[utoipa::path(
+    options,
+    path = "/options",
+    responses(
+        (status = 204, description = "No content, Allow header lists allowed methods")
+    )
+)]
 async fn options_handler() -> impl IntoResponse {
     Response::builder()
         .status(StatusCode::NO_CONTENT) 

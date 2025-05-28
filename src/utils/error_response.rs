@@ -6,7 +6,19 @@ use axum::{
 };
 use serde_json::json;
 
-/// Formats a JSON error response with the given status code and message
+/// Formats a JSON error response.
+///
+/// Creates a standardized JSON response object with an "error" field containing the provided message.
+/// The HTTP status code and "Content-Type: application/json" header are also set.
+///
+/// # Arguments
+///
+/// * `status`: The `StatusCode` for the HTTP response.
+/// * `message`: A string slice (`&str`) containing the error message.
+///
+/// # Returns
+///
+/// An Axum `Response` object.
 pub fn format_error_response(status: StatusCode, message: &str) -> Response {
     let error_body = json!({
         "error": message
