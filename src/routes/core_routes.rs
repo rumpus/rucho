@@ -55,9 +55,20 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
     
     // Health check endpoint
     EndpointInfo { path: "/healthz", method: "GET", description: "Performs a health check." },
-
+    // Delay endpoint
+    EndpointInfo { 
+        path: "/delay/:n", 
+        method: "ANY", 
+        description: "Delays the response by 'n' seconds. Replace :n with a number." 
+    },
+    // Swagger UI endpoint
+    EndpointInfo { 
+        path: "/swagger-ui", 
+        method: "GET", 
+        description: "Displays the OpenAPI/Swagger UI." 
+    },
     // Add the new entry for /endpoints itself
-    EndpointInfo { path: "/endpoints", method: "GET", description: "Lists all available API endpoints." } 
+    EndpointInfo { path: "/endpoints", method: "GET", description: "Lists all available API endpoints." }
 ];
 
 /// Creates and returns the Axum router for the core API endpoints.
