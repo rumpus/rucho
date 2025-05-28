@@ -89,6 +89,81 @@ pub fn router() -> Router {
         .route("/endpoints", get(endpoints_handler))
 }
 
+// Handler definitions moved before router()
+
+// From status.rs
+/// Returns the specified HTTP status code.
+/// The status code is provided as a path parameter.
+#[utoipa::path(
+    get, post, put, patch, delete, options, head,
+    path = "/status/{code}",
+    params(
+        ("code" = u16, Path, description = "HTTP status code to return")
+    ),
+    responses(
+        (status = 200, description = "Returns the specified status code"),
+        (status = 400, description = "Invalid status code provided")
+        // Other status codes are returned directly as specified by `code`
+    )
+)]
+async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _method: axum::http::Method) -> Response {
+    StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_REQUEST).into_response()
+}
+
+// From anything.rs
+/// Echoes request details for any HTTP method.
+/// Supports `pretty` query parameter for formatted JSON response.
+/// Also handles requests to `/anything/*path`.
+#[utoipa::path(
+    get, post, put, patch, delete, options, head,
+    path = "/anything",
+    params(
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Echoes request details", body = serde_json::Value)
+    )
+)]
+#[utoipa::path(
+    get, post, put, patch, delete, options, head,
+    path = "/anything/{path:.*}",
+    params(
+        ("path" = String, Path, description = "Subpath for anything endpoint"),
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
+    )
+)]
+async fn anything_handler(
+    method: axum::http::Method, 
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri, 
+    headers: HeaderMap, 
+    Query(query): Query<PrettyQuery>, 
+    body: axum::body::Body
+) -> impl IntoResponse {
+    let pretty = query.pretty.unwrap_or(false); 
+    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
+        Ok(bytes) => bytes,
+        Err(_) => return format_json_response(json!({"error": "Failed to read body"}), pretty), 
+    };
+
+    let headers_json: serde_json::Value = headers.iter().map(|(k, v)| (
+        k.to_string(),
+        serde_json::Value::String(v.to_str().unwrap_or("<invalid utf8>").to_string())
+    )).collect::<serde_json::Map<_, _>>().into();
+
+    let resp = json!({
+        "method": method.to_string(),
+        "path": uri.path(),
+        "query": uri.query().unwrap_or(""),
+        "headers": headers_json,
+        "body": String::from_utf8_lossy(&body_bytes),
+    });
+
+    format_json_response(resp, pretty)
+}
+
 // From get.rs
 /// Root endpoint that returns a welcome message.
 #[utoipa::path(
@@ -110,7 +185,7 @@ async fn root_handler() -> &'static str {
     get,
     path = "/get",
     params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
+        PrettyQuery
     ),
     responses(
         (status = 200, description = "Echoes request details", body = serde_json::Value)
@@ -154,7 +229,7 @@ async fn head_handler() -> impl IntoResponse {
     get,
     path = "/endpoints",
     params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
+        PrettyQuery
     ),
     responses(
         (status = 200, description = "Lists all available API endpoints", body = Vec<EndpointInfo>),
@@ -174,277 +249,6 @@ async fn endpoints_handler(
     }
 }
 
-// From status.rs
-/// Returns the specified HTTP status code.
-/// The status code is provided as a path parameter.
-#[utoipa::path(
-    get,
-    path = "/status/{code}",
-    params(
-        ("code" = u16, axum::extract::Path, description = "HTTP status code to return")
-    ),
-    responses(
-        (status = 200, description = "Returns the specified status code"),
-        (status = 400, description = "Invalid status code provided")
-        // Other status codes are returned directly as specified by `code`
-    )
-)]
-#[utoipa::path(
-    post,
-    path = "/status/{code}",
-    params(
-        ("code" = u16, axum::extract::Path, description = "HTTP status code to return")
-    ),
-    responses(
-        (status = 200, description = "Returns the specified status code"),
-        (status = 400, description = "Invalid status code provided")
-        // Other status codes are returned directly as specified by `code`
-    )
-)]
-#[utoipa::path(
-    put,
-    path = "/status/{code}",
-    params(
-        ("code" = u16, axum::extract::Path, description = "HTTP status code to return")
-    ),
-    responses(
-        (status = 200, description = "Returns the specified status code"),
-        (status = 400, description = "Invalid status code provided")
-        // Other status codes are returned directly as specified by `code`
-    )
-)]
-#[utoipa::path(
-    patch,
-    path = "/status/{code}",
-    params(
-        ("code" = u16, axum::extract::Path, description = "HTTP status code to return")
-    ),
-    responses(
-        (status = 200, description = "Returns the specified status code"),
-        (status = 400, description = "Invalid status code provided")
-        // Other status codes are returned directly as specified by `code`
-    )
-)]
-#[utoipa::path(
-    delete,
-    path = "/status/{code}",
-    params(
-        ("code" = u16, axum::extract::Path, description = "HTTP status code to return")
-    ),
-    responses(
-        (status = 200, description = "Returns the specified status code"),
-        (status = 400, description = "Invalid status code provided")
-        // Other status codes are returned directly as specified by `code`
-    )
-)]
-#[utoipa::path(
-    options,
-    path = "/status/{code}",
-    params(
-        ("code" = u16, axum::extract::Path, description = "HTTP status code to return")
-    ),
-    responses(
-        (status = 200, description = "Returns the specified status code"),
-        (status = 400, description = "Invalid status code provided")
-        // Other status codes are returned directly as specified by `code`
-    )
-)]
-#[utoipa::path(
-    head,
-    path = "/status/{code}",
-    params(
-        ("code" = u16, axum::extract::Path, description = "HTTP status code to return")
-    ),
-    responses(
-        (status = 200, description = "Returns the specified status code"),
-        (status = 400, description = "Invalid status code provided")
-        // Other status codes are returned directly as specified by `code`
-    )
-)]
-async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _method: axum::http::Method) -> Response {
-    StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_REQUEST).into_response()
-}
-
-// From anything.rs
-/// Echoes request details for any HTTP method.
-/// Supports `pretty` query parameter for formatted JSON response.
-/// Also handles requests to `/anything/*path`.
-#[utoipa::path(
-    get,
-    path = "/anything",
-    params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    post,
-    path = "/anything",
-    params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    put,
-    path = "/anything",
-    params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    patch,
-    path = "/anything",
-    params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    delete,
-    path = "/anything",
-    params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    options,
-    path = "/anything",
-    params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    head,
-    path = "/anything",
-    params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    get,
-    path = "/anything/{path:.*}",
-    params(
-        ("path" = String, axum::extract::Path, description = "Subpath for anything endpoint"),
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    post,
-    path = "/anything/{path:.*}",
-    params(
-        ("path" = String, axum::extract::Path, description = "Subpath for anything endpoint"),
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    put,
-    path = "/anything/{path:.*}",
-    params(
-        ("path" = String, axum::extract::Path, description = "Subpath for anything endpoint"),
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    patch,
-    path = "/anything/{path:.*}",
-    params(
-        ("path" = String, axum::extract::Path, description = "Subpath for anything endpoint"),
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    delete,
-    path = "/anything/{path:.*}",
-    params(
-        ("path" = String, axum::extract::Path, description = "Subpath for anything endpoint"),
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    options,
-    path = "/anything/{path:.*}",
-    params(
-        ("path" = String, axum::extract::Path, description = "Subpath for anything endpoint"),
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
-    )
-)]
-#[utoipa::path(
-    head,
-    path = "/anything/{path:.*}",
-    params(
-        ("path" = String, axum::extract::Path, description = "Subpath for anything endpoint"),
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
-    ),
-    responses(
-        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
-    )
-)]
-async fn anything_handler(
-    method: axum::http::Method, 
-    axum::extract::OriginalUri(uri): axum::extract::OriginalUri, 
-    headers: HeaderMap, 
-    Query(query): Query<PrettyQuery>, 
-    body: axum::body::Body
-) -> impl IntoResponse {
-    let pretty = query.pretty.unwrap_or(false); 
-    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
-        Ok(bytes) => bytes,
-        Err(_) => return format_json_response(json!({"error": "Failed to read body"}), pretty), 
-    };
-
-    let headers_json: serde_json::Value = headers.iter().map(|(k, v)| (
-        k.to_string(),
-        serde_json::Value::String(v.to_str().unwrap_or("<invalid utf8>").to_string())
-    )).collect::<serde_json::Map<_, _>>().into();
-
-    let resp = json!({
-        "method": method.to_string(),
-        "path": uri.path(),
-        "query": uri.query().unwrap_or(""),
-        "headers": headers_json,
-        "body": String::from_utf8_lossy(&body_bytes),
-    });
-
-    format_json_response(resp, pretty)
-}
-
 // From post.rs
 /// Handler for POST requests to `/post`.
 /// Echoes request details including headers and JSON body.
@@ -453,7 +257,7 @@ async fn anything_handler(
     post,
     path = "/post",
     params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
+        PrettyQuery
     ),
     request_body = Payload,
     responses(
@@ -491,7 +295,7 @@ async fn post_handler(
     put,
     path = "/put",
     params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
+        PrettyQuery
     ),
     request_body = Payload,
     responses(
@@ -529,7 +333,7 @@ async fn put_handler(
     patch,
     path = "/patch",
     params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
+        PrettyQuery
     ),
     request_body = Payload,
     responses(
@@ -567,7 +371,7 @@ async fn patch_handler(
     delete,
     path = "/delete",
     params(
-        ("pretty" = Option<bool>, Query, description = "If true, indicates that the JSON response should be pretty-printed.")
+        PrettyQuery
     ),
     request_body = Option<Payload>,
     responses(
