@@ -64,7 +64,7 @@ pub enum CliCommand {
         routes::core_routes::options_handler,
         routes::core_routes::status_handler,
         routes::core_routes::anything_handler,
-        // routes::core_routes::anything_path_handler, // Assuming a separate handler or combined logic
+        routes::core_routes::anything_path_handler,
         routes::core_routes::endpoints_handler,
         routes::delay::delay_handler,
         routes::healthz::healthz_handler,

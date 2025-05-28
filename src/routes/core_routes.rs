@@ -124,18 +124,7 @@ async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _me
         (status = 200, description = "Echoes request details", body = serde_json::Value)
     )
 )]
-#[utoipa::path(
-    get, post, put, patch, delete, options, head,
-    path = "/anything/{path:.*}",
-    params(
-        ("path" = String, Path, description = "Subpath for anything endpoint"),
-        PrettyQuery
-    ),
-    responses(
-        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
-    )
-)]
-async fn anything_handler(
+pub async fn anything_handler(
     method: axum::http::Method, 
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri, 
     headers: HeaderMap, 
@@ -162,6 +151,32 @@ async fn anything_handler(
     });
 
     format_json_response(resp, pretty)
+}
+
+#[utoipa::path(
+    get, post, put, patch, delete, options, head,
+    path = "/anything/{path:.*}",
+    params(
+        ("path" = String, Path, description = "Subpath for anything endpoint"),
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
+    )
+)]
+#[allow(dead_code)] // To suppress warnings as it's not called directly by our code
+pub async fn anything_path_handler(
+    // Signature can mirror anything_handler but must include the Path extractor for "path"
+    // utoipa needs to see axum::extract::Path here for the {path:.*} parameter.
+    #[allow(unused_variables)] method: axum::http::Method, 
+    #[allow(unused_variables)] uri: axum::extract::OriginalUri, 
+    #[allow(unused_variables)] headers: axum::http::HeaderMap, 
+    #[allow(unused_variables)] query: axum::extract::Query<PrettyQuery>, 
+    #[allow(unused_variables)] path_param: axum::extract::Path<String>, // This is key for utoipa
+    #[allow(unused_variables)] body: axum::body::Body
+) -> impl axum::response::IntoResponse {
+    // Body is not used for actual routing, only for type checking and OpenAPI generation
+    unimplemented!("This handler is only for OpenAPI documentation of /anything/*path")
 }
 
 // From get.rs
