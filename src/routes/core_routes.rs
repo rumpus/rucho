@@ -16,7 +16,7 @@ use utoipa::ToSchema;
 
 // This Payload struct is used by post, put, patch, delete handlers. Define it once.
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-struct Payload(serde_json::Value);
+pub struct Payload(serde_json::Value);
 
 /// Represents information about an API endpoint.
 #[derive(Serialize, Debug, Clone, Copy, ToSchema)] 
@@ -174,9 +174,9 @@ pub async fn anything_path_handler(
     #[allow(unused_variables)] query: axum::extract::Query<PrettyQuery>, 
     #[allow(unused_variables)] path_param: axum::extract::Path<String>, // This is key for utoipa
     #[allow(unused_variables)] body: axum::body::Body
-) -> impl axum::response::IntoResponse {
+) -> Response { // Changed to concrete Response type
     // Body is not used for actual routing, only for type checking and OpenAPI generation
-    unimplemented!("This handler is only for OpenAPI documentation of /anything/*path")
+    (axum::http::StatusCode::NOT_IMPLEMENTED, "This handler is only for OpenAPI documentation of /anything/*path. It should not be called.".to_string()).into_response()
 }
 
 // From get.rs
