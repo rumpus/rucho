@@ -6,8 +6,24 @@
 use std::path::PathBuf;
 use axum_server::tls_rustls::RustlsConfig;
 
-/// Determines whether to launch with HTTPS or plain HTTP.
-/// Returns either a `RustlsConfig` if certs are found, or `None` for plain HTTP.
+/// Attempts to load Rustls configuration for enabling HTTPS.
+///
+/// This function checks for the existence of SSL certificate and key files at the
+/// paths provided. If both files are found and valid, it returns a `RustlsConfig`
+/// suitable for configuring an Axum server with TLS.
+///
+/// If either path is not provided, or if the files are not found or are invalid,
+/// this function logs a warning/error and returns `None`, indicating that TLS
+/// should not be enabled.
+///
+/// # Arguments
+///
+/// * `ssl_cert_path_opt`: An `Option<&str>` containing the path to the SSL certificate file.
+/// * `ssl_key_path_opt`: An `Option<&str>` containing the path to the SSL private key file.
+///
+/// # Returns
+///
+/// An `Option<RustlsConfig>`. `Some(RustlsConfig)` if TLS can be configured, `None` otherwise.
 pub async fn try_load_rustls_config(ssl_cert_path_opt: Option<&str>, ssl_key_path_opt: Option<&str>) -> Option<RustlsConfig> {
     // Check if both paths are provided
     let (cert_p, key_p) = match (ssl_cert_path_opt, ssl_key_path_opt) {
@@ -39,11 +55,21 @@ pub async fn try_load_rustls_config(ssl_cert_path_opt: Option<&str>, ssl_key_pat
     }
 }
 
-/// Parses a listen address string (e.g., "0.0.0.0:8080" or "0.0.0.0:8043 ssl").
+/// Parses a server listen address string to extract the address and SSL flag.
 ///
-/// Returns `Some((address_part, is_ssl))` if the string is valid,
-/// or `None` if the input string is empty.
-/// `is_ssl` is true if the string ends with " ssl".
+/// The input string can be in the format "IP:PORT" or "IP:PORT ssl".
+/// If the string ends with " ssl" (case-sensitive), the SSL flag is set to true.
+///
+/// # Arguments
+///
+/// * `listen_str`: A string slice (`&str`) representing the listen address configuration.
+///
+/// # Returns
+///
+/// An `Option<(String, bool)>`.
+/// - `Some((address, is_ssl))` where `address` is the IP:PORT part and `is_ssl`
+///   is true if " ssl" was present.
+/// - `None` if the input `listen_str` is empty.
 pub fn parse_listen_address(listen_str: &str) -> Option<(String, bool)> {
     if listen_str.is_empty() {
         return None;
