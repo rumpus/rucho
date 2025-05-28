@@ -5,9 +5,20 @@ use axum::{
 };
 use serde_json::Value;                   // Represents arbitrary JSON values
 
-/// Takes a JSON Value and returns a properly formatted HTTP Response
-/// 
-/// `pretty`: controls whether the JSON is compact (default) or pretty-printed (indented).
+/// Formats a `serde_json::Value` into an Axum `Response`.
+///
+/// This function serializes the given JSON `Value` into a string.
+/// The response will have an HTTP 200 OK status and a "Content-Type: application/json" header.
+///
+/// # Arguments
+///
+/// * `data`: A `serde_json::Value` to be serialized and sent in the response body.
+/// * `pretty`: A boolean indicating whether the JSON output should be pretty-printed (true)
+///   or compact (false).
+///
+/// # Returns
+///
+/// An Axum `Response` object.
 pub fn format_json_response(data: Value, pretty: bool) -> Response {
     // Serialize the JSON Value to a String based on the `pretty` flag
     let body = if pretty {

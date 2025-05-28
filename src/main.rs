@@ -20,27 +20,70 @@ use tracing::Level; // Added import
 use tracing_subscriber;
 use axum_server::Handle; // bind_rustls and Server are unused
 // crate::utils::server_config::try_load_rustls_config will be used directly with crate:: prefix
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
+use crate::routes::core_routes::EndpointInfo; // Ensure EndpointInfo is imported
+use crate::utils::request_models::PrettyQuery; // Ensure PrettyQuery is imported
+// Import other necessary types that are part of API responses or requests if any
 
 // Temporarily comment out reqwest for build purposes
 // use reqwest;
 
+/// Represents the command line arguments passed to the application.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
+    /// The subcommand to execute.
     #[command(subcommand)]
     command: CliCommand,
 }
 
+/// Defines the available subcommands for the CLI.
 #[derive(Parser, Debug)]
 pub enum CliCommand {
+    /// Starts the Rucho server.
     Start {},
+    /// Stops the Rucho server.
     Stop {},
+    /// Checks the status of the Rucho server.
     Status {},
+    /// Displays the version of Rucho.
     Version {},
 }
 
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        routes::core_routes::root_handler,
+        routes::core_routes::get_handler,
+        routes::core_routes::head_handler,
+        routes::core_routes::post_handler,
+        routes::core_routes::put_handler,
+        routes::core_routes::patch_handler,
+        routes::core_routes::delete_handler,
+        routes::core_routes::options_handler,
+        routes::core_routes::status_handler,
+        routes::core_routes::anything_handler,
+        // routes::core_routes::anything_path_handler, // Assuming a separate handler or combined logic
+        routes::core_routes::endpoints_handler,
+        routes::delay::delay_handler,
+        routes::healthz::healthz_handler,
+    ),
+    components(
+        schemas(EndpointInfo, PrettyQuery, routes::core_routes::Payload)
+    ),
+    tags(
+        (name = "Rucho", description = "Rucho API")
+    )
+)]
+struct ApiDoc;
+
 const PID_FILE: &str = "/var/run/rucho/rucho.pid";
 
+/// The main entry point for the Rucho application.
+///
+/// Parses command line arguments, initializes configuration and logging,
+/// and executes the appropriate command.
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
@@ -158,6 +201,10 @@ async fn main() {
     }
 }
 
+/// Runs the Axum web server with the provided configuration.
+///
+/// This function sets up the HTTP/S listeners, configures routing,
+/// and handles graceful shutdown.
 async fn run_server(config: &Config) { // Takes config as an argument
     // tracing_subscriber::fmt::init(); // This is now done in main
 
@@ -165,6 +212,7 @@ async fn run_server(config: &Config) { // Takes config as an argument
     let shutdown = shutdown_signal(handle.clone());
 
     let app = Router::new()
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(routes::core_routes::router())
         .merge(routes::healthz::router())
         .merge(routes::delay::router())
@@ -245,6 +293,7 @@ async fn run_server(config: &Config) { // Takes config as an argument
     }
 }
 
+/// Listens for a Ctrl+C signal to initiate a graceful shutdown of the server.
 async fn shutdown_signal(handle: Handle) {
     signal::ctrl_c()
         .await

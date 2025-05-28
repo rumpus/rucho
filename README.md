@@ -22,15 +22,17 @@ src/
 ├── main.rs             # Application entrypoint
 ├── lib.rs              # Library module declarations
 ├── routes/             # HTTP route handlers
-│   ├── delete.rs
-│   ├── get.rs
-│   ├── options.rs
-│   ├── patch.rs
-│   ├── post.rs
-│   ├── put.rs
-│   └── status.rs
-└── utils/
-    └── json_response.rs  # Shared JSON response helper
+│   ├── core_routes.rs  # Core echo and utility endpoints
+│   ├── delay.rs        # Delay endpoint
+│   ├── healthz.rs      # Health check endpoint
+│   └── mod.rs          # Routes module declaration
+└── utils/              # Utility modules
+    ├── config.rs       # Configuration loading
+    ├── error_response.rs # Standardized error responses
+    ├── json_response.rs  # Standardized JSON responses
+    ├── mod.rs          # Utils module declaration
+    ├── request_models.rs # Request model structs (e.g., query params)
+    └── server_config.rs # Server listener and TLS configuration
 ```
 
 ---
@@ -65,23 +67,48 @@ http://localhost:8080
 
 | Method   | Path              | Description                                      |
 |:--------:|:------------------:|:------------------------------------------------:|
-| GET      | `/`                | Welcome message ("Hello, World!")                |
-| GET      | `/get`             | Echo request headers as JSON                    |
-| POST     | `/post`            | Echo request body as JSON                       |
-| PUT      | `/put`             | Echo request body as JSON                       |
-| PATCH    | `/patch`           | Echo request body as JSON                       |
-| DELETE   | `/delete`          | Echo request body as JSON                       |
-| OPTIONS  | `/options`         | Returns allowed HTTP methods                   |
-| GET      | `/status/:code`    | Responds with requested HTTP status code        |
+| GET      | `/`                | Welcome message                                  |
+| GET      | `/get`             | Echoes request details for GET                   |
+| HEAD     | `/get`             | Responds with headers for GET query              |
+| POST     | `/post`            | Echoes request details for POST, expects JSON body |
+| PUT      | `/put`             | Echoes request details for PUT, expects JSON body  |
+| PATCH    | `/patch`           | Echoes request details for PATCH, expects JSON body|
+| DELETE   | `/delete`          | Echoes request details for DELETE                |
+| OPTIONS  | `/options`         | Responds with allowed HTTP methods               |
+| ANY      | `/status/:code`    | Returns the specified HTTP status code           |
+| ANY      | `/anything`        | Echoes request details for any HTTP method       |
+| ANY      | `/anything/*path`  | Echoes request details for any HTTP method under a specific path |
+| GET      | `/delay/:n`        | Delays response by `n` seconds                   |
+| GET      | `/healthz`         | Performs a health check, returns "OK"            |
+| GET      | `/endpoints`       | Lists all available API endpoints                |
+| GET      | `/swagger-ui`      | Displays OpenAPI/Swagger UI documentation        |
+
+---
+
+## OpenAPI/Swagger Documentation
+
+Rucho includes OpenAPI (Swagger) documentation for its API endpoints.
+You can access the Swagger UI by navigating to `/swagger-ui` in your browser when the server is running.
+
+Example: `http://localhost:8080/swagger-ui`
+
+The OpenAPI specification is available at `/api-docs/openapi.json`.
 
 ---
 
 ## 🧹 Features
 
-- 📜 Clean JSON response formatting with newline.
+- 📜 Clean JSON response formatting with newline (optional pretty-printing via `?pretty=true`).
 - 📈 Automatic request tracing and logging using `TraceLayer`.
-- 🔥 Support for all major HTTP methods (GET, POST, PUT, PATCH, DELETE, OPTIONS).
+- 🔥 Support for all major HTTP methods (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD, ANY).
 - ⚡ Dynamic HTTP status simulation (`/status/200`, `/status/503`, etc).
+- ⏱️ Configurable response delay endpoint (`/delay/:n`).
+- ❤️ Health check endpoint (`/healthz`).
+- 📖 Self-documenting API with OpenAPI/Swagger UI (`/swagger-ui`).
+- 🗄️ Endpoint listing (`/endpoints`).
+- ⚙️ Flexible configuration via files and environment variables.
+- 🔒 Optional HTTPS support via Rustls.
+- 🐳 Docker support with a non-root user.
 - 🧹 Organized modular structure for easy expansion and maintenance.
 
 ---
