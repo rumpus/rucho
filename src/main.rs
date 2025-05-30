@@ -10,7 +10,8 @@ use std::str::FromStr; // Added import
 use sysinfo::{Pid, Signal, System}; // SystemExt will be used via the System struct directly
 use axum::Router;
 // use std::net::SocketAddr; // Removed as per build error (unused import)
-use tokio::signal; // net::TcpListener removed as per build error (unused import)
+use std::sync::Arc;
+use tokio::{net::{TcpListener, TcpStream, UdpSocket}, signal};
 use tower_http::{
     cors::CorsLayer,
     normalize_path::NormalizePathLayer,
@@ -286,12 +287,99 @@ async fn run_server(config: &Config) { // Takes config as an argument
 
     if !server_handles.is_empty() {
         tracing::info!("{} server(s) started. Waiting for shutdown signal...", server_handles.len());
-        shutdown.await; // This is `shutdown_signal(handle.clone())` passed from main
-        tracing::info!("Shutdown signal received, all servers are stopping via shared handle.");
     } else {
-        tracing::warn!("No server instances were configured or able to start.");
+        tracing::warn!("No HTTP/HTTPS server instances were configured or able to start.");
+    }
+
+    // TCP listeners
+    if let Some(tcp_addr_str) = &config.server_listen_tcp {
+        match tcp_addr_str.parse::<std::net::SocketAddr>() {
+            Ok(addr) => {
+                match TcpListener::bind(addr).await {
+                    Ok(listener) => {
+                        tracing::info!("Starting TCP listener on {}", addr);
+                        let tcp_handle = tokio::spawn(async move {
+                            loop {
+                                match listener.accept().await {
+                                    Ok((socket, _)) => {
+                                        tokio::spawn(handle_tcp_connection(socket));
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Failed to accept TCP connection: {}", e);
+                                    }
+                                }
+                            }
+                        });
+                        server_handles.push(tcp_handle);
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to bind TCP listener for {}: {}", addr, e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to parse TCP address '{}': {}", tcp_addr_str, e);
+            }
+        }
+    }
+
+    // UDP listeners
+    if let Some(udp_addr_str) = &config.server_listen_udp {
+        match udp_addr_str.parse::<std::net::SocketAddr>() {
+            Ok(addr) => {
+                match UdpSocket::bind(addr).await {
+                    Ok(socket) => {
+                        tracing::info!("Starting UDP listener on {}", addr);
+                        let socket = Arc::new(socket);
+                        let udp_handle = tokio::spawn(handle_udp_socket(socket.clone()));
+                        server_handles.push(udp_handle);
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to bind UDP listener for {}: {}", addr, e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to parse UDP address '{}': {}", udp_addr_str, e);
+            }
+        }
+    }
+
+    if !server_handles.is_empty() {
+        shutdown.await; // This is `shutdown_signal(handle.clone())` passed from main
+        tracing::info!("Shutdown signal received, all servers and listeners are stopping.");
+        // Note: TCP/UDP listeners started with tokio::spawn need to handle shutdown internally or will be aborted.
+        // The Axum server handles have graceful shutdown. For TCP/UDP, a more robust shutdown might involve
+        // sending signals to the spawned tasks or using cancellation tokens.
+    } else {
+        tracing::warn!("No server or listener instances were configured or able to start in total.");
     }
 }
+
+/// Placeholder function to handle incoming TCP connections.
+async fn handle_tcp_connection(stream: TcpStream) {
+    tracing::info!("Accepted TCP connection from: {:?}", stream.peer_addr());
+    // TODO: Implement actual TCP handling logic
+}
+
+/// Placeholder function to handle incoming UDP packets.
+async fn handle_udp_socket(socket: Arc<UdpSocket>) {
+    tracing::info!("UDP socket {} is active", socket.local_addr().unwrap());
+    let mut buf = [0; 1024];
+    loop {
+        match socket.recv_from(&mut buf).await {
+            Ok((size, src)) => {
+                tracing::info!("Received {} bytes from {} on UDP socket", size, src);
+                // TODO: Implement actual UDP packet handling logic
+            }
+            Err(e) => {
+                tracing::error!("Error receiving UDP packet: {}", e);
+                // Depending on the error, you might want to break or continue
+            }
+        }
+    }
+}
+
 
 /// Listens for a Ctrl+C signal to initiate a graceful shutdown of the server.
 async fn shutdown_signal(handle: Handle) {

@@ -19,6 +19,8 @@ pub struct Config {
     pub log_level: String,
     pub server_listen_primary: String,
     pub server_listen_secondary: String,
+    pub server_listen_tcp: Option<String>,
+    pub server_listen_udp: Option<String>,
     pub ssl_cert: Option<String>,
     pub ssl_key: Option<String>,
 }
@@ -30,6 +32,8 @@ impl Default for Config {
             log_level: "info".to_string(),
             server_listen_primary: "0.0.0.0:8080".to_string(),
             server_listen_secondary: "0.0.0.0:9090".to_string(),
+            server_listen_tcp: None,
+            server_listen_udp: None,
             ssl_cert: None,
             ssl_key: None,
         }
@@ -54,6 +58,8 @@ impl Config {
                     "log_level" => config.log_level = value.to_string(),
                     "server_listen_primary" => config.server_listen_primary = value.to_string(),
                     "server_listen_secondary" => config.server_listen_secondary = value.to_string(),
+                    "server_listen_tcp" => config.server_listen_tcp = Some(value.to_string()),
+                    "server_listen_udp" => config.server_listen_udp = Some(value.to_string()),
                     "ssl_cert" => config.ssl_cert = Some(value.to_string()),
                     "ssl_key" => config.ssl_key = Some(value.to_string()),
                     _ => eprintln!("Warning: Unknown key in config file: {}", key),
@@ -105,6 +111,12 @@ impl Config {
         if let Ok(server_listen_secondary) = env::var("RUCHO_SERVER_LISTEN_SECONDARY") {
             config.server_listen_secondary = server_listen_secondary;
         }
+        if let Ok(server_listen_tcp) = env::var("RUCHO_SERVER_LISTEN_TCP") {
+            config.server_listen_tcp = Some(server_listen_tcp);
+        }
+        if let Ok(server_listen_udp) = env::var("RUCHO_SERVER_LISTEN_UDP") {
+            config.server_listen_udp = Some(server_listen_udp);
+        }
         if let Ok(ssl_cert) = env::var("RUCHO_SSL_CERT") {
             config.ssl_cert = Some(ssl_cert);
         }
@@ -133,6 +145,8 @@ impl Config {
     /// - `log_level` (`RUCHO_LOG_LEVEL`)
     /// - `server_listen_primary` (`RUCHO_SERVER_LISTEN_PRIMARY`)
     /// - `server_listen_secondary` (`RUCHO_SERVER_LISTEN_SECONDARY`)
+    /// - `server_listen_tcp` (`RUCHO_SERVER_LISTEN_TCP`)
+    /// - `server_listen_udp` (`RUCHO_SERVER_LISTEN_UDP`)
     pub fn load() -> Self {
         Self::load_from_paths(None, None)
     }
@@ -192,6 +206,8 @@ mod tests {
             env::remove_var("RUCHO_LOG_LEVEL");
             env::remove_var("RUCHO_SERVER_LISTEN_PRIMARY");
             env::remove_var("RUCHO_SERVER_LISTEN_SECONDARY");
+            env::remove_var("RUCHO_SERVER_LISTEN_TCP");
+            env::remove_var("RUCHO_SERVER_LISTEN_UDP");
             env::remove_var("RUCHO_SSL_CERT");
             env::remove_var("RUCHO_SSL_KEY");
         }
@@ -209,6 +225,8 @@ mod tests {
         assert_eq!(config.log_level, "info");
         assert_eq!(config.server_listen_primary, "0.0.0.0:8080");
         assert_eq!(config.server_listen_secondary, "0.0.0.0:9090");
+        assert_eq!(config.server_listen_tcp, None);
+        assert_eq!(config.server_listen_udp, None);
         assert_eq!(config.ssl_cert, None);
         assert_eq!(config.ssl_key, None);
     }
@@ -375,4 +393,64 @@ fn test_partial_ssl_config_layering() {
 
     assert_eq!(config.ssl_cert, Some("/file/cert.pem".to_string()));
     assert_eq!(config.ssl_key, Some("/env/key.pem".to_string()));
+}
+
+#[test]
+fn test_load_tcp_udp_from_file() {
+    let env_setup = TestEnv::new();
+    env_setup.create_config_file(
+        &env_setup.cwd_rucho_conf_path,
+        "server_listen_tcp = 127.0.0.1:1234\nserver_listen_udp = 127.0.0.1:5678",
+    );
+
+    let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+    let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
+
+    assert_eq!(config.server_listen_tcp, Some("127.0.0.1:1234".to_string()));
+    assert_eq!(config.server_listen_udp, Some("127.0.0.1:5678".to_string()));
+}
+
+#[test]
+fn test_load_tcp_udp_from_env() {
+    let env_setup = TestEnv::new();
+    env::set_var("RUCHO_SERVER_LISTEN_TCP", "127.0.0.1:1234");
+    env::set_var("RUCHO_SERVER_LISTEN_UDP", "127.0.0.1:5678");
+
+    let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent_env_only_etc.conf");
+    let non_existent_cwd = env_setup.cwd_rucho_conf_path.parent().unwrap().join("non_existent_env_only_cwd.conf");
+    let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+
+    assert_eq!(config.server_listen_tcp, Some("127.0.0.1:1234".to_string()));
+    assert_eq!(config.server_listen_udp, Some("127.0.0.1:5678".to_string()));
+}
+
+#[test]
+fn test_env_overrides_file_for_tcp_udp() {
+    let env_setup = TestEnv::new();
+    env_setup.create_config_file(
+        &env_setup.cwd_rucho_conf_path,
+        "server_listen_tcp = /file/tcp\nserver_listen_udp = /file/udp",
+    );
+    env::set_var("RUCHO_SERVER_LISTEN_TCP", "/env/tcp");
+    env::set_var("RUCHO_SERVER_LISTEN_UDP", "/env/udp");
+    
+    let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+    let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
+
+    assert_eq!(config.server_listen_tcp, Some("/env/tcp".to_string()));
+    assert_eq!(config.server_listen_udp, Some("/env/udp".to_string()));
+}
+
+#[test]
+fn test_partial_tcp_udp_config_layering() {
+    let env_setup = TestEnv::new();
+    env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "server_listen_tcp = /file/tcp");
+    env::set_var("RUCHO_SERVER_LISTEN_UDP", "/env/udp");
+    env::remove_var("RUCHO_SERVER_LISTEN_TCP");
+
+    let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+    let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
+
+    assert_eq!(config.server_listen_tcp, Some("/file/tcp".to_string()));
+    assert_eq!(config.server_listen_udp, Some("/env/udp".to_string()));
 }
