@@ -12,6 +12,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 sysinfo = "0.30"
+base64 = "0.21.0" # Added for body encoding
 # reqwest = { version = "0.11", features = ["blocking", "rustls-tls"] } # Temporarily removed
 tower = "0.5"        
 tower-http = { version = "0.5", features = ["trace", "cors", "normalize-path"] }  
@@ -21,8 +22,10 @@ rustls-pemfile = "1.0"
 hyper = { version = "1.0", features = ["server"] }
 http = "1.0"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
-utoipa = { version = "4", features = ["axum_extras"] }
-utoipa-swagger-ui = { version = "7", features = ["axum"] }
+utoipa = { version = "^4.0", features = ["axum_extras"] } # Back to v4
+utoipa-swagger-ui = { version = "^7.0", features = ["axum"] } # Back to v7
+serde_urlencoded = "0.7"
+axum-extra = { version = "0.9.2", features = ["multipart"] }
 
 [dev-dependencies]
 tempfile = "3.8.0"

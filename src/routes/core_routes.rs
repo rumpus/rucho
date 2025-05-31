@@ -4,9 +4,12 @@ use axum::{
     extract::{Json, Query}, 
     http::{HeaderMap, StatusCode}, 
     response::{IntoResponse, Response},
+    http::header::CONTENT_TYPE, // Added for accessing Content-Type header
 };
+use base64::Engine as _; // Added for base64 encoding
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use serde_urlencoded; // Added for x-www-form-urlencoded parsing
 use crate::utils::{
     json_response::format_json_response,
     error_response::format_error_response,
@@ -122,7 +125,7 @@ async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _me
 }
 
 // From anything.rs
-/// Echoes request details for any HTTP method.
+/// Echoes request details for any HTTP method, attempting to parse the body based on Content-Type.
 /// Supports `pretty` query parameter for formatted JSON response.
 /// Also handles requests to `/anything/*path`.
 #[utoipa::path(
@@ -131,34 +134,121 @@ async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _me
     params(
         PrettyQuery
     ),
+    request_body(
+        content = inline(serde_json::Value), // Using Value as a generic placeholder for various possible inputs
+        description = "The request body can be of various content types. The server will attempt to parse it based on the Content-Type header. Supported types include: text/plain, application/json, application/x-www-form-urlencoded, multipart/form-data (metadata and raw body returned), application/octet-stream, text/html, application/xml, application/text.",
+        content_types = ["text/plain", "application/json", "application/x-www-form-urlencoded", "multipart/form-data", "application/octet-stream", "text/html", "application/xml", "application/text"]
+    ),
     responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
+        (
+            status = 200,
+            description = "Echoes request details. The 'parsed_body' field in the response will vary based on the request's Content-Type. 'detected_content_type' indicates the Content-Type used for parsing.",
+            body = serde_json::Value,
+            example = json!({
+              "method": "POST",
+              "path": "/anything",
+              "query": "",
+              "headers": {"content-type": "application/json"},
+              "detected_content_type": "application/json",
+              "parsed_body": {"key": "value"}
+            })
+        )
     )
 )]
 pub async fn anything_handler(
     method: axum::http::Method, 
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri, 
     headers: HeaderMap, 
-    Query(query): Query<PrettyQuery>, 
-    body: axum::body::Body
+    Query(query): Query<PrettyQuery>,
+    body: axum::body::Body,
 ) -> impl IntoResponse {
-    let pretty = query.pretty.unwrap_or(false); 
+    let pretty = query.pretty.unwrap_or(false);
+
+    let content_type_header = headers
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("application/octet-stream") // Default if not present or invalid UTF-8
+        .to_string();
+
     let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
         Ok(bytes) => bytes,
-        Err(_) => return format_json_response(json!({"error": "Failed to read body"}), pretty), 
+        Err(e) => {
+            return format_json_response(
+                json!({"error": "Failed to read body", "details": e.to_string()}),
+                pretty,
+            )
+        }
     };
 
-    let headers_json: serde_json::Value = headers.iter().map(|(k, v)| (
-        k.to_string(),
-        serde_json::Value::String(v.to_str().unwrap_or("<invalid utf8>").to_string())
-    )).collect::<serde_json::Map<_, _>>().into();
+    let parsed_body: serde_json::Value = match content_type_header.as_str() {
+        "application/json" => {
+            match serde_json::from_slice(&body_bytes) {
+                Ok(json_value) => json_value,
+                Err(e) => json!({
+                    "error": "Failed to parse JSON body",
+                    "details": e.to_string(),
+                    "original_body_utf8_lossy": String::from_utf8_lossy(&body_bytes).into_owned()
+                }),
+            }
+        }
+        ct if ct.starts_with("text/") || ct == "application/xml" || ct == "application/text" => {
+            json!(String::from_utf8_lossy(&body_bytes).into_owned())
+        }
+        "application/x-www-form-urlencoded" => {
+            match serde_urlencoded::from_bytes::<serde_json::Value>(&body_bytes) {
+                Ok(form_data_json) => form_data_json,
+                Err(e) => json!({
+                    "error": "Failed to parse x-www-form-urlencoded body",
+                    "details": e.to_string(),
+                    "original_body_utf8_lossy": String::from_utf8_lossy(&body_bytes).into_owned()
+                }),
+            }
+        }
+        ct if ct.starts_with("multipart/form-data") => {
+            // Simplified approach for multipart in /anything handler
+            json!({
+                "message": "Multipart content detected. Full parsing in /anything is complex due to pre-consumed body. Body shown as Base64.",
+                "original_body_base64": base64::engine::general_purpose::STANDARD.encode(&body_bytes)
+            })
+        }
+        "application/octet-stream" | _ => { // Default for unknown or octet-stream
+            // Try to represent as lossy UTF-8 if it makes sense, or fall back to base64
+            // For this example, let's prioritize base64 for octet-stream and truly unknown types
+            if content_type_header == "application/octet-stream" {
+                 json!(base64::engine::general_purpose::STANDARD.encode(&body_bytes))
+            } else {
+                // For other unknown types, attempt UTF-8 representation first
+                match String::from_utf8(body_bytes.to_vec()) { // Changed body_bytes.clone() to body_bytes.to_vec()
+                    Ok(s) => json!(s),
+                    Err(_) => json!({
+                        "message": "Body is not valid UTF-8, showing as Base64",
+                        "body_base64": base64::engine::general_purpose::STANDARD.encode(&body_bytes)
+                    }),
+                }
+            }
+        }
+    };
+
+    let headers_json: serde_json::Value = headers
+        .iter()
+        .map(|(k, v)| {
+            (
+                k.to_string(),
+                serde_json::Value::String(v.to_str().unwrap_or("<invalid utf8>").to_string()),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>()
+        .into();
 
     let resp = json!({
         "method": method.to_string(),
         "path": uri.path(),
         "query": uri.query().unwrap_or(""),
         "headers": headers_json,
-        "body": String::from_utf8_lossy(&body_bytes),
+        "detected_content_type": content_type_header,
+        "parsed_body": parsed_body,
+        // Optional: keep raw body for debugging or if preferred
+        // "raw_body_utf8_lossy": String::from_utf8_lossy(&body_bytes).into_owned(),
     });
 
     format_json_response(resp, pretty)
@@ -175,6 +265,8 @@ pub async fn anything_handler(
         (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
     )
 )]
+/// Handler for /anything/*path routes, mirrors anything_handler for documentation.
+/// Echoes request details for any HTTP method under a specific path, attempting to parse the body based on Content-Type.
 #[allow(dead_code)] // To suppress warnings as it's not called directly by our code
 pub async fn anything_path_handler(
     // Signature can mirror anything_handler but must include the Path extractor for "path"
@@ -186,8 +278,9 @@ pub async fn anything_path_handler(
     #[allow(unused_variables)] path_param: axum::extract::Path<String>, // This is key for utoipa
     #[allow(unused_variables)] body: axum::body::Body
 ) -> Response { // Changed to concrete Response type
-    // Body is not used for actual routing, only for type checking and OpenAPI generation
-    (axum::http::StatusCode::NOT_IMPLEMENTED, "This handler is only for OpenAPI documentation of /anything/*path. It should not be called.".to_string()).into_response()
+    // Body is not used for actual routing, only for type checking and OpenAPI generation.
+    // The actual logic is handled by anything_handler.
+    (axum::http::StatusCode::NOT_IMPLEMENTED, "This handler is only for OpenAPI documentation of /anything/*path. It should not be called directly.".to_string()).into_response()
 }
 
 // From get.rs

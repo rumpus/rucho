@@ -6,3 +6,6 @@ pub mod core_routes; // Consolidated routes
 pub mod healthz;
 /// Module for the delay endpoint (`/delay/:n`).
 pub mod delay;
+
+#[cfg(test)]
+mod core_routes_tests;
