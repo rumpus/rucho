@@ -25,7 +25,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use crate::routes::core_routes::EndpointInfo; // Ensure EndpointInfo is imported
 use crate::utils::request_models::PrettyQuery; // Ensure PrettyQuery is imported
-use crate::tcp_udp_handlers::{handle_tcp_connection, handle_udp_socket};
+use rucho::tcp_udp_handlers::{handle_tcp_connection, handle_udp_socket};
 // Import other necessary types that are part of API responses or requests if any
 
 // Temporarily comment out reqwest for build purposes
