@@ -44,8 +44,8 @@ pub async fn handle_tcp_connection(mut stream: TcpStream) {
 /// Handles UDP packets by echoing them back to the sender.
 ///
 /// It continuously listens for packets on the provided UDP socket, logs them,
-/// and sends them back to their origin.
-pub async fn handle_udp_socket(socket: Arc<UdpSocket>) {
+/// and sends them back to their origin. The function is designed to run indefinitely.
+pub async fn handle_udp_socket(socket: Arc<UdpSocket>) -> std::io::Result<()> {
     let local_addr = match socket.local_addr() {
         Ok(addr) => addr.to_string(),
         Err(_) => "unknown local UDP socket".to_string(),
@@ -61,17 +61,21 @@ pub async fn handle_udp_socket(socket: Arc<UdpSocket>) {
 
                 if let Err(e) = socket.send_to(&buf[..size], src_addr).await {
                     tracing::error!("Failed to send UDP packet to {} from {}: {}", src_addr, local_addr, e);
-                    // Decide if we should break or continue based on the error
+                    // Log error and continue loop
                 } else {
                     tracing::info!("Echoed {} bytes back to {} via UDP from {}", size, src_addr, local_addr);
                 }
             }
             Err(e) => {
                 tracing::error!("Failed to receive UDP packet on {}: {}", local_addr, e);
-                // Depending on the error, you might want to break or continue,
-                // especially for connection-related errors on some OSes.
-                // For now, we continue.
+                // Log error and continue loop.
+                // Some errors might be critical, but for an echo server, we'll try to continue.
+                // If recv_from itself fails consistently, the loop might become a hot loop.
+                // A more robust solution might implement a backoff strategy for certain errors.
             }
         }
     }
+    // This part is unreachable for a service that loops indefinitely but is needed for type compatibility.
+    #[allow(unreachable_code)]
+    Ok(())
 }

@@ -433,7 +433,7 @@ fn test_env_overrides_file_for_tcp_udp() {
     );
     env::set_var("RUCHO_SERVER_LISTEN_TCP", "/env/tcp");
     env::set_var("RUCHO_SERVER_LISTEN_UDP", "/env/udp");
-    
+
     let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
     let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
 

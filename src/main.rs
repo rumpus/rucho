@@ -11,7 +11,7 @@ use sysinfo::{Pid, Signal, System}; // SystemExt will be used via the System str
 use axum::Router;
 // use std::net::SocketAddr; // Removed as per build error (unused import)
 use std::sync::Arc;
-use tokio::{net::{TcpListener, TcpStream, UdpSocket}, signal};
+use tokio::{net::{TcpListener, /* TcpStream, */ UdpSocket}, signal}; // TcpStream no longer needed directly here
 use tower_http::{
     cors::CorsLayer,
     normalize_path::NormalizePathLayer,
@@ -25,6 +25,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use crate::routes::core_routes::EndpointInfo; // Ensure EndpointInfo is imported
 use crate::utils::request_models::PrettyQuery; // Ensure PrettyQuery is imported
+use crate::tcp_udp_handlers::{handle_tcp_connection, handle_udp_socket};
 // Import other necessary types that are part of API responses or requests if any
 
 // Temporarily comment out reqwest for build purposes
@@ -298,19 +299,25 @@ async fn run_server(config: &Config) { // Takes config as an argument
                 match TcpListener::bind(addr).await {
                     Ok(listener) => {
                         tracing::info!("Starting TCP listener on {}", addr);
-                        let tcp_handle = tokio::spawn(async move {
+                        let tcp_listener_handle = tokio::spawn(async move {
                             loop {
                                 match listener.accept().await {
-                                    Ok((socket, _)) => {
+                                    Ok((socket, client_addr)) => {
+                                        tracing::info!("Accepted new TCP connection from {}", client_addr);
                                         tokio::spawn(handle_tcp_connection(socket));
                                     }
                                     Err(e) => {
-                                        tracing::error!("Failed to accept TCP connection: {}", e);
+                                        tracing::error!("Failed to accept TCP connection: {}. Listener loop continues.", e);
+                                        // Potentially add a small delay here if accept errors are persistent
                                     }
                                 }
                             }
+                            // This part is unreachable for a loop that never breaks based on accept errors
+                            // but is added for type compatibility if we were to add break conditions.
+                            #[allow(unreachable_code)]
+                            Ok::<(), std::io::Error>(())
                         });
-                        server_handles.push(tcp_handle);
+                        server_handles.push(tcp_listener_handle);
                     }
                     Err(e) => {
                         tracing::error!("Failed to bind TCP listener for {}: {}", addr, e);
@@ -356,30 +363,8 @@ async fn run_server(config: &Config) { // Takes config as an argument
     }
 }
 
-/// Placeholder function to handle incoming TCP connections.
-async fn handle_tcp_connection(stream: TcpStream) {
-    tracing::info!("Accepted TCP connection from: {:?}", stream.peer_addr());
-    // TODO: Implement actual TCP handling logic
-}
-
-/// Placeholder function to handle incoming UDP packets.
-async fn handle_udp_socket(socket: Arc<UdpSocket>) {
-    tracing::info!("UDP socket {} is active", socket.local_addr().unwrap());
-    let mut buf = [0; 1024];
-    loop {
-        match socket.recv_from(&mut buf).await {
-            Ok((size, src)) => {
-                tracing::info!("Received {} bytes from {} on UDP socket", size, src);
-                // TODO: Implement actual UDP packet handling logic
-            }
-            Err(e) => {
-                tracing::error!("Error receiving UDP packet: {}", e);
-                // Depending on the error, you might want to break or continue
-            }
-        }
-    }
-}
-
+// Placeholder functions `handle_tcp_connection` and `handle_udp_socket` are removed,
+// as we now use the implementations from `crate::tcp_udp_handlers`.
 
 /// Listens for a Ctrl+C signal to initiate a graceful shutdown of the server.
 async fn shutdown_signal(handle: Handle) {
