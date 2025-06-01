@@ -135,9 +135,8 @@ async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _me
         PrettyQuery
     ),
     request_body(
-        content = inline(serde_json::Value), // Using Value as a generic placeholder for various possible inputs
-        description = "The request body can be of various content types. The server will attempt to parse it based on the Content-Type header. Supported types include: text/plain, application/json, application/x-www-form-urlencoded, multipart/form-data (metadata and raw body returned), application/octet-stream, text/html, application/xml, application/text.",
-        content_types = ["text/plain", "application/json", "application/x-www-form-urlencoded", "multipart/form-data", "application/octet-stream", "text/html", "application/xml", "application/text"]
+        content = inline(serde_json::Value),
+        description = "Accepts various content types such as text/plain, application/json, application/x-www-form-urlencoded, multipart/form-data (raw body echoed), application/octet-stream, text/html, application/xml. The server parses the body based on the Content-Type header. The parsed result is reflected in the 'parsed_body' field of the JSON response."
     ),
     responses(
         (
@@ -261,8 +260,24 @@ pub async fn anything_handler(
         ("path" = String, Path, description = "Subpath for anything endpoint"),
         PrettyQuery
     ),
+    request_body(
+        content = inline(serde_json::Value),
+        description = "Accepts various content types such as text/plain, application/json, application/x-www-form-urlencoded, multipart/form-data (raw body echoed), application/octet-stream, text/html, application/xml. The server parses the body based on the Content-Type header. The parsed result is reflected in the 'parsed_body' field of the JSON response."
+    ),
     responses(
-        (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
+        (
+            status = 200,
+            description = "Echoes request details for subpath. The 'parsed_body' field in the response will vary based on the request's Content-Type. 'detected_content_type' indicates the Content-Type used for parsing.",
+            body = serde_json::Value,
+            example = json!({
+              "method": "POST",
+              "path": "/anything/some/subpath",
+              "query": "",
+              "headers": {"content-type": "application/json"},
+              "detected_content_type": "application/json",
+              "parsed_body": {"key": "value"}
+            })
+        )
     )
 )]
 /// Handler for /anything/*path routes, mirrors anything_handler for documentation.
