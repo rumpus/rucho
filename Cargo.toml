@@ -23,7 +23,7 @@ hyper = { version = "1.0", features = ["server"] }
 http = "1.0"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 utoipa = { version = "=3.5.0", features = ["axum_extras"] } # Pinning to 3.5.0
-utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] } # Pinning to 6.0.0
+utoipa-swagger-ui = { version = "3.1.5", features = ["axum"] } # Changed to 3.1.5
 serde_urlencoded = "0.7"
 axum-extra = { version = "0.9.2", features = ["multipart"] }
 
