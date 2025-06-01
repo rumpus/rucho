@@ -153,6 +153,22 @@ curl -i http://localhost:8080/status/503
 
 ---
 
+## Installation
+
+### From .deb package (for Ubuntu/Debian)
+
+1. Download the latest `.deb` package from the [releases page](https://github.com/user/repo/releases).
+2. Install the package using `dpkg`:
+   ```bash
+   sudo dpkg -i rucho_<version>_amd64.deb
+   ```
+   If you encounter any dependency issues, run:
+   ```bash
+   sudo apt-get install -f
+   ```
+
+---
+
 ## Configuration
 
 Rucho can be configured through configuration files and environment variables.
