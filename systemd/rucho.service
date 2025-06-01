@@ -1,0 +1,15 @@
+[Unit]
+Description=Rucho Echo Server
+After=network.target
+
+[Service]
+Type=forking
+User=rucho
+Group=rucho
+PIDFile=/var/run/rucho/rucho.pid
+ExecStart=/usr/local/bin/rucho start
+ExecStop=/usr/local/bin/rucho stop
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

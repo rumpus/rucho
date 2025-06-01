@@ -209,6 +209,42 @@ Configuration files should use `key = value` pairs, one per line. Lines starting
 
 ---
 
+## Systemd Integration
+
+To run Rucho as a systemd service, follow these steps:
+
+1.  **Copy the service file:**
+    Place the `rucho.service` file (typically found in the `systemd` directory of the Rucho source or installation package) into the systemd system directory.
+    ```bash
+    sudo cp systemd/rucho.service /etc/systemd/system/rucho.service
+    ```
+
+2.  **Reload systemd daemon:**
+    After copying the new service file, you need to tell systemd to reload its configuration.
+    ```bash
+    sudo systemctl daemon-reload
+    ```
+
+3.  **Enable the service:**
+    To make Rucho start automatically at boot, enable the service.
+    ```bash
+    sudo systemctl enable rucho.service
+    ```
+
+4.  **Start the service:**
+    You can start the service immediately using:
+    ```bash
+    sudo systemctl start rucho.service
+    ```
+
+5.  **Check service status:**
+    To verify that the service is running or to check its current status, use:
+    ```bash
+    sudo systemctl status rucho.service
+    ```
+
+---
+
 ## 📝 Notes
 
 - `TraceLayer` provides request/response logging automatically.
