@@ -153,22 +153,6 @@ curl -i http://localhost:8080/status/503
 
 ---
 
-## Installation
-
-### From .deb package (for Ubuntu/Debian)
-
-1. Download the latest `.deb` package from the [releases page](https://github.com/user/repo/releases).
-2. Install the package using `dpkg`:
-   ```bash
-   sudo dpkg -i rucho_<version>_amd64.deb
-   ```
-   If you encounter any dependency issues, run:
-   ```bash
-   sudo apt-get install -f
-   ```
-
----
-
 ## Configuration
 
 Rucho can be configured through configuration files and environment variables.
@@ -194,22 +178,6 @@ The following parameters can be configured:
     *   Default: `0.0.0.0:9090`
     *   Config file key: `server_listen_secondary`
     *   Environment variable: `RUCHO_SERVER_LISTEN_SECONDARY`
-*   `server_listen_tcp`: The address and port for the raw TCP echo listener.
-    *   Default: None (disabled)
-    *   Config file key: `server_listen_tcp`
-    *   Environment variable: `RUCHO_SERVER_LISTEN_TCP`
-*   `server_listen_udp`: The address and port for the raw UDP echo listener.
-    *   Default: None (disabled)
-    *   Config file key: `server_listen_udp`
-    *   Environment variable: `RUCHO_SERVER_LISTEN_UDP`
-
-### TCP and UDP Echo Listeners
-
-In addition to the HTTP/S echo services, Rucho can also start raw TCP and UDP listeners. These listeners currently implement simple echo functionality:
-- Any data received on the configured TCP port will be echoed back to the connected client.
-- Any data received on the configured UDP port will be echoed back to the source address and port.
-
-This can be useful for testing basic network connectivity and data transmission. These listeners are disabled by default and can be enabled by setting `server_listen_tcp` and `server_listen_udp` in the configuration file or via environment variables.
 
 ### Configuration Loading Order
 
@@ -241,39 +209,18 @@ Configuration files should use `key = value` pairs, one per line. Lines starting
 
 ---
 
-## Systemd Integration
+## Automatic Systemd Service Setup
 
-To run Rucho as a systemd service, follow these steps:
+When Rucho is installed via the Debian (`.deb`) package, the systemd service (`rucho.service`) is automatically:
+- Installed to the appropriate systemd directory.
+- Enabled to start on system boot.
+- Started immediately after installation.
 
-1.  **Copy the service file:**
-    Place the `rucho.service` file (typically found in the `systemd` directory of the Rucho source or installation package) into the systemd system directory.
-    ```bash
-    sudo cp systemd/rucho.service /etc/systemd/system/rucho.service
-    ```
-
-2.  **Reload systemd daemon:**
-    After copying the new service file, you need to tell systemd to reload its configuration.
-    ```bash
-    sudo systemctl daemon-reload
-    ```
-
-3.  **Enable the service:**
-    To make Rucho start automatically at boot, enable the service.
-    ```bash
-    sudo systemctl enable rucho.service
-    ```
-
-4.  **Start the service:**
-    You can start the service immediately using:
-    ```bash
-    sudo systemctl start rucho.service
-    ```
-
-5.  **Check service status:**
-    To verify that the service is running or to check its current status, use:
-    ```bash
-    sudo systemctl status rucho.service
-    ```
+You can manage the service using standard `systemctl` commands, for example:
+- `sudo systemctl status rucho`
+- `sudo systemctl stop rucho`
+- `sudo systemctl start rucho`
+- `sudo systemctl restart rucho`
 
 ---
 
