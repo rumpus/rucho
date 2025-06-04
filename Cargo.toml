@@ -31,7 +31,7 @@ tempfile = "3.8.0"
 [package.metadata.deb]
 maintainer = "Your Name <your.email@example.com>"
 copyright = "Your Name <your.email@example.com>"
-depends = "$auto"
+depends = "libc6 (>= 2.35), $auto"
 assets = [
     ["target/release/rucho", "usr/bin/rucho", "755"],
     ["config_samples/rucho.conf.default", "etc/rucho/rucho.conf.default", "644"],
