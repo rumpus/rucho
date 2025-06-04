@@ -7,3 +7,6 @@ pub mod routes;
 ///
 /// This includes configuration management, server setup, and other helper functionalities.
 pub mod utils;
+
+/// The `tcp_udp_handlers` module provides handlers for raw TCP and UDP connections.
+pub mod tcp_udp_handlers;
