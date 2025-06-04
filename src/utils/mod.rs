@@ -1,6 +1,8 @@
 // Make the `json_response` module public
 // This allows other parts of the project (like main.rs and route handlers) to use `utils::json_response::format_json_response`
 
+/// Module for setting up access logging.
+pub mod access_log;
 /// Module for application configuration loading and management.
 pub mod config; // Added
 /// Module for creating standardized JSON error responses.

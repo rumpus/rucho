@@ -8,6 +8,7 @@ axum = "0.7"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
+tracing-appender = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 clap = { version = "4.4", features = ["derive"] }
@@ -26,3 +27,13 @@ utoipa-swagger-ui = { version = "7", features = ["axum"] }
 
 [dev-dependencies]
 tempfile = "3.8.0"
+
+[package.metadata.deb]
+maintainer = "Your Name <your.email@example.com>"
+copyright = "Your Name <your.email@example.com>"
+depends = "libc6 (>= 2.35), $auto"
+assets = [
+    ["target/release/rucho", "usr/bin/rucho", "755"],
+    ["config_samples/rucho.conf.default", "etc/rucho/rucho.conf.default", "644"],
+]
+features = []

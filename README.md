@@ -153,6 +153,22 @@ curl -i http://localhost:8080/status/503
 
 ---
 
+## Installation
+
+### From .deb package (for Ubuntu/Debian)
+
+1. Download the latest `.deb` package from the [releases page](https://github.com/user/repo/releases).
+2. Install the package using `dpkg`:
+   ```bash
+   sudo dpkg -i rucho_<version>_amd64.deb
+   ```
+   If you encounter any dependency issues, run:
+   ```bash
+   sudo apt-get install -f
+   ```
+
+---
+
 ## Configuration
 
 Rucho can be configured through configuration files and environment variables.
@@ -178,6 +194,22 @@ The following parameters can be configured:
     *   Default: `0.0.0.0:9090`
     *   Config file key: `server_listen_secondary`
     *   Environment variable: `RUCHO_SERVER_LISTEN_SECONDARY`
+*   `server_listen_tcp`: The address and port for the raw TCP echo listener.
+    *   Default: None (disabled)
+    *   Config file key: `server_listen_tcp`
+    *   Environment variable: `RUCHO_SERVER_LISTEN_TCP`
+*   `server_listen_udp`: The address and port for the raw UDP echo listener.
+    *   Default: None (disabled)
+    *   Config file key: `server_listen_udp`
+    *   Environment variable: `RUCHO_SERVER_LISTEN_UDP`
+
+### TCP and UDP Echo Listeners
+
+In addition to the HTTP/S echo services, Rucho can also start raw TCP and UDP listeners. These listeners currently implement simple echo functionality:
+- Any data received on the configured TCP port will be echoed back to the connected client.
+- Any data received on the configured UDP port will be echoed back to the source address and port.
+
+This can be useful for testing basic network connectivity and data transmission. These listeners are disabled by default and can be enabled by setting `server_listen_tcp` and `server_listen_udp` in the configuration file or via environment variables.
 
 ### Configuration Loading Order
 
