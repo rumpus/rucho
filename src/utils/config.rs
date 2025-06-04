@@ -142,6 +142,8 @@ impl Config {
     /// - `ssl_cert` (`RUCHO_SSL_CERT`)
     /// - `ssl_key` (`RUCHO_SSL_KEY`)
     /// - `proxy_access_log` (`RUCHO_PROXY_ACCESS_LOG`)
+    /// - `server_listen_tcp` (`RUCHO_SERVER_LISTEN_TCP`)
+    /// - `server_listen_udp` (`RUCHO_SERVER_LISTEN_UDP`)
     pub fn load() -> Self {
         Self::load_from_paths(None, None)
     }
