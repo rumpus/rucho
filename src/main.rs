@@ -133,6 +133,21 @@ async fn main() {
         CliCommand::Start {} => {
             tracing::info!("Starting server..."); // Changed from println!
             let pid = process::id();
+
+            // Create PID directory if it doesn't exist
+            let pid_dir = std::path::Path::new(PID_FILE).parent().unwrap();
+            if !pid_dir.exists() {
+                match fs::create_dir_all(&pid_dir) {
+                    Ok(_) => {
+                        tracing::info!("PID directory {} created", pid_dir.display());
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to create PID directory {}: {}", pid_dir.display(), e);
+                        // Continue to attempt PID file creation as per original logic
+                    }
+                }
+            }
+
             match fs::File::create(PID_FILE) {
                 Ok(mut file) => {
                     if let Err(e) = writeln!(file, "{}", pid) {
