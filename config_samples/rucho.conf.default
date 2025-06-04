@@ -27,3 +27,12 @@ server_listen_secondary = 0.0.0.0:9090
 # SSL certificate and key paths (required if using 'ssl' suffix in server_listen_*)
 # Example: ssl_cert = /path/to/your/cert.pem
 # Example: ssl_key = /path/to/your/key.pem
+
+# Proxy access log.
+# Specifies where to write access logs for incoming HTTP requests.
+# Can be a relative path (e.g., logs/access.log) which will be relative to 'prefix',
+# or 'dev/stdout' or 'dev/stderr' to log to standard output/error.
+# If commented out or not set, access logging behavior might depend on the default
+# logging setup (e.g., might go to stderr or be disabled).
+# Example: proxy_access_log = logs/access.log
+# Example: proxy_access_log = dev/stdout
