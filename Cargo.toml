@@ -1,6 +1,7 @@
 [package]
 name = "rucho"
 version = "0.1.0"
+description = "Rucho - An echo server and general HTTP request inspector."
 edition = "2021"
 
 [dependencies]
