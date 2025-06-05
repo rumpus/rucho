@@ -32,7 +32,7 @@ maintainer = "Rucho Project Contributors" # Or a more appropriate maintainer nam
 copyright = "2023 Rucho Project Contributors" # Or appropriate year/name
 license-file = ["LICENSE.md", "0"] # Assuming you'll add a LICENSE.md, or adjust as needed
 depends = "$auto"
-systemd-units = "debian/rucho.service"
+systemd-units = {}
 assets = [
     ["target/release/rucho", "/usr/local/bin/rucho", "755"],
     ["config_samples/rucho.conf.default", "/etc/rucho/rucho.conf", "644"]
