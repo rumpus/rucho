@@ -1,36 +1,29 @@
 mod routes;
 mod utils;
 
-use crate::utils::config::Config;
-use crate::utils::access_log::setup_access_log; // Added for access log
+use crate::utils::config::Config; // Added import
 use clap::Parser;
 use std::fs;
-use std::io::Write;
+use std::io::Write; // Read is unused
 use std::process;
-use std::str::FromStr;
-use sysinfo::{Pid, Signal, System};
+use std::str::FromStr; // Added import
+use sysinfo::{Pid, Signal, System}; // SystemExt will be used via the System struct directly
 use axum::Router;
 // use std::net::SocketAddr; // Removed as per build error (unused import)
-use std::sync::Arc;
-
-use tokio::{net::{TcpListener, /* TcpStream, */ UdpSocket}, signal}; // TcpStream no longer needed directly here
-
+use tokio::signal; // net::TcpListener removed as per build error (unused import)
 use tower_http::{
     cors::CorsLayer,
     normalize_path::NormalizePathLayer,
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
 };
-// Updated tracing_subscriber imports for layered logging
-use tracing_subscriber::{
-    fmt, layer::SubscriberExt, util::SubscriberInitExt, filter::{self, LevelFilter}, Registry, Layer
-};
-use tracing_appender::non_blocking::WorkerGuard;
-use axum_server::Handle;
+use tracing::Level; // Added import
+use tracing_subscriber;
+use axum_server::Handle; // bind_rustls and Server are unused
+// crate::utils::server_config::try_load_rustls_config will be used directly with crate:: prefix
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use crate::routes::core_routes::EndpointInfo; // Ensure EndpointInfo is imported
 use crate::utils::request_models::PrettyQuery; // Ensure PrettyQuery is imported
-use rucho::tcp_udp_handlers::{handle_tcp_connection, handle_udp_socket};
 // Import other necessary types that are part of API responses or requests if any
 
 // Temporarily comment out reqwest for build purposes
@@ -94,73 +87,33 @@ const PID_FILE: &str = "/var/run/rucho/rucho.pid";
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
-    let config = Config::load();
+    let config = Config::load(); // Load config
 
-    // Setup logging
-    let app_log_level = LevelFilter::from_str(&config.log_level.to_uppercase())
+    // Initialize tracing subscriber with log level from config
+    let log_level = Level::from_str(&config.log_level.to_uppercase())
         .unwrap_or_else(|_| {
-            eprintln!(
-                "Warning: Invalid log level '{}' in config, defaulting to INFO.",
-                config.log_level
-            );
-            LevelFilter::INFO
+            eprintln!("Warning: Invalid log level '{}' in config, defaulting to INFO.", config.log_level);
+            Level::INFO
         });
-
-    let (access_log_make_writer, access_log_guard) = setup_access_log(&config);
-
-    let app_log_layer = fmt::layer()
-        .with_writer(std::io::stderr) // Application logs go to stderr
-        .with_filter(filter::filter_fn(|metadata| {
-            // Filter for non-access logs
-            !metadata.target().starts_with("tower_http::trace")
-        }))
-        .with_filter(app_log_level);
-
-    let access_log_layer = fmt::layer()
-        .with_writer(access_log_make_writer) // Access logs go to the configured writer
-        .with_filter(filter::filter_fn(|metadata| {
-            // Filter specifically for tower_http::trace events
-            metadata.target().starts_with("tower_http::trace")
-        }))
-        .with_filter(LevelFilter::INFO); // Access logs are INFO level from TraceLayer
-
-    Registry::default()
-        .with(app_log_layer)
-        .with(access_log_layer)
-        .init();
+    tracing_subscriber::fmt().with_max_level(log_level).init(); // Initialize tracing
 
     match args.command {
         CliCommand::Start {} => {
-            tracing::info!("Starting server..."); // Changed from println!
+            println!("Starting server...");
             let pid = process::id();
-
-            // Create PID directory if it doesn't exist
-            let pid_dir = std::path::Path::new(PID_FILE).parent().unwrap();
-            if !pid_dir.exists() {
-                match fs::create_dir_all(&pid_dir) {
-                    Ok(_) => {
-                        tracing::info!("PID directory {} created", pid_dir.display());
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to create PID directory {}: {}", pid_dir.display(), e);
-                        // Continue to attempt PID file creation as per original logic
-                    }
-                }
-            }
-
             match fs::File::create(PID_FILE) {
                 Ok(mut file) => {
                     if let Err(e) = writeln!(file, "{}", pid) {
-                        tracing::error!("Error: Could not write PID to {}: {}", PID_FILE, e);
+                        eprintln!("Error: Could not write PID to {}: {}", PID_FILE, e);
                     } else {
-                        tracing::info!("Server PID {} written to {}", pid, PID_FILE);
+                        println!("Server PID {} written to {}", pid, PID_FILE);
                     }
                 }
                 Err(e) => {
-                    tracing::error!("Error: Could not create PID file {}: {}", PID_FILE, e);
+                    eprintln!("Error: Could not create PID file {}: {}", PID_FILE, e);
                 }
             }
-            run_server(&config, access_log_guard).await; // Pass config and guard
+            run_server(&config).await; // Pass config to run_server
         }
         CliCommand::Stop {} => {
             match fs::read_to_string(PID_FILE) {
@@ -171,53 +124,53 @@ async fn main() {
                             let mut s = System::new_all(); // SysInfoSystemExt is used here
                             s.refresh_processes(); 
                             if let Some(process) = s.process(pid) {
-                                tracing::info!("Stopping server (PID: {})...", pid);
-                                match process.kill_with(Signal::Term) {
+                                println!("Stopping server (PID: {})...", pid);
+                                match process.kill_with(Signal::Term) { // Handle Option<bool>
                                     Some(true) => {
-                                        tracing::info!("Termination signal sent to process {}.", pid);
+                                        println!("Termination signal sent to process {}.", pid);
                                         std::thread::sleep(std::time::Duration::from_secs(1));
                                         s.refresh_processes();
                                         if s.process(pid).is_none() {
-                                           tracing::info!("Server stopped successfully.");
+                                           println!("Server stopped successfully.");
                                            if let Err(e) = fs::remove_file(PID_FILE) {
-                                               tracing::warn!("Warning: Could not remove PID file {}: {}", PID_FILE, e);
+                                               eprintln!("Warning: Could not remove PID file {}: {}", PID_FILE, e);
                                            }
                                         } else {
-                                           tracing::info!("Process {} still running. You might need to use kill -9.", pid);
+                                           println!("Process {} still running. You might need to use kill -9.", pid);
                                         }
                                     }
                                     Some(false) => {
-                                        tracing::error!("Error: Failed to send termination signal to process {} (signal not sent or process already terminating).", pid);
+                                        eprintln!("Error: Failed to send termination signal to process {} (signal not sent or process already terminating).", pid);
                                          s.refresh_processes();
                                         if s.process(pid).is_none() {
-                                            tracing::info!("Server process {} seems to have already stopped.", pid);
+                                            println!("Server process {} seems to have already stopped.", pid);
                                             if let Err(e) = fs::remove_file(PID_FILE) {
-                                               tracing::warn!("Warning: Could not remove PID file {}: {}", PID_FILE, e);
+                                               eprintln!("Warning: Could not remove PID file {}: {}", PID_FILE, e);
                                            }
                                         }
                                     }
                                     None => {
-                                        tracing::error!("Error: Failed to send termination signal to process {} (process may not exist or permissions issue for signalling).", pid);
+                                        eprintln!("Error: Failed to send termination signal to process {} (process may not exist or permissions issue for signalling).", pid);
                                         s.refresh_processes();
                                         if s.process(pid).is_none() {
-                                            tracing::info!("Server process {} seems to have already stopped or does not exist.", pid);
+                                            println!("Server process {} seems to have already stopped or does not exist.", pid);
                                             if let Err(e) = fs::remove_file(PID_FILE) {
-                                               tracing::warn!("Warning: Could not remove PID file {}: {}", PID_FILE, e);
+                                               eprintln!("Warning: Could not remove PID file {}: {}", PID_FILE, e);
                                            }
                                         }
                                     }
                                 }
                             } else {
-                                tracing::info!("Process with PID {} not found. It might have already stopped.", pid);
+                                println!("Process with PID {} not found. It might have already stopped.", pid);
                                 if let Err(e) = fs::remove_file(PID_FILE) {
-                                    tracing::warn!("Warning: Could not remove stale PID file {}: {}", PID_FILE, e);
+                                    eprintln!("Warning: Could not remove stale PID file {}: {}", PID_FILE, e);
                                 }
                             }
                         }
-                        Err(_) => tracing::error!("Error: Invalid PID format in {}.", PID_FILE),
+                        Err(_) => eprintln!("Error: Invalid PID format in {}.", PID_FILE),
                     }
                 }
-                Err(_) => tracing::info!("Server not running (PID file {} not found).", PID_FILE),
+                Err(_) => println!("Server not running (PID file {} not found).", PID_FILE),
             }
         }
         CliCommand::Status {} => {
@@ -226,24 +179,24 @@ async fn main() {
                     match pid_str.trim().parse::<usize>() {
                         Ok(pid_val) => {
                             let pid = Pid::from(pid_val);
-                            let mut s = System::new_all();
+                            let mut s = System::new_all(); // SysInfoSystemExt is used here
                             s.refresh_processes();
                             if let Some(_process) = s.process(pid) {
-                                tracing::info!("Server is running (PID: {}).", pid);
-                                tracing::info!("Health check functionality is currently disabled.");
+                                println!("Server is running (PID: {}).", pid);
+                                println!("Health check functionality is currently disabled.");
                             } else {
-                                tracing::info!("Server is stopped (PID file {} found, but process {} not running).", PID_FILE, pid);
-                                tracing::info!("Consider running 'rucho stop' to attempt cleanup or manually deleting {}.", PID_FILE);
+                                println!("Server is stopped (PID file {} found, but process {} not running).", PID_FILE, pid);
+                                println!("Consider running 'rucho stop' to attempt cleanup or manually deleting {}.", PID_FILE);
                             }
                         }
-                        Err(_) => tracing::error!("Error: Invalid PID format in {}. Consider deleting it.", PID_FILE),
+                        Err(_) => eprintln!("Error: Invalid PID format in {}. Consider deleting it.", PID_FILE),
                     }
                 }
-                Err(_) => tracing::info!("Server is stopped (PID file {} not found).", PID_FILE),
+                Err(_) => println!("Server is stopped (PID file {} not found).", PID_FILE),
             }
         }
         CliCommand::Version {} => {
-            println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")); // Version can still be println!
+            println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
         }
     }
 }
@@ -252,8 +205,8 @@ async fn main() {
 ///
 /// This function sets up the HTTP/S listeners, configures routing,
 /// and handles graceful shutdown.
-async fn run_server(config: &Config, _access_log_guard: Option<WorkerGuard>) {
-    // _access_log_guard is now passed in and kept in scope.
+async fn run_server(config: &Config) { // Takes config as an argument
+    // tracing_subscriber::fmt::init(); // This is now done in main
 
     let handle = Handle::new();
     let shutdown = shutdown_signal(handle.clone());
@@ -333,83 +286,12 @@ async fn run_server(config: &Config, _access_log_guard: Option<WorkerGuard>) {
 
     if !server_handles.is_empty() {
         tracing::info!("{} server(s) started. Waiting for shutdown signal...", server_handles.len());
-    } else {
-        tracing::warn!("No HTTP/HTTPS server instances were configured or able to start.");
-    }
-
-    // TCP listeners
-    if let Some(tcp_addr_str) = &config.server_listen_tcp {
-        match tcp_addr_str.parse::<std::net::SocketAddr>() {
-            Ok(addr) => {
-                match TcpListener::bind(addr).await {
-                    Ok(listener) => {
-                        tracing::info!("Starting TCP listener on {}", addr);
-                        let tcp_listener_handle = tokio::spawn(async move {
-                            loop {
-                                match listener.accept().await {
-                                    Ok((socket, client_addr)) => {
-                                        tracing::info!("Accepted new TCP connection from {}", client_addr);
-                                        tokio::spawn(handle_tcp_connection(socket));
-                                    }
-                                    Err(e) => {
-                                        tracing::error!("Failed to accept TCP connection: {}. Listener loop continues.", e);
-                                        // Potentially add a small delay here if accept errors are persistent
-                                    }
-                                }
-                            }
-                            // This part is unreachable for a loop that never breaks based on accept errors
-                            // but is added for type compatibility if we were to add break conditions.
-                            #[allow(unreachable_code)]
-                            Ok::<(), std::io::Error>(())
-                        });
-                        server_handles.push(tcp_listener_handle);
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to bind TCP listener for {}: {}", addr, e);
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::error!("Failed to parse TCP address '{}': {}", tcp_addr_str, e);
-            }
-        }
-    }
-
-    // UDP listeners
-    if let Some(udp_addr_str) = &config.server_listen_udp {
-        match udp_addr_str.parse::<std::net::SocketAddr>() {
-            Ok(addr) => {
-                match UdpSocket::bind(addr).await {
-                    Ok(socket) => {
-                        tracing::info!("Starting UDP listener on {}", addr);
-                        let socket = Arc::new(socket);
-                        let udp_handle = tokio::spawn(handle_udp_socket(socket.clone()));
-                        server_handles.push(udp_handle);
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to bind UDP listener for {}: {}", addr, e);
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::error!("Failed to parse UDP address '{}': {}", udp_addr_str, e);
-            }
-        }
-    }
-
-    if !server_handles.is_empty() {
         shutdown.await; // This is `shutdown_signal(handle.clone())` passed from main
-        tracing::info!("Shutdown signal received, all servers and listeners are stopping.");
-        // Note: TCP/UDP listeners started with tokio::spawn need to handle shutdown internally or will be aborted.
-        // The Axum server handles have graceful shutdown. For TCP/UDP, a more robust shutdown might involve
-        // sending signals to the spawned tasks or using cancellation tokens.
+        tracing::info!("Shutdown signal received, all servers are stopping via shared handle.");
     } else {
-        tracing::warn!("No server or listener instances were configured or able to start in total.");
+        tracing::warn!("No server instances were configured or able to start.");
     }
 }
-
-// Placeholder functions `handle_tcp_connection` and `handle_udp_socket` are removed,
-// as we now use the implementations from `crate::tcp_udp_handlers`.
 
 /// Listens for a Ctrl+C signal to initiate a graceful shutdown of the server.
 async fn shutdown_signal(handle: Handle) {

@@ -1,0 +1,41 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    install|upgrade)
+        # Create the 'rucho' group if it doesn't exist
+        if ! getent group rucho >/dev/null; then
+            echo "Creating group 'rucho'..."
+            groupadd -r rucho
+        fi
+
+        # Create the 'rucho' user if it doesn't exist
+        if ! getent passwd rucho >/dev/null; then
+            echo "Creating user 'rucho'..."
+            useradd -r -g rucho -s /sbin/nologin \
+                -c "Rucho service user" \
+                -d /var/lib/rucho --create-home \
+                rucho
+        fi
+        # Ensure /var/lib/rucho has correct ownership if created
+        # Although RuntimeDirectory should handle /var/run/rucho,
+        # a home directory might be good practice for the user.
+        # If -d /var/lib/rucho --create-home is used:
+        if [ -d "/var/lib/rucho" ]; then
+             chown rucho:rucho /var/lib/rucho
+             chmod 700 /var/lib/rucho
+        fi
+        ;;
+
+    abort-upgrade)
+        # Nothing to do here
+        ;;
+
+    *)
+        echo "preinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+exit 0
