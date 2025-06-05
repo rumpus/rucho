@@ -3,7 +3,7 @@ Description=Rucho Echo Server
 After=network.target
 
 [Service]
-Type=forking
+Type=simple
 User=rucho
 Group=rucho
 PIDFile=/var/run/rucho/rucho.pid
