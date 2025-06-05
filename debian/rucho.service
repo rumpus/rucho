@@ -10,6 +10,8 @@ PIDFile=/var/run/rucho/rucho.pid
 ExecStart=/usr/local/bin/rucho start
 ExecStop=/usr/local/bin/rucho stop
 Restart=on-failure
+RuntimeDirectory=rucho
+RuntimeDirectoryMode=0755
 
 [Install]
 WantedBy=multi-user.target
