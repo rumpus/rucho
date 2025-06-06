@@ -22,7 +22,7 @@ COPY config_samples/rucho.conf.default /etc/rucho/rucho.conf
 # Set ownership for copied active configuration file
 RUN chown rucho:rucho /etc/rucho/rucho.conf
 
-# Clean up build artifacts to reduce image size
+# Clean up build artifacts (target directory) and cargo registry/git sources to reduce final image size.
 RUN rm -rf /app/target /root/.cargo
 
 EXPOSE 8080
