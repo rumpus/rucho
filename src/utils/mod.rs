@@ -1,3 +1,8 @@
+/// # Utilities Module
+///
+/// This module aggregates and declares various utility functions and structures
+/// used throughout the application. It re-exports sub-modules containing
+/// specific utilities like configuration management, response formatting, etc.
 // Make the `json_response` module public
 // This allows other parts of the project (like main.rs and route handlers) to use `utils::json_response::format_json_response`
 
