@@ -1,93 +1,65 @@
-# 🛣 Echo Server — Project Roadmap
+# Project Roadmap for Rucho
 
----
+## Introduction
 
-## 🥇 Tier 1: Core Platform Improvements (Completed ✅)
+This document outlines the development roadmap for Rucho, our HTTP echo server. It provides insights into our current status, short-term objectives, and long-term vision for the project. We aim to keep this roadmap updated as the project evolves.
 
-- ✅ `/healthz` endpoint
-- ✅ Optional pretty JSON output (`?pretty=true`)
-- ✅ Graceful shutdown handling (SIGINT/SIGTERM)
-- ✅ Support additional HTTP methods (HEAD, OPTIONS, ANY)
+## Current Status
 
----
+Rucho's core echo server functionality is stable and operational. Key features such as comprehensive HTTP method support, dynamic status code simulation (`/status/:code`), response delays (`/delay/:n`), and detailed request echoing (`/anything`, `/get`, `/post`, etc.) are implemented.
 
-## 🥈 Tier 2: Developer Utility Endpoints (Completed ✅)
+Furthermore, essential developer tools and production-readiness features are in place:
+*   **OpenAPI/Swagger Documentation**: Interactive API documentation is available via `/swagger-ui`, with the specification at `/api-docs/openapi.json`.
+*   **Docker Support**: Rucho can be easily deployed using Docker, with a non-root user for enhanced security.
+*   **Configuration**: Flexible configuration options are available through files and environment variables.
+*   **HTTPS**: Support for HTTPS via Rustls is implemented.
+*   **CORS**: Permissive Cross-Origin Resource Sharing (CORS) is supported.
 
-- ✅ `/delay/:n` — delay response by `n` seconds
-- ✅ `/status/:code` — return specified HTTP status code (supports ANY method)
-- [ ] WebSocket echo support
-- [ ] gRPC echo server
-- ✅ Add support for HTTP/2 (via Axum and Hyper, enabled with TLS)
-- ✅ Add HTTPS support (via Rustls)
+The project has successfully completed its initial core improvements and developer utility endpoint implementation phases.
 
----
+## Short-Term Goals
 
-## 🥉 Tier 3: Productionization Features
+Our immediate focus is on enhancing Rucho's robustness and deployability for production-like environments. The following features are planned for the near future:
 
-- [ ] JSON structured server logs
-- [ ] Panic recovery middleware
-- [ ] Request/response size metrics
-- ✅ Dockerfile for container builds
-- [ ] Helm Chart for Kubernetes deployment
-- ✅ OpenAPI/Swagger documentation
+*   **JSON Structured Server Logs**: Implement structured logging (e.g., JSON format) for easier parsing, searching, and integration with log management systems.
+*   **Panic Recovery Middleware**: Introduce middleware to gracefully handle panics within request handlers, preventing the server from crashing and returning appropriate error responses.
+*   **Request/Response Size Metrics**: Add functionality to track and expose metrics related to request and response sizes, which can be useful for monitoring and performance analysis.
+*   **Helm Chart**: Develop a Helm chart to simplify deployment and management of Rucho on Kubernetes clusters.
 
----
+## Long-Term Goals
 
-## 🚀 Future Bonus Ideas
+Looking further ahead, we envision Rucho evolving into a more comprehensive and versatile HTTP toolkit. Potential future developments include:
 
-- [ ] `/uuid` — return random UUID
-- [ ] `/ip` — return requester IP
-- [ ] `/user-agent` — return User-Agent
-- [ ] `/headers` — echo headers
-- [ ] `/redirect/:n` — perform chained redirects
-- [ ] `/stream/:n` — stream multiple JSON objects
-- [ ] Expose `/metrics` for Prometheus
-- [ ] GitHub Actions (CI/CD automation)
-- [ ] Request size limiting
-- [ ] Implement connection pooling for better scalability
-- [ ] Add rate limiting middleware to prevent abuse
-- [ ] Implement CORS support for cross-origin requests
-- [ ] Add authentication/authorization middleware (e.g., JWT or OAuth2)
-- [ ] Add support for environment-based configuration (e.g., `.env` files)
-- [ ] Provide Terraform scripts for cloud infrastructure provisioning
-- [ ] Request replay feature
-- [ ] Plugin system for extensibility (Lua, Wasm)
+*   **Expanded Protocol Support**:
+    *   WebSocket echo support for testing real-time applications.
+    *   gRPC echo server capabilities.
+*   **New Utility Endpoints**:
+    *   `/uuid`: Generate and return random UUIDs.
+    *   `/ip`: Return the requester's IP address.
+    *   `/user-agent`: Echo the User-Agent header from the request.
+    *   `/headers`: Specifically echo back all request headers.
+    *   `/redirect/:n`: Simulate chained HTTP redirects.
+    *   `/stream/:n`: Stream multiple JSON objects in the response.
+*   **Enhanced Observability & Monitoring**:
+    *   Expose a `/metrics` endpoint for Prometheus to scrape, providing detailed operational metrics.
+*   **Development & Deployment Automation**:
+    *   Set up GitHub Actions for robust CI/CD automation (testing, building, releasing).
+    *   Provide Terraform scripts for provisioning cloud infrastructure to run Rucho.
+*   **Advanced Request Handling**:
+    *   Implement request size limiting to prevent abuse or oversized payloads.
+    *   Add rate limiting middleware.
+    *   More granular CORS configuration options.
+*   **Security & Configuration**:
+    *   Introduce authentication/authorization middleware (e.g., JWT, Basic Auth, or OAuth2).
+    *   Support for environment-based configuration using `.env` files.
+*   **Advanced Features**:
+    *   A request replay feature to re-send captured requests.
+    *   A plugin system (e.g., using Lua or Wasm) to allow users to extend Rucho's functionality with custom logic.
 
----
+## Contributing
 
-# 📢 Status
+We welcome contributions from the community! Whether it's reporting bugs, suggesting new features, or submitting code changes, your help is appreciated. Please feel free to fork the repository, create a new branch for your changes, and submit a pull request. If you have ideas or questions, don't hesitate to open an issue.
 
-✅ Basic Echo Server working  
-✅ `/anything` endpoint live (supports ANY method and subpaths)
-✅ `/endpoints` endpoint lists all available API endpoints
-✅ Modular routes and utils organized  
-✅ Configuration loading via files and environment variables
-✅ CORS support (permissive)
-🚧 Tier 3 features under development  
+## License
 
----
-
-# 📋 Contributing
-
-Contributions, suggestions, and ideas are welcome!  
-Feel free to fork and submit pull requests 🚀
-
----
-
-# 📢 License
-
-MIT License
-
----
-
-# 📋 Timeline (Suggested)
-
-| Phase | Focus |
-|:---|:---|
-| Phase 1 | ✅ Finish Tier 1 (Core improvements) |
-| Phase 2 | ✅ Complete Tier 2 (Developer Utility Endpoints like `/delay/:n`, `/status/:code`, HTTPS, HTTP/2) |
-| Phase 3 | ✅ Complete OpenAPI/Swagger documentation and Dockerfile (Tier 3) |
-| Phase 4 | 🚧 Continue Tier 3 Productionization (Logs, Middleware, Helm) |
-| Phase 5 | (Optional) Bonus Protocols like WebSockets, gRPC & Future Bonus Ideas |
-
----
+Rucho is licensed under the MIT License. You can find the full license text in the `LICENSE.md` file in the repository.
