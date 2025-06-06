@@ -15,15 +15,23 @@ use std::path::PathBuf; // Modified to remove unused Path
 /// `/etc/rucho/rucho.conf` or `./rucho.conf`.
 #[derive(Debug, Clone)]
 pub struct Config {
+    /// Prefix for certain operations, e.g., file paths (Not actively used by server logic yet).
     pub prefix: String,
+    /// Logging level for the application (e.g., "info", "debug", "warn", "error").
     pub log_level: String,
+    /// Primary listen address and port for the server (e.g., "0.0.0.0:8080" or "ssl:0.0.0.0:8443").
     pub server_listen_primary: String,
+    /// Secondary listen address and port for the server (e.g., "0.0.0.0:9090" or "ssl:0.0.0.0:9443"). Can be empty.
     pub server_listen_secondary: String,
+    /// Optional path to an SSL certificate file for HTTPS. Required if any listen address uses "ssl:".
     pub ssl_cert: Option<String>,
+    /// Optional path to an SSL private key file for HTTPS. Required if any listen address uses "ssl:".
     pub ssl_key: Option<String>,
 }
 
 impl Default for Config {
+    /// Provides the hardcoded default configuration values for the application.
+    /// These defaults are the first layer in the configuration loading process.
     fn default() -> Self {
         Config {
             prefix: "/usr/local/rucho".to_string(),
@@ -37,11 +45,14 @@ impl Default for Config {
 }
 
 impl Config {
-    // Helper function to parse file contents (remains the same)
-    // No changes needed to the doc comment for parse_file_contents as it's an internal helper.
-    #[cfg_attr(not(test), allow(dead_code))]
+    // Internal helper function to parse lines from a configuration file.
+    // It updates the provided `Config` mutable instance with values found in the `contents`.
+    // Lines starting with '#' or empty lines are ignored.
+    // Expected format for lines is "key = value".
+    #[cfg_attr(not(test), allow(dead_code))] // Allow dead code for this helper when not in test builds
     fn parse_file_contents(config: &mut Config, contents: String) {
         for line in contents.lines() {
+            // Skip comments and empty lines
             if line.starts_with('#') || line.trim().is_empty() {
                 continue;
             }
@@ -64,35 +75,47 @@ impl Config {
         }
     }
 
-    /// Loads configuration using specified paths, primarily for testing.
-    /// Falls back to default paths if overrides are not provided.
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// Loads configuration by attempting to read from specified file paths and then
+    /// applying environment variable overrides. This function is primarily intended for
+    /// testing purposes, allowing explicit control over which configuration files are loaded.
+    ///
+    /// If `etc_path_override` is `None`, it defaults to `/etc/rucho/rucho.conf`.
+    /// If `local_path_override` is `None`, it defaults to `./rucho.conf` (relative to current CWD).
+    ///
+    /// The loading order within this function is:
+    /// 1. Defaults from `Config::default()`.
+    /// 2. Values from the ETC path override (or default ETC path).
+    /// 3. Values from the local path override (or default local path), potentially overriding ETC values.
+    /// 4. Environment variables, overriding any values set by files.
+    #[cfg_attr(not(test), allow(dead_code))] // Allow dead code for this helper when not in test builds
     fn load_from_paths(etc_path_override: Option<PathBuf>, local_path_override: Option<PathBuf>) -> Self {
         let mut config = Config::default();
 
-        // 1. Determine paths to use
+        // Determine paths to use: override or default.
         let etc_config_path = etc_path_override.unwrap_or_else(|| PathBuf::from("/etc/rucho/rucho.conf"));
         let local_config_path = local_path_override.unwrap_or_else(|| PathBuf::from("rucho.conf"));
 
-        // 2. Load from the system-wide config file (e.g., /etc/rucho/rucho.conf)
+        // Load from the system-wide config file (e.g., /etc/rucho/rucho.conf or override)
         if etc_config_path.exists() {
             if let Ok(contents) = fs::read_to_string(&etc_config_path) {
                 Self::parse_file_contents(&mut config, contents);
             } else {
-                eprintln!("Warning: Could not read {:?}, though it exists.", etc_config_path);
+                // Log a warning if the file exists but cannot be read
+                eprintln!("Warning: Could not read system config file at {:?}, though it exists.", etc_config_path);
             }
         }
 
-        // 3. Load from the local config file (e.g., ./rucho.conf), overriding previous values
+        // Load from the local config file (e.g., ./rucho.conf or override), overriding previous values
         if local_config_path.exists() {
             if let Ok(contents) = fs::read_to_string(&local_config_path) {
                 Self::parse_file_contents(&mut config, contents);
             } else {
-                eprintln!("Warning: Could not read {:?}, though it exists.", local_config_path);
+                // Log a warning if the file exists but cannot be read
+                eprintln!("Warning: Could not read local config file at {:?}, though it exists.", local_config_path);
             }
         }
 
-        // 4. Override with environment variables
+        // Override with environment variables (RUCHO_ prefixed)
         if let Ok(prefix) = env::var("RUCHO_PREFIX") {
             config.prefix = prefix;
         }
@@ -144,50 +167,67 @@ mod tests {
     use std::env;
     use std::fs::{self, File}; // Added File
     use std::io::Write;
-    use std::path::PathBuf; // Already present, but good to note
-    use tempfile::TempDir; // For temporary directories
+    use std::path::PathBuf;
+    use tempfile::TempDir; // Used for creating temporary directories for config files.
 
+    // Module for configuration loading tests.
+    // TestEnv struct helps manage temporary directories and files for testing config loading.
+    /// Sets up a controlled environment for testing configuration loading.
+    ///
+    /// This involves creating temporary directories to simulate `/etc/rucho/` and a
+    /// temporary current working directory (CWD). It also handles cleaning up
+    /// environment variables and restoring the original CWD when dropped.
     struct TestEnv {
-        _etc_dir: TempDir, // Holds /etc/rucho
-        etc_rucho_conf_path: PathBuf,
-        _cwd_dir: TempDir, // Holds the CWD for the test
-        cwd_rucho_conf_path: PathBuf,
-        original_cwd: PathBuf,
+        _etc_dir: TempDir, // Temporary directory for simulating /etc
+        etc_rucho_conf_path: PathBuf, // Path to the simulated /etc/rucho/rucho.conf
+        _cwd_dir: TempDir, // Temporary directory for simulating the CWD
+        cwd_rucho_conf_path: PathBuf, // Path to the simulated ./rucho.conf in the temp CWD
+        original_cwd: PathBuf, // Stores the original CWD to restore it later
     }
 
     impl TestEnv {
+        /// Creates a new `TestEnv` instance.
+        ///
+        /// This sets up temporary directories for `/etc/rucho` and a test-specific CWD.
+        /// It also changes the current directory to the temporary CWD.
         fn new() -> Self {
+            // Create a temporary directory to simulate /etc
             let etc_dir = TempDir::new().expect("Failed to create temp etc dir");
-            let etc_rucho_dir = etc_dir.path().join("rucho");
+            let etc_rucho_dir = etc_dir.path().join("rucho"); // Simulate /etc/rucho
             fs::create_dir_all(&etc_rucho_dir).expect("Failed to create fake /etc/rucho");
             
+            // Create a temporary directory to act as the CWD for the test
             let cwd_dir = TempDir::new().expect("Failed to create temp cwd dir");
             
+            // Store original CWD and change to the temporary CWD
             let original_cwd = env::current_dir().unwrap();
             env::set_current_dir(cwd_dir.path()).unwrap();
 
             TestEnv {
                 etc_rucho_conf_path: etc_rucho_dir.join("rucho.conf"),
                 _etc_dir: etc_dir, // Keep TempDir to ensure it's cleaned up on drop
-                cwd_rucho_conf_path: cwd_dir.path().join("rucho.conf"),
-                _cwd_dir: cwd_dir, // Keep TempDir
+                cwd_rucho_conf_path: cwd_dir.path().join("rucho.conf"), // Path to ./rucho.conf in temp CWD
+                _cwd_dir: cwd_dir, // Keep TempDir for CWD
                 original_cwd,
             }
         }
 
+        /// Helper function to create a configuration file with specified content at a given path.
         fn create_config_file(&self, path: &std::path::Path, content: &str) {
             let mut file = File::create(path).unwrap_or_else(|e| {
-                panic!("Failed to create config file at {:?}: {}", path, e)
+                panic!("Failed to create config file at {:?}: {}", path, e) // Panic if file creation fails
             });
-            writeln!(file, "{}", content).unwrap();
+            writeln!(file, "{}", content).unwrap(); // Write content to the file
         }
     }
 
+    /// Restores the original CWD and cleans up environment variables set during tests.
     impl Drop for TestEnv {
         fn drop(&mut self) {
+            // Restore the original current working directory
             env::set_current_dir(&self.original_cwd).unwrap();
-            // TempDirs will be automatically removed when they go out of scope.
-            // No need to explicitly remove files within TempDir managed paths.
+            // TempDirs (_etc_dir, _cwd_dir) are automatically removed when they go out of scope.
+            // Clean up any environment variables that might have been set by tests.
             env::remove_var("RUCHO_PREFIX");
             env::remove_var("RUCHO_LOG_LEVEL");
             env::remove_var("RUCHO_SERVER_LISTEN_PRIMARY");
@@ -199,12 +239,14 @@ mod tests {
     
     #[test]
     fn test_default_config() {
-        let _env = TestEnv::new(); // Sets up CWD, cleans up vars
-        // For default, we pass paths that won't exist to load_from_paths
-        let non_existent_etc = PathBuf::from("/tmp/non_existent_etc_rucho.conf");
-        let non_existent_cwd = PathBuf::from("./non_existent_cwd_rucho.conf");
+        let _env = TestEnv::new(); // Sets up CWD, cleans up vars.
+        // To test defaults, we call load_from_paths with paths that are guaranteed not to exist.
+        // This ensures that only the hardcoded defaults are loaded.
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_rucho_config_for_default_test_etc.conf");
+        let non_existent_cwd = PathBuf::from("./non_existent_rucho_config_for_default_test_cwd.conf");
         let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
         
+        // Assert that all configuration values match the hardcoded defaults.
         assert_eq!(config.prefix, "/usr/local/rucho");
         assert_eq!(config.log_level, "info");
         assert_eq!(config.server_listen_primary, "0.0.0.0:8080");
@@ -216,86 +258,108 @@ mod tests {
     #[test]
     fn test_load_from_etc_only() {
         let env_setup = TestEnv::new();
+        // Create a config file only in the simulated /etc/rucho directory.
         env_setup.create_config_file(&env_setup.etc_rucho_conf_path, "prefix = /etc/path\nlog_level = etc_level");
 
-        // For CWD, pass a path that won't exist
-        let non_existent_cwd = env_setup.cwd_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+        // Specify a non-existent path for the CWD config to ensure it's not loaded.
+        let non_existent_cwd_conf = env_setup.cwd_rucho_conf_path.parent().unwrap().join("non_existent.conf");
 
-        let config = Config::load_from_paths(Some(env_setup.etc_rucho_conf_path.clone()), Some(non_existent_cwd));
+        let config = Config::load_from_paths(Some(env_setup.etc_rucho_conf_path.clone()), Some(non_existent_cwd_conf));
         
+        // Assert that values from /etc/rucho/rucho.conf are loaded.
         assert_eq!(config.prefix, "/etc/path");
         assert_eq!(config.log_level, "etc_level");
-        assert_eq!(config.server_listen_primary, "0.0.0.0:8080"); // Default
+        // Assert that other values remain default.
+        assert_eq!(config.server_listen_primary, "0.0.0.0:8080");
     }
 
     #[test]
     fn test_load_from_cwd_only() {
         let env_setup = TestEnv::new();
+        // Create a config file only in the simulated CWD.
         env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "prefix = /cwd/path\nlog_level = cwd_level");
 
-        // For etc, pass a path that won't exist
-        let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+        // Specify a non-existent path for the /etc config.
+        let non_existent_etc_conf = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
 
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
+        let config = Config::load_from_paths(Some(non_existent_etc_conf), Some(env_setup.cwd_rucho_conf_path.clone()));
 
+        // Assert that values from ./rucho.conf are loaded.
         assert_eq!(config.prefix, "/cwd/path");
         assert_eq!(config.log_level, "cwd_level");
-        assert_eq!(config.server_listen_secondary, "0.0.0.0:9090"); // Default
+        // Assert that other values remain default.
+        assert_eq!(config.server_listen_secondary, "0.0.0.0:9090");
     }
 
     #[test]
     fn test_cwd_overrides_etc() {
         let env_setup = TestEnv::new();
+        // Create config files in both /etc and CWD with some overlapping keys.
         env_setup.create_config_file(&env_setup.etc_rucho_conf_path, "prefix = /etc/path\nlog_level = etc_level");
         env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "prefix = /cwd/path\nserver_listen_primary = 1.1.1.1:1111");
 
         let config = Config::load_from_paths(Some(env_setup.etc_rucho_conf_path.clone()), Some(env_setup.cwd_rucho_conf_path.clone()));
 
-        assert_eq!(config.prefix, "/cwd/path"); // CWD prefix wins
-        assert_eq!(config.log_level, "etc_level"); // etc log_level is used (not in CWD file)
-        assert_eq!(config.server_listen_primary, "1.1.1.1:1111"); // CWD primary wins
-        assert_eq!(config.server_listen_secondary, "0.0.0.0:9090"); // Default
+        // Assert that CWD values override /etc values for overlapping keys.
+        assert_eq!(config.prefix, "/cwd/path"); // CWD prefix wins.
+        // Assert that non-overlapping keys are merged.
+        assert_eq!(config.log_level, "etc_level"); // From /etc, as not in CWD file.
+        assert_eq!(config.server_listen_primary, "1.1.1.1:1111"); // From CWD.
+        // Assert that other values remain default.
+        assert_eq!(config.server_listen_secondary, "0.0.0.0:9090");
     }
     
     #[test]
     fn test_env_overrides_all_files() {
         let env_setup = TestEnv::new();
+        // Create config files in both /etc and CWD.
         env_setup.create_config_file(&env_setup.etc_rucho_conf_path, "prefix = /etc/path\nlog_level = etc_level");
         env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "prefix = /cwd/path\nlog_level = cwd_level");
 
+        // Set environment variables that should override file configurations.
         env::set_var("RUCHO_PREFIX", "/env/path");
         env::set_var("RUCHO_LOG_LEVEL", "env_level");
         env::set_var("RUCHO_SERVER_LISTEN_PRIMARY", "env_primary");
 
         let config = Config::load_from_paths(Some(env_setup.etc_rucho_conf_path.clone()), Some(env_setup.cwd_rucho_conf_path.clone()));
 
+        // Assert that environment variable values override all file-based values.
         assert_eq!(config.prefix, "/env/path");
         assert_eq!(config.log_level, "env_level");
         assert_eq!(config.server_listen_primary, "env_primary");
-        assert_eq!(config.server_listen_secondary, "0.0.0.0:9090"); // Default
+        // Assert that other values remain default.
+        assert_eq!(config.server_listen_secondary, "0.0.0.0:9090");
     }
 
     #[test]
     fn test_partial_configs_layering() {
         let env_setup = TestEnv::new();
+        // /etc/rucho/rucho.conf sets prefix and an initial log_level.
         env_setup.create_config_file(&env_setup.etc_rucho_conf_path, "prefix = /etc/path\nlog_level = etc_level_original");
+        // ./rucho.conf overrides log_level and sets server_listen_secondary.
         env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "log_level = cwd_level\nserver_listen_secondary = 2.2.2.2:2222");
 
+        // Environment variable sets server_listen_primary.
         env::set_var("RUCHO_SERVER_LISTEN_PRIMARY", "env_primary");
-        // Ensure RUCHO_PREFIX and RUCHO_LOG_LEVEL are not set from previous tests for this specific test
+        // Ensure other relevant env vars are not set from previous tests for this specific test,
+        // so we only test the intended layering.
         env::remove_var("RUCHO_PREFIX"); 
         env::remove_var("RUCHO_LOG_LEVEL");
 
 
         let config = Config::load_from_paths(Some(env_setup.etc_rucho_conf_path.clone()), Some(env_setup.cwd_rucho_conf_path.clone()));
         
-        assert_eq!(config.prefix, "/etc/path"); // From /etc
-        assert_eq!(config.log_level, "cwd_level"); // From CWD (overrides /etc)
-        assert_eq!(config.server_listen_primary, "env_primary"); // From Env
-        assert_eq!(config.server_listen_secondary, "2.2.2.2:2222"); // From CWD
+        // prefix should come from /etc/rucho/rucho.conf
+        assert_eq!(config.prefix, "/etc/path");
+        // log_level should be from ./rucho.conf (overriding /etc)
+        assert_eq!(config.log_level, "cwd_level");
+        // server_listen_primary should be from environment variable
+        assert_eq!(config.server_listen_primary, "env_primary");
+        // server_listen_secondary should be from ./rucho.conf
+        assert_eq!(config.server_listen_secondary, "2.2.2.2:2222");
     }
 
-    // Test for ensuring pub fn load() calls load_from_paths(None, None)
+    // Test for ensuring pub fn load() calls load_from_paths(None, None).
     // This test is a bit conceptual as it's hard to directly verify without more complex mocking
     // or by observing side effects if load_from_paths had them (which it doesn't beyond eprintln).
     // For now, we trust the implementation. A more advanced setup might involve:
