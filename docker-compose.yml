@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  rucho:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - ./config_samples/rucho.conf.default:/etc/rucho/rucho.conf
+    environment:
+      # Uncomment and set these variables to override values from rucho.conf
+      # RUCHO_LOG_LEVEL: "debug"
+      # RUCHO_SERVER_LISTEN_PRIMARY: "0.0.0.0:8000"
+      # RUCHO_SERVER_LISTEN_SECONDARY: "0.0.0.0:9000"
+      # RUCHO_PREFIX: "/app/data"
+    # If you need to persist data, uncomment the following lines and adjust the path
+    # volumes:
+    #   - rucho_data:/var/run/rucho
+
+# Volumes section (optional, if you need to persist data)
+# volumes:
+#   rucho_data:
