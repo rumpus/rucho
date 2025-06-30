@@ -153,6 +153,33 @@ curl -i http://localhost:8080/status/503
 
 ---
 
+## Running with Docker Compose
+
+To run Rucho using Docker Compose:
+
+1.  **Ensure Docker Compose is installed.**
+2.  **From the root of the project, run:**
+    ```bash
+    docker-compose up
+    ```
+    To run in detached mode:
+    ```bash
+    docker-compose up -d
+    ```
+    To rebuild the image before starting:
+    ```bash
+    docker-compose up --build
+    ```
+
+The server will be accessible at `http://localhost:8080` and `http://localhost:9090` (or as configured).
+
+To stop the services:
+```bash
+docker-compose down
+```
+
+---
+
 ## Configuration
 
 Rucho can be configured through configuration files and environment variables.

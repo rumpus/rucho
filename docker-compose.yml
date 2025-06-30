@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  rucho:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - ./config_samples/rucho.conf.default:/etc/rucho/rucho.conf
+    # If you need to persist data, uncomment the following lines and adjust the path
+    # volumes:
+    #   - rucho_data:/var/run/rucho
+# Volumes section (optional, if you need to persist data)
+# volumes:
+#   rucho_data:
