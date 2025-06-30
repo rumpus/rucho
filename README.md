@@ -173,6 +173,22 @@ To run Rucho using Docker Compose:
 
 The server will be accessible at `http://localhost:8080` and `http://localhost:9090` (or as configured).
 
+You can also override configuration by setting environment variables within the `docker-compose.yml` file or by passing them on the command line. See the `environment` section in the `docker-compose.yml` for examples.
+
+For instance, to change the log level, you could uncomment and set `RUCHO_LOG_LEVEL` in the `docker-compose.yml`:
+```yaml
+services:
+  rucho:
+    # ... other configurations
+    environment:
+      RUCHO_LOG_LEVEL: "debug"
+      # RUCHO_SERVER_LISTEN_PRIMARY: "0.0.0.0:8000"
+```
+Or, you can pass environment variables when running `docker-compose up` (though this is less common for overriding file settings):
+```bash
+RUCHO_LOG_LEVEL=debug docker-compose up
+```
+
 To stop the services:
 ```bash
 docker-compose down
