@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Metrics Endpoint** (`/metrics`): Request statistics with all-time and rolling hour window
+  - Total request count
+  - Per-endpoint hit counts
+  - Success/failure tracking
+  - Path normalization for dynamic routes (`/status/:code`, `/delay/:n`, `/anything/*path`)
+  - Toggle via `metrics_enabled` config or `RUCHO_METRICS_ENABLED` env var
+- **GitHub Actions CI**: Automated checks (fmt, clippy, test) and build pipeline
+
+### Fixed
+
+- Docker Compose validation errors (removed obsolete `version` attribute, fixed empty environment block)
+
 ## [0.1.0] - 2025-02-04
 
 ### Added
