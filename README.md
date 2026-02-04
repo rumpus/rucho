@@ -1,283 +1,230 @@
-# 🚀 Echo Server (Rust + Axum)
+# Rucho - HTTP Echo Server
 
-Simple, fast, and scalable HTTP echo server built using Rust and Axum.  
+Simple, fast, and scalable HTTP echo server built with Rust and Axum.
 Designed for testing, debugging, and simulating various HTTP behaviors.
 
----
+## Features
 
-## 🛠 Tech Stack
+- HTTP echo endpoints for all major methods (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
+- Dynamic HTTP status simulation (`/status/:code`)
+- Configurable response delay (`/delay/:n`, max 300s)
+- TCP and UDP echo listeners for protocol testing
+- HTTPS support via Rustls with HTTP/2
+- OpenAPI/Swagger documentation
+- CLI for server management (start, stop, status)
+- Configuration via files and environment variables
+- Docker and systemd support
+- Graceful shutdown handling
 
-- [Rust](https://www.rust-lang.org/)
-- [Axum](https://docs.rs/axum/latest/axum/)
-- [Tokio](https://tokio.rs/)
-- [Tower-HTTP](https://docs.rs/tower-http/latest/tower_http/)
-- [Hyper](https://hyper.rs/)
-
----
-
-## 📂 Project Structure
-
-```bash
-src/
-├── main.rs             # Application entrypoint
-├── lib.rs              # Library module declarations
-├── routes/             # HTTP route handlers
-│   ├── core_routes.rs  # Core echo and utility endpoints
-│   ├── delay.rs        # Delay endpoint
-│   ├── healthz.rs      # Health check endpoint
-│   └── mod.rs          # Routes module declaration
-└── utils/              # Utility modules
-    ├── config.rs       # Configuration loading
-    ├── error_response.rs # Standardized error responses
-    ├── json_response.rs  # Standardized JSON responses
-    ├── mod.rs          # Utils module declaration
-    ├── request_models.rs # Request model structs (e.g., query params)
-    └── server_config.rs # Server listener and TLS configuration
-```
-
----
-
-## 🚀 Getting Started
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/SheriffTwinkie/rust-echo.git
-   cd rust-echo
-   ```
-
-2. **Build the project**
-   ```bash
-   cargo build
-   ```
-
-3. **Run the server**
-   ```bash
-   cargo run
-   ```
-
-Server will start at:
+## Quick Start
 
 ```bash
-http://localhost:8080
+# Clone the repository
+git clone https://github.com/rumpus/rucho.git
+cd rucho
+
+# Build
+cargo build --release
+
+# Start the server
+./target/release/rucho start
+
+# Or run directly with cargo
+cargo run -- start
 ```
 
----
+Server runs at `http://localhost:8080` by default.
 
-## 📜 Available Endpoints
-
-| Method   | Path              | Description                                      |
-|:--------:|:------------------:|:------------------------------------------------:|
-| GET      | `/`                | Welcome message                                  |
-| GET      | `/get`             | Echoes request details for GET                   |
-| HEAD     | `/get`             | Responds with headers for GET query              |
-| POST     | `/post`            | Echoes request details for POST, expects JSON body |
-| PUT      | `/put`             | Echoes request details for PUT, expects JSON body  |
-| PATCH    | `/patch`           | Echoes request details for PATCH, expects JSON body|
-| DELETE   | `/delete`          | Echoes request details for DELETE                |
-| OPTIONS  | `/options`         | Responds with allowed HTTP methods               |
-| ANY      | `/status/:code`    | Returns the specified HTTP status code           |
-| ANY      | `/anything`        | Echoes request details for any HTTP method       |
-| ANY      | `/anything/*path`  | Echoes request details for any HTTP method under a specific path |
-| GET      | `/delay/:n`        | Delays response by `n` seconds                   |
-| GET      | `/healthz`         | Performs a health check, returns "OK"            |
-| GET      | `/endpoints`       | Lists all available API endpoints                |
-| GET      | `/swagger-ui`      | Displays OpenAPI/Swagger UI documentation        |
-
----
-
-## OpenAPI/Swagger Documentation
-
-Rucho includes OpenAPI (Swagger) documentation for its API endpoints.
-You can access the Swagger UI by navigating to `/swagger-ui` in your browser when the server is running.
-
-Example: `http://localhost:8080/swagger-ui`
-
-The OpenAPI specification is available at `/api-docs/openapi.json`.
-
----
-
-## 🧹 Features
-
-- 📜 Clean JSON response formatting with newline (optional pretty-printing via `?pretty=true`).
-- 📈 Automatic request tracing and logging using `TraceLayer`.
-- 🔥 Support for all major HTTP methods (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD, ANY).
-- ⚡ Dynamic HTTP status simulation (`/status/200`, `/status/503`, etc).
-- ⏱️ Configurable response delay endpoint (`/delay/:n`).
-- ❤️ Health check endpoint (`/healthz`).
-- 📖 Self-documenting API with OpenAPI/Swagger UI (`/swagger-ui`).
-- 🗄️ Endpoint listing (`/endpoints`).
-- ⚙️ Flexible configuration via files and environment variables.
-- 🔒 Optional HTTPS support via Rustls.
-- 🐳 Docker support with a non-root user.
-- 🧹 Organized modular structure for easy expansion and maintenance.
-
----
-
-## 🛠 Example Usage
-
-### Basic curl examples:
+## CLI Commands
 
 ```bash
-# Simple GET
-curl -s http://localhost:8080
-
-# GET headers echoed as JSON
-curl -s http://localhost:8080/get | jq
-
-# POST body echoed
-curl -s -X POST http://localhost:8080/post -H "Content-Type: application/json" -d "{\"test\": \"value\"}" | jq
-
-# Simulate a 503 response
-curl -i http://localhost:8080/status/503
+rucho start    # Start the server
+rucho stop     # Stop the server
+rucho status   # Check server status
+rucho version  # Display version
 ```
 
-✅ Output is always clean, newline-separated, and JSON-formatted where appropriate.
+## API Endpoints
 
----
+| Method  | Path              | Description                                          |
+|---------|-------------------|------------------------------------------------------|
+| GET     | `/`               | Welcome message                                      |
+| GET     | `/get`            | Echo request details                                 |
+| HEAD    | `/get`            | Headers only                                         |
+| POST    | `/post`           | Echo request with JSON body                          |
+| PUT     | `/put`            | Echo request with JSON body                          |
+| PATCH   | `/patch`          | Echo request with JSON body                          |
+| DELETE  | `/delete`         | Echo request details                                 |
+| OPTIONS | `/options`        | Return allowed methods                               |
+| ANY     | `/status/:code`   | Return specified HTTP status code                    |
+| ANY     | `/anything`       | Echo any request                                     |
+| ANY     | `/anything/*path` | Echo any request with path                           |
+| ANY     | `/delay/:n`       | Delay response by n seconds (max 300)                |
+| GET     | `/healthz`        | Health check                                         |
+| GET     | `/endpoints`      | List all endpoints                                   |
+| GET     | `/swagger-ui`     | OpenAPI documentation                                |
 
-## Running with Docker
+### Query Parameters
 
-**User:** The application inside the Docker container runs as the non-root `rucho` user for enhanced security.
-
-**Configuration:**
-*   The Docker image comes with a default configuration file located at `/etc/rucho/rucho.conf`.
-*   You can customize the configuration by providing your own `rucho.conf` and mounting it to `/etc/rucho/rucho.conf` in the container. For example:
-    ```bash
-    docker run -v ./my-rucho.conf:/etc/rucho/rucho.conf <image_name>
-    ```
-*   Alternatively, you can use environment variables as described in the "Configuration" section to override specific settings.
-*   A clean sample configuration file (`rucho.conf.default`) is also available within the image at `/usr/share/doc/rucho/examples/rucho.conf.default` if you wish to use it as a template. You can copy it out using:
-    ```bash
-    docker cp <container_name_or_id>:/usr/share/doc/rucho/examples/rucho.conf.default ./rucho.conf.default
-    ```
-
----
-
-## Running with Docker Compose
-
-To run Rucho using Docker Compose:
-
-1.  **Ensure Docker Compose is installed.**
-2.  **From the root of the project, run:**
-    ```bash
-    docker-compose up
-    ```
-    To run in detached mode:
-    ```bash
-    docker-compose up -d
-    ```
-    To rebuild the image before starting:
-    ```bash
-    docker-compose up --build
-    ```
-
-The server will be accessible at `http://localhost:8080` and `http://localhost:9090` (or as configured).
-
-You can also override configuration by setting environment variables within the `docker-compose.yml` file or by passing them on the command line. See the `environment` section in the `docker-compose.yml` for examples.
-
-For instance, to change the log level, you could uncomment and set `RUCHO_LOG_LEVEL` in the `docker-compose.yml`:
-```yaml
-services:
-  rucho:
-    # ... other configurations
-    environment:
-      RUCHO_LOG_LEVEL: "debug"
-      # RUCHO_SERVER_LISTEN_PRIMARY: "0.0.0.0:8000"
-```
-Or, you can pass environment variables when running `docker-compose up` (though this is less common for overriding file settings):
-```bash
-RUCHO_LOG_LEVEL=debug docker-compose up
-```
-
-To stop the services:
-```bash
-docker-compose down
-```
-
----
+All echo endpoints support `?pretty=true` for formatted JSON output.
 
 ## Configuration
 
-Rucho can be configured through configuration files and environment variables.
+### Configuration Files
+
+Rucho loads configuration in this order (later overrides earlier):
+
+1. Hardcoded defaults
+2. `/etc/rucho/rucho.conf` (system-wide)
+3. `./rucho.conf` (local directory)
+4. Environment variables (`RUCHO_*`)
 
 ### Parameters
 
-The following parameters can be configured:
+| Parameter                   | Default              | Env Variable                   | Description                    |
+|-----------------------------|----------------------|--------------------------------|--------------------------------|
+| `prefix`                    | `/usr/local/rucho`   | `RUCHO_PREFIX`                 | Installation prefix            |
+| `log_level`                 | `info`               | `RUCHO_LOG_LEVEL`              | Log level (trace/debug/info/warn/error) |
+| `server_listen_primary`     | `0.0.0.0:8080`       | `RUCHO_SERVER_LISTEN_PRIMARY`  | Primary HTTP listener          |
+| `server_listen_secondary`   | `0.0.0.0:9090`       | `RUCHO_SERVER_LISTEN_SECONDARY`| Secondary HTTP listener        |
+| `server_listen_tcp`         | (none)               | `RUCHO_SERVER_LISTEN_TCP`      | TCP echo listener address      |
+| `server_listen_udp`         | (none)               | `RUCHO_SERVER_LISTEN_UDP`      | UDP echo listener address      |
+| `ssl_cert`                  | (none)               | `RUCHO_SSL_CERT`               | Path to SSL certificate        |
+| `ssl_key`                   | (none)               | `RUCHO_SSL_KEY`                | Path to SSL private key        |
 
-*   `prefix`: The installation prefix or base directory for data.
-    *   Default: `/usr/local/rucho`
-    *   Config file key: `prefix`
-    *   Environment variable: `RUCHO_PREFIX`
-*   `log_level`: The logging verbosity.
-    *   Default: `notice`
-    *   Supported values (case-insensitive): `TRACE`, `DEBUG`, `INFO`, `NOTICE`, `WARN`, `ERROR`
-    *   Config file key: `log_level`
-    *   Environment variable: `RUCHO_LOG_LEVEL`
-*   `server_listen_primary`: The primary listen address and port for the server.
-    *   Default: `0.0.0.0:8080`
-    *   Config file key: `server_listen_primary`
-    *   Environment variable: `RUCHO_SERVER_LISTEN_PRIMARY`
-*   `server_listen_secondary`: The secondary listen address and port for the server.
-    *   Default: `0.0.0.0:9090`
-    *   Config file key: `server_listen_secondary`
-    *   Environment variable: `RUCHO_SERVER_LISTEN_SECONDARY`
+### HTTPS Configuration
 
-### Configuration Loading Order
+To enable HTTPS, add `ssl` suffix to the listen address:
 
-Configuration values are loaded in the following order of precedence (each step overrides the previous):
+```ini
+server_listen_primary = 0.0.0.0:443 ssl
+ssl_cert = /path/to/cert.pem
+ssl_key = /path/to/key.pem
+```
 
-1.  **Hardcoded Defaults**: The application starts with built-in default values for all parameters.
-2.  **System-wide Configuration File**: If `/etc/rucho/rucho.conf` exists, it is read and its values override the defaults.
-3.  **Local Configuration File**: If `rucho.conf` exists in the current working directory from which Rucho is launched, it is read. Its values override both the defaults and any values from the system-wide configuration file.
-4.  **Environment Variables**: Any environment variables starting with `RUCHO_` (e.g., `RUCHO_PREFIX`, `RUCHO_LOG_LEVEL`) will override values from all other sources.
+### TCP/UDP Echo Listeners
 
-### Using the Sample Configuration File
+Enable TCP and/or UDP echo servers for protocol testing:
 
-A sample configuration file, `rucho.conf.default`, is provided in the `config_samples/` directory of the source repository.
-You can use this as a template:
+```ini
+server_listen_tcp = 0.0.0.0:7777
+server_listen_udp = 0.0.0.0:7778
+```
 
-*   For a **system-wide configuration**, copy it to `/etc/rucho/rucho.conf`:
-    ```bash
-    sudo mkdir -p /etc/rucho
-    sudo cp config_samples/rucho.conf.default /etc/rucho/rucho.conf
-    sudo nano /etc/rucho/rucho.conf # Edit as needed
-    ```
-*   For a **local configuration** (specific to a particular project or instance), copy it to the directory where you run Rucho:
-    ```bash
-    cp config_samples/rucho.conf.default ./rucho.conf
-    nano ./rucho.conf # Edit as needed
-    ```
+Test with:
+```bash
+# TCP
+echo "hello" | nc localhost 7777
 
-Configuration files should use `key = value` pairs, one per line. Lines starting with `#` are treated as comments.
+# UDP
+echo "hello" | nc -u localhost 7778
+```
 
----
+## Project Structure
 
-## Automatic Systemd Service Setup
+```
+src/
+├── main.rs              # Application entrypoint
+├── lib.rs               # Library exports
+├── cli/                 # CLI argument parsing and commands
+│   ├── mod.rs
+│   └── commands.rs      # start, stop, status, version handlers
+├── routes/              # HTTP route handlers
+│   ├── mod.rs
+│   ├── core_routes.rs   # Core echo endpoints
+│   ├── delay.rs         # /delay/:n endpoint
+│   └── healthz.rs       # /healthz endpoint
+├── server/              # Server setup and orchestration
+│   ├── mod.rs
+│   ├── http.rs          # HTTP/HTTPS listener setup
+│   ├── tcp.rs           # TCP echo listener
+│   ├── udp.rs           # UDP echo listener
+│   └── shutdown.rs      # Graceful shutdown handling
+├── tcp_udp_handlers.rs  # TCP/UDP echo protocol handlers
+└── utils/               # Utility modules
+    ├── mod.rs
+    ├── config.rs        # Configuration loading
+    ├── constants.rs     # Centralized constants
+    ├── error_response.rs
+    ├── json_response.rs
+    ├── pid.rs           # PID file management
+    ├── request_models.rs
+    └── server_config.rs # Listener and TLS configuration
+```
 
-When Rucho is installed via the Debian (`.deb`) package, the systemd service (`rucho.service`) is automatically:
-- Installed to the appropriate systemd directory.
-- Enabled to start on system boot.
-- Started immediately after installation.
+## Docker
 
-You can manage the service using standard `systemctl` commands, for example:
-- `sudo systemctl status rucho`
-- `sudo systemctl stop rucho`
-- `sudo systemctl start rucho`
-- `sudo systemctl restart rucho`
+### Build and Run
 
----
+```bash
+docker build -t rucho .
+docker run -p 8080:8080 -p 9090:9090 rucho
+```
 
-## 📝 Notes
+### Docker Compose
 
-- `TraceLayer` provides request/response logging automatically.
-- JSON formatting is consistent across all echo endpoints.
-- `.gitignore` excludes `target/`, `*.rs.bk` backups, and `Cargo.lock`.
-- Project structure follows best practices for Rust Axum services.
+```bash
+docker-compose up -d
+```
 
----
+Configure via environment variables in `docker-compose.yml`:
 
-## 📢 License
+```yaml
+services:
+  rucho:
+    environment:
+      RUCHO_LOG_LEVEL: "debug"
+      RUCHO_SERVER_LISTEN_TCP: "0.0.0.0:7777"
+```
+
+## Systemd
+
+When installed via `.deb` package, the systemd service is automatically enabled:
+
+```bash
+sudo systemctl status rucho
+sudo systemctl stop rucho
+sudo systemctl start rucho
+sudo systemctl restart rucho
+```
+
+## Examples
+
+```bash
+# Simple GET
+curl http://localhost:8080/get
+
+# POST with JSON body
+curl -X POST http://localhost:8080/post \
+  -H "Content-Type: application/json" \
+  -d '{"key": "value"}'
+
+# Pretty-printed response
+curl "http://localhost:8080/get?pretty=true"
+
+# Simulate 503 error
+curl -i http://localhost:8080/status/503
+
+# Delayed response (5 seconds)
+curl http://localhost:8080/delay/5
+
+# Health check
+curl http://localhost:8080/healthz
+```
+
+## Tech Stack
+
+- [Rust](https://www.rust-lang.org/)
+- [Axum](https://docs.rs/axum/latest/axum/) - Web framework
+- [Tokio](https://tokio.rs/) - Async runtime
+- [Tower-HTTP](https://docs.rs/tower-http/latest/tower_http/) - HTTP middleware
+- [Rustls](https://docs.rs/rustls/latest/rustls/) - TLS implementation
+- [utoipa](https://docs.rs/utoipa/latest/utoipa/) - OpenAPI generation
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
 
 This project is licensed under the [MIT License](LICENSE).
-
----
