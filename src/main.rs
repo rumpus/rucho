@@ -3,9 +3,10 @@
 //! This is the main entry point for the Rucho application. It handles CLI argument
 //! parsing and dispatches to the appropriate command handlers.
 
-use axum::Router;
+use axum::{middleware, routing::get, Router};
 use clap::Parser;
 use std::str::FromStr;
+use std::sync::Arc;
 use tower_http::{
     cors::CorsLayer,
     normalize_path::NormalizePathLayer,
@@ -22,7 +23,9 @@ use rucho::cli::{
     Args, CliCommand,
 };
 use rucho::routes::core_routes::EndpointInfo;
+use rucho::server::metrics_layer::metrics_middleware;
 use rucho::utils::config::Config;
+use rucho::utils::metrics::Metrics;
 use rucho::utils::request_models::PrettyQuery;
 
 #[derive(OpenApi)]
@@ -82,7 +85,15 @@ async fn main() {
     match args.command {
         CliCommand::Start {} => {
             if handle_start_command() {
-                let app = build_app();
+                // Create metrics store if enabled
+                let metrics = if config.metrics_enabled {
+                    tracing::info!("Metrics endpoint enabled at /metrics");
+                    Some(Arc::new(Metrics::new()))
+                } else {
+                    None
+                };
+
+                let app = build_app(metrics);
                 rucho::server::run_server(&config, app).await;
             }
         }
@@ -93,18 +104,34 @@ async fn main() {
 }
 
 /// Builds the Axum application with all routes and middleware.
-fn build_app() -> Router {
-    Router::new()
+///
+/// If metrics is Some, enables the /metrics endpoint and metrics collection middleware.
+fn build_app(metrics: Option<Arc<Metrics>>) -> Router {
+    let mut app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(rucho::routes::core_routes::router())
         .merge(rucho::routes::healthz::router())
-        .merge(rucho::routes::delay::router())
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
-                .on_request(DefaultOnRequest::new().level(Level::INFO))
-                .on_response(DefaultOnResponse::new().level(Level::INFO)),
-        )
-        .layer(CorsLayer::permissive())
-        .layer(NormalizePathLayer::trim_trailing_slash())
+        .merge(rucho::routes::delay::router());
+
+    // Add metrics endpoint and middleware if enabled
+    if let Some(metrics) = metrics {
+        app = app
+            .route(
+                "/metrics",
+                get(rucho::routes::metrics::get_metrics).with_state(metrics.clone()),
+            )
+            .layer(middleware::from_fn(move |req, next| {
+                let metrics = metrics.clone();
+                async move { metrics_middleware(req, next, metrics).await }
+            }));
+    }
+
+    app.layer(
+        TraceLayer::new_for_http()
+            .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+            .on_request(DefaultOnRequest::new().level(Level::INFO))
+            .on_response(DefaultOnResponse::new().level(Level::INFO)),
+    )
+    .layer(CorsLayer::permissive())
+    .layer(NormalizePathLayer::trim_trailing_slash())
 }

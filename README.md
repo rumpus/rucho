@@ -63,6 +63,7 @@ rucho version  # Display version
 | ANY     | `/anything/*path` | Echo any request with path                           |
 | ANY     | `/delay/:n`       | Delay response by n seconds (max 300)                |
 | GET     | `/healthz`        | Health check                                         |
+| GET     | `/metrics`        | Request statistics (when enabled)                    |
 | GET     | `/endpoints`      | List all endpoints                                   |
 | GET     | `/swagger-ui`     | OpenAPI documentation                                |
 
@@ -93,6 +94,7 @@ Rucho loads configuration in this order (later overrides earlier):
 | `server_listen_udp`         | (none)               | `RUCHO_SERVER_LISTEN_UDP`      | UDP echo listener address      |
 | `ssl_cert`                  | (none)               | `RUCHO_SSL_CERT`               | Path to SSL certificate        |
 | `ssl_key`                   | (none)               | `RUCHO_SSL_KEY`                | Path to SSL private key        |
+| `metrics_enabled`           | `false`              | `RUCHO_METRICS_ENABLED`        | Enable /metrics endpoint       |
 
 ### HTTPS Configuration
 

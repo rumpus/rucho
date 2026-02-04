@@ -24,6 +24,19 @@ server_listen_primary = 0.0.0.0:8080
 # Example: server_listen_secondary = 127.0.0.1:9000
 server_listen_secondary = 0.0.0.0:9090
 
+# TCP echo listener address (optional).
+# When set, starts a TCP echo server for protocol testing.
+# Example: server_listen_tcp = 0.0.0.0:7777
+
+# UDP echo listener address (optional).
+# When set, starts a UDP echo server for protocol testing.
+# Example: server_listen_udp = 0.0.0.0:7778
+
 # SSL certificate and key paths (required if using 'ssl' suffix in server_listen_*)
 # Example: ssl_cert = /path/to/your/cert.pem
 # Example: ssl_key = /path/to/your/key.pem
+
+# Enable metrics endpoint (/metrics).
+# When enabled, the server exposes request statistics at /metrics.
+# Example: metrics_enabled = true
+metrics_enabled = false

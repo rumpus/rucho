@@ -7,7 +7,7 @@ use crate::utils::constants::{
     DEFAULT_SERVER_LISTEN_SECONDARY,
 };
 
-/// Macro to load an environment variable into a String config field.
+/// Macro to load an environment variable into a config field.
 macro_rules! load_env_var {
     ($config:expr, $field:ident, $env_var:expr) => {
         if let Ok(value) = env::var($env_var) {
@@ -17,6 +17,11 @@ macro_rules! load_env_var {
     ($config:expr, $field:ident, $env_var:expr, option) => {
         if let Ok(value) = env::var($env_var) {
             $config.$field = Some(value);
+        }
+    };
+    ($config:expr, $field:ident, $env_var:expr, bool) => {
+        if let Ok(value) = env::var($env_var) {
+            $config.$field = value.eq_ignore_ascii_case("true") || value == "1";
         }
     };
 }
@@ -50,6 +55,8 @@ pub struct Config {
     pub ssl_cert: Option<String>,
     /// Optional path to an SSL private key file for HTTPS. Required if any listen address uses "ssl:".
     pub ssl_key: Option<String>,
+    /// Enable the /metrics endpoint for request statistics.
+    pub metrics_enabled: bool,
 }
 
 impl Default for Config {
@@ -65,6 +72,7 @@ impl Default for Config {
             server_listen_udp: None,
             ssl_cert: None,
             ssl_key: None,
+            metrics_enabled: false,
         }
     }
 }
@@ -118,6 +126,9 @@ impl Config {
                     "server_listen_udp" => config.server_listen_udp = Some(value.to_string()),
                     "ssl_cert" => config.ssl_cert = Some(value.to_string()),
                     "ssl_key" => config.ssl_key = Some(value.to_string()),
+                    "metrics_enabled" => {
+                        config.metrics_enabled = value.eq_ignore_ascii_case("true") || value == "1"
+                    }
                     _ => eprintln!("Warning: Unknown key in config file: {}", key),
                 }
             } else {
@@ -189,6 +200,7 @@ impl Config {
         load_env_var!(config, server_listen_udp, "RUCHO_SERVER_LISTEN_UDP", option);
         load_env_var!(config, ssl_cert, "RUCHO_SSL_CERT", option);
         load_env_var!(config, ssl_key, "RUCHO_SSL_KEY", option);
+        load_env_var!(config, metrics_enabled, "RUCHO_METRICS_ENABLED", bool);
 
         config
     }
@@ -233,6 +245,7 @@ impl Config {
     /// - `server_listen_udp` (`RUCHO_SERVER_LISTEN_UDP`)
     /// - `ssl_cert` (`RUCHO_SSL_CERT`)
     /// - `ssl_key` (`RUCHO_SSL_KEY`)
+    /// - `metrics_enabled` (`RUCHO_METRICS_ENABLED`)
     pub fn load() -> Self {
         Self::load_from_paths(None, None)
     }
@@ -299,6 +312,7 @@ mod tests {
             env::remove_var("RUCHO_SERVER_LISTEN_UDP");
             env::remove_var("RUCHO_SSL_CERT");
             env::remove_var("RUCHO_SSL_KEY");
+            env::remove_var("RUCHO_METRICS_ENABLED");
         }
 
         fn create_config_file(&self, path: &std::path::Path, content: &str) {
