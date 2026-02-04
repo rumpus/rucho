@@ -12,6 +12,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 /// Request payload wrapper for POST, PUT, PATCH, and DELETE handlers.
 ///
@@ -146,6 +147,12 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         method: "GET",
         description: "Displays the OpenAPI/Swagger UI.",
     },
+    // UUID endpoint
+    EndpointInfo {
+        path: "/uuid",
+        method: "GET",
+        description: "Returns a randomly generated UUID v4.",
+    },
     // Add the new entry for /endpoints itself
     EndpointInfo {
         path: "/endpoints",
@@ -179,6 +186,8 @@ pub fn router() -> Router {
         // Routes from anything.rs
         .route("/anything", any(anything_handler))
         .route("/anything/*path", any(anything_handler))
+        // Route for /uuid
+        .route("/uuid", get(uuid_handler))
         // Route for /endpoints
         .route("/endpoints", get(endpoints_handler))
 }
@@ -427,6 +436,36 @@ pub async fn endpoints_handler(Query(pretty_query): Query<PrettyQuery>) -> Respo
             "Failed to serialize endpoint data.",
         ),
     }
+}
+
+// Handler for /uuid
+/// Returns a randomly generated UUID v4.
+///
+/// Generates a new random UUID (Universally Unique Identifier) using the v4 algorithm.
+/// Useful for generating unique identifiers for testing purposes.
+///
+/// # HTTP Method:
+/// - `GET`
+///
+/// # Query Parameters:
+/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
+///
+/// # Responses:
+/// - `200 OK`: Returns a JSON object containing the generated UUID.
+#[utoipa::path(
+    get,
+    path = "/uuid",
+    params(
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Returns a randomly generated UUID", body = serde_json::Value)
+    )
+)]
+pub async fn uuid_handler(Query(pretty_query): Query<PrettyQuery>) -> Response {
+    let pretty = pretty_query.pretty.unwrap_or(false);
+    let uuid = Uuid::new_v4();
+    format_json_response(json!({"uuid": uuid.to_string()}), pretty)
 }
 
 // From post.rs
