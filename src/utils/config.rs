@@ -1,6 +1,25 @@
 use std::env;
 use std::fs;
-use std::path::PathBuf; // Modified to remove unused Path
+use std::path::PathBuf;
+
+use crate::utils::constants::{
+    DEFAULT_LOG_LEVEL, DEFAULT_PREFIX, DEFAULT_SERVER_LISTEN_PRIMARY,
+    DEFAULT_SERVER_LISTEN_SECONDARY,
+};
+
+/// Macro to load an environment variable into a String config field.
+macro_rules! load_env_var {
+    ($config:expr, $field:ident, $env_var:expr) => {
+        if let Ok(value) = env::var($env_var) {
+            $config.$field = value;
+        }
+    };
+    ($config:expr, $field:ident, $env_var:expr, option) => {
+        if let Ok(value) = env::var($env_var) {
+            $config.$field = Some(value);
+        }
+    };
+}
 
 /// Holds the application configuration.
 ///
@@ -23,6 +42,10 @@ pub struct Config {
     pub server_listen_primary: String,
     /// Secondary listen address and port for the server (e.g., "0.0.0.0:9090" or "ssl:0.0.0.0:9443"). Can be empty.
     pub server_listen_secondary: String,
+    /// Optional TCP echo listener address (e.g., "0.0.0.0:7777").
+    pub server_listen_tcp: Option<String>,
+    /// Optional UDP echo listener address (e.g., "0.0.0.0:7778").
+    pub server_listen_udp: Option<String>,
     /// Optional path to an SSL certificate file for HTTPS. Required if any listen address uses "ssl:".
     pub ssl_cert: Option<String>,
     /// Optional path to an SSL private key file for HTTPS. Required if any listen address uses "ssl:".
@@ -34,15 +57,41 @@ impl Default for Config {
     /// These defaults are the first layer in the configuration loading process.
     fn default() -> Self {
         Config {
-            prefix: "/usr/local/rucho".to_string(),
-            log_level: "info".to_string(),
-            server_listen_primary: "0.0.0.0:8080".to_string(),
-            server_listen_secondary: "0.0.0.0:9090".to_string(),
+            prefix: DEFAULT_PREFIX.to_string(),
+            log_level: DEFAULT_LOG_LEVEL.to_string(),
+            server_listen_primary: DEFAULT_SERVER_LISTEN_PRIMARY.to_string(),
+            server_listen_secondary: DEFAULT_SERVER_LISTEN_SECONDARY.to_string(),
+            server_listen_tcp: None,
+            server_listen_udp: None,
             ssl_cert: None,
             ssl_key: None,
         }
     }
 }
+
+/// Errors that can occur during configuration validation.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConfigValidationError {
+    /// SSL certificate specified without key
+    SslCertWithoutKey,
+    /// SSL key specified without certificate
+    SslKeyWithoutCert,
+}
+
+impl std::fmt::Display for ConfigValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigValidationError::SslCertWithoutKey => {
+                write!(f, "SSL certificate specified without key")
+            }
+            ConfigValidationError::SslKeyWithoutCert => {
+                write!(f, "SSL key specified without certificate")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ConfigValidationError {}
 
 impl Config {
     // Internal helper function to parse lines from a configuration file.
@@ -65,6 +114,8 @@ impl Config {
                     "log_level" => config.log_level = value.to_string(),
                     "server_listen_primary" => config.server_listen_primary = value.to_string(),
                     "server_listen_secondary" => config.server_listen_secondary = value.to_string(),
+                    "server_listen_tcp" => config.server_listen_tcp = Some(value.to_string()),
+                    "server_listen_udp" => config.server_listen_udp = Some(value.to_string()),
                     "ssl_cert" => config.ssl_cert = Some(value.to_string()),
                     "ssl_key" => config.ssl_key = Some(value.to_string()),
                     _ => eprintln!("Warning: Unknown key in config file: {}", key),
@@ -115,27 +166,35 @@ impl Config {
             }
         }
 
-        // Override with environment variables (RUCHO_ prefixed)
-        if let Ok(prefix) = env::var("RUCHO_PREFIX") {
-            config.prefix = prefix;
-        }
-        if let Ok(log_level) = env::var("RUCHO_LOG_LEVEL") {
-            config.log_level = log_level;
-        }
-        if let Ok(server_listen_primary) = env::var("RUCHO_SERVER_LISTEN_PRIMARY") {
-            config.server_listen_primary = server_listen_primary;
-        }
-        if let Ok(server_listen_secondary) = env::var("RUCHO_SERVER_LISTEN_SECONDARY") {
-            config.server_listen_secondary = server_listen_secondary;
-        }
-        if let Ok(ssl_cert) = env::var("RUCHO_SSL_CERT") {
-            config.ssl_cert = Some(ssl_cert);
-        }
-        if let Ok(ssl_key) = env::var("RUCHO_SSL_KEY") {
-            config.ssl_key = Some(ssl_key);
-        }
+        // 4. Override with environment variables
+        load_env_var!(config, prefix, "RUCHO_PREFIX");
+        load_env_var!(config, log_level, "RUCHO_LOG_LEVEL");
+        load_env_var!(config, server_listen_primary, "RUCHO_SERVER_LISTEN_PRIMARY");
+        load_env_var!(config, server_listen_secondary, "RUCHO_SERVER_LISTEN_SECONDARY");
+        load_env_var!(config, server_listen_tcp, "RUCHO_SERVER_LISTEN_TCP", option);
+        load_env_var!(config, server_listen_udp, "RUCHO_SERVER_LISTEN_UDP", option);
+        load_env_var!(config, ssl_cert, "RUCHO_SSL_CERT", option);
+        load_env_var!(config, ssl_key, "RUCHO_SSL_KEY", option);
 
         config
+    }
+
+    /// Validates the configuration for consistency.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the configuration is valid, or a `ConfigValidationError` if not.
+    ///
+    /// # Errors
+    ///
+    /// - `SslCertWithoutKey`: SSL certificate is specified but key is missing
+    /// - `SslKeyWithoutCert`: SSL key is specified but certificate is missing
+    pub fn validate(&self) -> Result<(), ConfigValidationError> {
+        match (&self.ssl_cert, &self.ssl_key) {
+            (Some(_), None) => Err(ConfigValidationError::SslCertWithoutKey),
+            (None, Some(_)) => Err(ConfigValidationError::SslKeyWithoutCert),
+            _ => Ok(()),
+        }
     }
 
     /// Loads the configuration for the application.
@@ -156,6 +215,10 @@ impl Config {
     /// - `log_level` (`RUCHO_LOG_LEVEL`)
     /// - `server_listen_primary` (`RUCHO_SERVER_LISTEN_PRIMARY`)
     /// - `server_listen_secondary` (`RUCHO_SERVER_LISTEN_SECONDARY`)
+    /// - `server_listen_tcp` (`RUCHO_SERVER_LISTEN_TCP`)
+    /// - `server_listen_udp` (`RUCHO_SERVER_LISTEN_UDP`)
+    /// - `ssl_cert` (`RUCHO_SSL_CERT`)
+    /// - `ssl_key` (`RUCHO_SSL_KEY`)
     pub fn load() -> Self {
         Self::load_from_paths(None, None)
     }
@@ -165,10 +228,10 @@ impl Config {
 mod tests {
     use super::*;
     use std::env;
-    use std::fs::{self, File}; // Added File
+    use std::fs::{self, File};
     use std::io::Write;
     use std::path::PathBuf;
-    use tempfile::TempDir; // Used for creating temporary directories for config files.
+    use tempfile::TempDir;
 
     // Module for configuration loading tests.
     // TestEnv struct helps manage temporary directories and files for testing config loading.
@@ -191,15 +254,16 @@ mod tests {
         /// This sets up temporary directories for `/etc/rucho` and a test-specific CWD.
         /// It also changes the current directory to the temporary CWD.
         fn new() -> Self {
-            // Create a temporary directory to simulate /etc
+            // Clear all RUCHO env vars at the START to ensure test isolation
+            // (tests may run in parallel, so we can't rely only on Drop cleanup)
+            Self::clear_env_vars();
+
             let etc_dir = TempDir::new().expect("Failed to create temp etc dir");
             let etc_rucho_dir = etc_dir.path().join("rucho"); // Simulate /etc/rucho
             fs::create_dir_all(&etc_rucho_dir).expect("Failed to create fake /etc/rucho");
-            
-            // Create a temporary directory to act as the CWD for the test
+
             let cwd_dir = TempDir::new().expect("Failed to create temp cwd dir");
-            
-            // Store original CWD and change to the temporary CWD
+
             let original_cwd = env::current_dir().unwrap();
             env::set_current_dir(cwd_dir.path()).unwrap();
 
@@ -212,31 +276,35 @@ mod tests {
             }
         }
 
-        /// Helper function to create a configuration file with specified content at a given path.
+        fn clear_env_vars() {
+            env::remove_var("RUCHO_PREFIX");
+            env::remove_var("RUCHO_LOG_LEVEL");
+            env::remove_var("RUCHO_SERVER_LISTEN_PRIMARY");
+            env::remove_var("RUCHO_SERVER_LISTEN_SECONDARY");
+            env::remove_var("RUCHO_SERVER_LISTEN_TCP");
+            env::remove_var("RUCHO_SERVER_LISTEN_UDP");
+            env::remove_var("RUCHO_SSL_CERT");
+            env::remove_var("RUCHO_SSL_KEY");
+        }
+
         fn create_config_file(&self, path: &std::path::Path, content: &str) {
             let mut file = File::create(path).unwrap_or_else(|e| {
-                panic!("Failed to create config file at {:?}: {}", path, e) // Panic if file creation fails
+                panic!("Failed to create config file at {:?}: {}", path, e)
             });
-            writeln!(file, "{}", content).unwrap(); // Write content to the file
+            writeln!(file, "{}", content).unwrap();
         }
     }
 
     /// Restores the original CWD and cleans up environment variables set during tests.
     impl Drop for TestEnv {
         fn drop(&mut self) {
-            // Restore the original current working directory
-            env::set_current_dir(&self.original_cwd).unwrap();
-            // TempDirs (_etc_dir, _cwd_dir) are automatically removed when they go out of scope.
-            // Clean up any environment variables that might have been set by tests.
-            env::remove_var("RUCHO_PREFIX");
-            env::remove_var("RUCHO_LOG_LEVEL");
-            env::remove_var("RUCHO_SERVER_LISTEN_PRIMARY");
-            env::remove_var("RUCHO_SERVER_LISTEN_SECONDARY");
-            env::remove_var("RUCHO_SSL_CERT");
-            env::remove_var("RUCHO_SSL_KEY");
+            // Attempt to restore CWD but don't panic if it fails (e.g., if directory was deleted)
+            let _ = env::set_current_dir(&self.original_cwd);
+            // TempDirs will be automatically removed when they go out of scope.
+            Self::clear_env_vars();
         }
     }
-    
+
     #[test]
     fn test_default_config() {
         let _env = TestEnv::new(); // Sets up CWD, cleans up vars.
@@ -245,7 +313,7 @@ mod tests {
         let non_existent_etc = PathBuf::from("/tmp/non_existent_rucho_config_for_default_test_etc.conf");
         let non_existent_cwd = PathBuf::from("./non_existent_rucho_config_for_default_test_cwd.conf");
         let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
-        
+
         // Assert that all configuration values match the hardcoded defaults.
         assert_eq!(config.prefix, "/usr/local/rucho");
         assert_eq!(config.log_level, "info");
@@ -265,7 +333,7 @@ mod tests {
         let non_existent_cwd_conf = env_setup.cwd_rucho_conf_path.parent().unwrap().join("non_existent.conf");
 
         let config = Config::load_from_paths(Some(env_setup.etc_rucho_conf_path.clone()), Some(non_existent_cwd_conf));
-        
+
         // Assert that values from /etc/rucho/rucho.conf are loaded.
         assert_eq!(config.prefix, "/etc/path");
         assert_eq!(config.log_level, "etc_level");
@@ -308,7 +376,7 @@ mod tests {
         // Assert that other values remain default.
         assert_eq!(config.server_listen_secondary, "0.0.0.0:9090");
     }
-    
+
     #[test]
     fn test_env_overrides_all_files() {
         let env_setup = TestEnv::new();
@@ -343,12 +411,12 @@ mod tests {
         env::set_var("RUCHO_SERVER_LISTEN_PRIMARY", "env_primary");
         // Ensure other relevant env vars are not set from previous tests for this specific test,
         // so we only test the intended layering.
-        env::remove_var("RUCHO_PREFIX"); 
+        env::remove_var("RUCHO_PREFIX");
         env::remove_var("RUCHO_LOG_LEVEL");
 
 
         let config = Config::load_from_paths(Some(env_setup.etc_rucho_conf_path.clone()), Some(env_setup.cwd_rucho_conf_path.clone()));
-        
+
         // prefix should come from /etc/rucho/rucho.conf
         assert_eq!(config.prefix, "/etc/path");
         // log_level should be from ./rucho.conf (overriding /etc)
@@ -359,84 +427,174 @@ mod tests {
         assert_eq!(config.server_listen_secondary, "2.2.2.2:2222");
     }
 
-    // Test for ensuring pub fn load() calls load_from_paths(None, None).
-    // This test is a bit conceptual as it's hard to directly verify without more complex mocking
-    // or by observing side effects if load_from_paths had them (which it doesn't beyond eprintln).
-    // For now, we trust the implementation. A more advanced setup might involve:
-    // 1. Feature flags to compile a version of load_from_paths that logs its inputs.
-    // 2. Using a mocking library if one were available and suitable.
-    // Given the current tools, a direct test of load() calling load_from_paths(None,None)
-    // is hard to achieve perfectly. We assume the code structure is correct.
-    // The existing test_default_config implicitly tests this if no actual default files exist.
-}
+    #[test]
+    fn test_load_ssl_from_file() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(
+            &env_setup.cwd_rucho_conf_path,
+            "ssl_cert = /test/cert.pem\nssl_key = /test/key.pem",
+        );
 
-#[test]
-fn test_load_ssl_from_file() {
-    let env_setup = TestEnv::new();
-    env_setup.create_config_file(
-        &env_setup.cwd_rucho_conf_path,
-        "ssl_cert = /test/cert.pem\nssl_key = /test/key.pem",
-    );
+        // For etc, pass a path that won't exist
+        let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
 
-    // For etc, pass a path that won't exist
-    let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
 
-    let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
+        assert_eq!(config.ssl_cert, Some("/test/cert.pem".to_string()));
+        assert_eq!(config.ssl_key, Some("/test/key.pem".to_string()));
+    }
 
-    assert_eq!(config.ssl_cert, Some("/test/cert.pem".to_string()));
-    assert_eq!(config.ssl_key, Some("/test/key.pem".to_string()));
-}
+    #[test]
+    fn test_load_ssl_from_env() {
+        let env_setup = TestEnv::new();
+        env::set_var("RUCHO_SSL_CERT", "/env/cert.pem");
+        env::set_var("RUCHO_SSL_KEY", "/env/key.pem");
 
-#[test]
-fn test_load_ssl_from_env() {
-    let env_setup = TestEnv::new(); // Use TestEnv to ensure CWD is set and vars are cleaned up
-    env::set_var("RUCHO_SSL_CERT", "/env/cert.pem");
-    env::set_var("RUCHO_SSL_KEY", "/env/key.pem");
+        // Pass non-existent paths for files to ensure only env vars are loaded
+        let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent_env_only_etc.conf");
+        let non_existent_cwd = env_setup.cwd_rucho_conf_path.parent().unwrap().join("non_existent_env_only_cwd.conf");
 
-    // Pass non-existent paths for files to ensure only env vars are loaded
-    let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent_env_only_etc.conf");
-    let non_existent_cwd = env_setup.cwd_rucho_conf_path.parent().unwrap().join("non_existent_env_only_cwd.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
 
+        assert_eq!(config.ssl_cert, Some("/env/cert.pem".to_string()));
+        assert_eq!(config.ssl_key, Some("/env/key.pem".to_string()));
+    }
 
-    let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+    #[test]
+    fn test_env_overrides_file_for_ssl() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(
+            &env_setup.cwd_rucho_conf_path,
+            "ssl_cert = /file/cert.pem\nssl_key = /file/key.pem",
+        );
+        env::set_var("RUCHO_SSL_CERT", "/env/cert.pem");
+        env::set_var("RUCHO_SSL_KEY", "/env/key.pem");
 
-    assert_eq!(config.ssl_cert, Some("/env/cert.pem".to_string()));
-    assert_eq!(config.ssl_key, Some("/env/key.pem".to_string()));
-}
+        // For etc, pass a path that won't exist
+        let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
 
-#[test]
-fn test_env_overrides_file_for_ssl() {
-    let env_setup = TestEnv::new();
-    env_setup.create_config_file(
-        &env_setup.cwd_rucho_conf_path,
-        "ssl_cert = /file/cert.pem\nssl_key = /file/key.pem",
-    );
-    env::set_var("RUCHO_SSL_CERT", "/env/cert.pem");
-    env::set_var("RUCHO_SSL_KEY", "/env/key.pem");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
 
-    // For etc, pass a path that won't exist
-    let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+        assert_eq!(config.ssl_cert, Some("/env/cert.pem".to_string()));
+        assert_eq!(config.ssl_key, Some("/env/key.pem".to_string()));
+    }
 
-    let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
+    #[test]
+    fn test_partial_ssl_config_layering() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "ssl_cert = /file/cert.pem");
+        env::set_var("RUCHO_SSL_KEY", "/env/key.pem");
+        // Ensure RUCHO_SSL_CERT is not set from other tests for this specific test case
+        env::remove_var("RUCHO_SSL_CERT");
 
-    assert_eq!(config.ssl_cert, Some("/env/cert.pem".to_string()));
-    assert_eq!(config.ssl_key, Some("/env/key.pem".to_string()));
-}
+        // For etc, pass a path that won't exist
+        let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
 
-#[test]
-fn test_partial_ssl_config_layering() {
-    let env_setup = TestEnv::new();
-    env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "ssl_cert = /file/cert.pem");
-    env::set_var("RUCHO_SSL_KEY", "/env/key.pem");
-    // Ensure RUCHO_SSL_CERT is not set from other tests for this specific test case
-    env::remove_var("RUCHO_SSL_CERT");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
 
+        assert_eq!(config.ssl_cert, Some("/file/cert.pem".to_string()));
+        assert_eq!(config.ssl_key, Some("/env/key.pem".to_string()));
+    }
 
-    // For etc, pass a path that won't exist
-    let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+    #[test]
+    fn test_load_tcp_udp_from_file() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(
+            &env_setup.cwd_rucho_conf_path,
+            "server_listen_tcp = 127.0.0.1:1234\nserver_listen_udp = 127.0.0.1:5678",
+        );
 
-    let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
+        let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
 
-    assert_eq!(config.ssl_cert, Some("/file/cert.pem".to_string()));
-    assert_eq!(config.ssl_key, Some("/env/key.pem".to_string()));
+        assert_eq!(config.server_listen_tcp, Some("127.0.0.1:1234".to_string()));
+        assert_eq!(config.server_listen_udp, Some("127.0.0.1:5678".to_string()));
+    }
+
+    #[test]
+    fn test_load_tcp_udp_from_env() {
+        let env_setup = TestEnv::new();
+        env::set_var("RUCHO_SERVER_LISTEN_TCP", "127.0.0.1:1234");
+        env::set_var("RUCHO_SERVER_LISTEN_UDP", "127.0.0.1:5678");
+
+        let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent_env_only_etc.conf");
+        let non_existent_cwd = env_setup.cwd_rucho_conf_path.parent().unwrap().join("non_existent_env_only_cwd.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+
+        assert_eq!(config.server_listen_tcp, Some("127.0.0.1:1234".to_string()));
+        assert_eq!(config.server_listen_udp, Some("127.0.0.1:5678".to_string()));
+    }
+
+    #[test]
+    fn test_env_overrides_file_for_tcp_udp() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(
+            &env_setup.cwd_rucho_conf_path,
+            "server_listen_tcp = /file/tcp\nserver_listen_udp = /file/udp",
+        );
+        env::set_var("RUCHO_SERVER_LISTEN_TCP", "/env/tcp");
+        env::set_var("RUCHO_SERVER_LISTEN_UDP", "/env/udp");
+
+        let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
+
+        assert_eq!(config.server_listen_tcp, Some("/env/tcp".to_string()));
+        assert_eq!(config.server_listen_udp, Some("/env/udp".to_string()));
+    }
+
+    #[test]
+    fn test_partial_tcp_udp_config_layering() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "server_listen_tcp = /file/tcp");
+        env::set_var("RUCHO_SERVER_LISTEN_UDP", "/env/udp");
+        env::remove_var("RUCHO_SERVER_LISTEN_TCP");
+
+        let non_existent_etc = env_setup.etc_rucho_conf_path.parent().unwrap().join("non_existent.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(env_setup.cwd_rucho_conf_path.clone()));
+
+        assert_eq!(config.server_listen_tcp, Some("/file/tcp".to_string()));
+        assert_eq!(config.server_listen_udp, Some("/env/udp".to_string()));
+    }
+
+    #[test]
+    fn test_validate_both_ssl_options_present() {
+        let config = Config {
+            ssl_cert: Some("/path/to/cert.pem".to_string()),
+            ssl_key: Some("/path/to/key.pem".to_string()),
+            ..Config::default()
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_both_ssl_options_absent() {
+        let config = Config::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_ssl_cert_without_key() {
+        let config = Config {
+            ssl_cert: Some("/path/to/cert.pem".to_string()),
+            ssl_key: None,
+            ..Config::default()
+        };
+        assert_eq!(
+            config.validate(),
+            Err(ConfigValidationError::SslCertWithoutKey)
+        );
+    }
+
+    #[test]
+    fn test_validate_ssl_key_without_cert() {
+        let config = Config {
+            ssl_cert: None,
+            ssl_key: Some("/path/to/key.pem".to_string()),
+            ..Config::default()
+        };
+        assert_eq!(
+            config.validate(),
+            Err(ConfigValidationError::SslKeyWithoutCert)
+        );
+    }
 }
