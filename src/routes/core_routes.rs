@@ -159,6 +159,12 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         method: "GET",
         description: "Returns the client's IP address.",
     },
+    // User-Agent endpoint
+    EndpointInfo {
+        path: "/user-agent",
+        method: "GET",
+        description: "Returns the User-Agent header.",
+    },
     // Add the new entry for /endpoints itself
     EndpointInfo {
         path: "/endpoints",
@@ -196,6 +202,8 @@ pub fn router() -> Router {
         .route("/uuid", get(uuid_handler))
         // Route for /ip
         .route("/ip", get(ip_handler))
+        // Route for /user-agent
+        .route("/user-agent", get(user_agent_handler))
         // Route for /endpoints
         .route("/endpoints", get(endpoints_handler))
 }
@@ -519,6 +527,45 @@ pub async fn ip_handler(headers: HeaderMap, Query(pretty_query): Query<PrettyQue
         .unwrap_or_else(|| "unknown".to_string());
 
     format_json_response(json!({"origin": origin}), pretty)
+}
+
+// Handler for /user-agent
+/// Returns the User-Agent header from the request.
+///
+/// Extracts and returns the User-Agent header value. Useful for testing
+/// what user agent string your client is sending.
+///
+/// # HTTP Method:
+/// - `GET`
+///
+/// # Query Parameters:
+/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
+///
+/// # Responses:
+/// - `200 OK`: Returns a JSON object containing the User-Agent string.
+#[utoipa::path(
+    get,
+    path = "/user-agent",
+    params(
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Returns the User-Agent header", body = serde_json::Value)
+    )
+)]
+pub async fn user_agent_handler(
+    headers: HeaderMap,
+    Query(pretty_query): Query<PrettyQuery>,
+) -> Response {
+    let pretty = pretty_query.pretty.unwrap_or(false);
+
+    let user_agent = headers
+        .get(axum::http::header::USER_AGENT)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    format_json_response(json!({"user-agent": user_agent}), pretty)
 }
 
 // From post.rs
