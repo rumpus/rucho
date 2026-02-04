@@ -14,3 +14,7 @@
 .vscode/
 
 /certs/
+
+# Claude Code configuration (local only)
+CLAUDE.md
+/tasks/
