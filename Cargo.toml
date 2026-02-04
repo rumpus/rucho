@@ -24,6 +24,7 @@ http = "1.0"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 utoipa = { version = "4", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "7", features = ["axum"] }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 tempfile = "3.8.0"
