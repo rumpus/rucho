@@ -1,12 +1,14 @@
-/// # Routes Module
-///
-/// This module aggregates and declares all the route handlers for the application.
-/// It re-exports sub-modules containing specific route groups.
-// Make each route module public so they can be used elsewhere in the project
+//! HTTP route handlers for the Rucho web server.
+//!
+//! This module contains all the HTTP route handlers organized into submodules:
+//!
+//! - [`core_routes`] - Main API endpoints (GET, POST, PUT, PATCH, DELETE, etc.)
+//! - [`delay`] - Delay endpoint for testing timeouts
+//! - [`healthz`] - Health check endpoint
 
 /// Module for core API routes, including various HTTP method handlers and utility endpoints.
-pub mod core_routes; // Consolidated routes
-/// Module for the health check endpoint (`/healthz`).
-pub mod healthz;
+pub mod core_routes;
 /// Module for the delay endpoint (`/delay/:n`).
 pub mod delay;
+/// Module for the health check endpoint (`/healthz`).
+pub mod healthz;

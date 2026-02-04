@@ -1,9 +1,9 @@
 // Import necessary types from Axum and Serde
 use axum::{
-    response::{Response}, // For building HTTP responses
-    http::StatusCode,                   // HTTP status codes (like 200 OK)
+    response::Response,
+    http::StatusCode,
 };
-use serde_json::Value;                   // Represents arbitrary JSON values
+use serde_json::Value;
 
 /// Formats a `serde_json::Value` into an Axum `Response`.
 ///
@@ -18,19 +18,34 @@ use serde_json::Value;                   // Represents arbitrary JSON values
 ///
 /// # Returns
 ///
-/// An Axum `Response` object.
+/// An Axum `Response` object. Returns a 500 error response if serialization fails.
 pub fn format_json_response(data: Value, pretty: bool) -> Response {
     // Serialize the JSON Value to a String based on the `pretty` flag
     let body = if pretty {
-        serde_json::to_string_pretty(&data).unwrap()  // Pretty-formatted (indented JSON)
+        serde_json::to_string_pretty(&data)
     } else {
-        serde_json::to_string(&data).unwrap()          // Compact (single-line JSON)
+        serde_json::to_string(&data)
     };
 
-    // Build and return the HTTP Response
-    Response::builder()
-        .status(StatusCode::OK)                        // Always returns HTTP 200 OK
-        .header("Content-Type", "application/json")    // Explicit Content-Type header
-        .body(axum::body::Body::from(body))             // Set serialized JSON as body
-        .unwrap()                                       // Safe unwrap (controlled internal serialization)
+    match body {
+        Ok(json_string) => {
+            Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "application/json")
+                .body(axum::body::Body::from(json_string))
+                .unwrap_or_else(|_| {
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(axum::body::Body::from(r#"{"error":"Failed to build response"}"#))
+                        .expect("fallback response should always build")
+                })
+        }
+        Err(_) => {
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .header("Content-Type", "application/json")
+                .body(axum::body::Body::from(r#"{"error":"Failed to serialize response"}"#))
+                .expect("fallback response should always build")
+        }
+    }
 }

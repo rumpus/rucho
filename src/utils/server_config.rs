@@ -58,7 +58,7 @@ pub async fn try_load_rustls_config(ssl_cert_path_opt: Option<&str>, ssl_key_pat
 /// Parses a server listen address string to extract the address and SSL flag.
 ///
 /// The input string can be in the format "IP:PORT" or "IP:PORT ssl".
-/// If the string ends with " ssl" (case-sensitive), the SSL flag is set to true.
+/// The SSL suffix is case-insensitive (accepts "ssl", "SSL", "Ssl", etc.).
 ///
 /// # Arguments
 ///
@@ -70,14 +70,87 @@ pub async fn try_load_rustls_config(ssl_cert_path_opt: Option<&str>, ssl_key_pat
 /// - `Some((address, is_ssl))` where `address` is the IP:PORT part and `is_ssl`
 ///   is true if " ssl" was present.
 /// - `None` if the input `listen_str` is empty.
+///
+/// # Examples
+///
+/// ```
+/// use rucho::utils::server_config::parse_listen_address;
+///
+/// assert_eq!(parse_listen_address("0.0.0.0:443 ssl"), Some(("0.0.0.0:443".to_string(), true)));
+/// assert_eq!(parse_listen_address("0.0.0.0:443 SSL"), Some(("0.0.0.0:443".to_string(), true)));
+/// assert_eq!(parse_listen_address("0.0.0.0:8080"), Some(("0.0.0.0:8080".to_string(), false)));
+/// assert_eq!(parse_listen_address(""), None);
+/// ```
 pub fn parse_listen_address(listen_str: &str) -> Option<(String, bool)> {
     if listen_str.is_empty() {
         return None;
     }
 
-    if listen_str.ends_with(" ssl") {
-        Some((listen_str.trim_end_matches(" ssl").to_string(), true))
+    // Case-insensitive check for " ssl" suffix
+    let lower = listen_str.to_lowercase();
+    if lower.ends_with(" ssl") {
+        // Remove the last 4 characters (" ssl") from the original string
+        let addr = listen_str[..listen_str.len() - 4].to_string();
+        Some((addr, true))
     } else {
         Some((listen_str.to_string(), false))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_listen_address_empty() {
+        assert_eq!(parse_listen_address(""), None);
+    }
+
+    #[test]
+    fn test_parse_listen_address_no_ssl() {
+        assert_eq!(
+            parse_listen_address("0.0.0.0:8080"),
+            Some(("0.0.0.0:8080".to_string(), false))
+        );
+    }
+
+    #[test]
+    fn test_parse_listen_address_with_ssl_lowercase() {
+        assert_eq!(
+            parse_listen_address("0.0.0.0:443 ssl"),
+            Some(("0.0.0.0:443".to_string(), true))
+        );
+    }
+
+    #[test]
+    fn test_parse_listen_address_with_ssl_uppercase() {
+        assert_eq!(
+            parse_listen_address("0.0.0.0:443 SSL"),
+            Some(("0.0.0.0:443".to_string(), true))
+        );
+    }
+
+    #[test]
+    fn test_parse_listen_address_with_ssl_mixed_case() {
+        assert_eq!(
+            parse_listen_address("0.0.0.0:443 Ssl"),
+            Some(("0.0.0.0:443".to_string(), true))
+        );
+    }
+
+    #[test]
+    fn test_parse_listen_address_ipv6() {
+        assert_eq!(
+            parse_listen_address("[::1]:8080"),
+            Some(("[::1]:8080".to_string(), false))
+        );
+    }
+
+    #[test]
+    fn test_parse_listen_address_ipv6_with_ssl() {
+        assert_eq!(
+            parse_listen_address("[::1]:443 ssl"),
+            Some(("[::1]:443".to_string(), true))
+        );
     }
 }

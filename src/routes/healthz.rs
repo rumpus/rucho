@@ -18,6 +18,6 @@ pub fn router() -> Router {
         (status = 200, description = "Health check successful", body = String)
     )
 )]
-async fn healthz_handler() -> impl IntoResponse {
+pub async fn healthz_handler() -> impl IntoResponse {
     (StatusCode::OK, "OK")
 }

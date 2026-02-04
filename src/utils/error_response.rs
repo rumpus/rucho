@@ -2,7 +2,7 @@
 
 use axum::{
     http::StatusCode,
-    response::{Response},
+    response::Response,
 };
 use serde_json::json;
 
@@ -18,15 +18,23 @@ use serde_json::json;
 ///
 /// # Returns
 ///
-/// An Axum `Response` object.
+/// An Axum `Response` object. Falls back to a plain text error if JSON serialization fails.
 pub fn format_error_response(status: StatusCode, message: &str) -> Response {
     let error_body = json!({
         "error": message
     });
 
+    let body_string = serde_json::to_string(&error_body)
+        .unwrap_or_else(|_| format!(r#"{{"error":"{}"}}"#, message.replace('"', "\\\"")));
+
     Response::builder()
         .status(status)
         .header("Content-Type", "application/json")
-        .body(axum::body::Body::from(error_body.to_string()))
-        .unwrap()
+        .body(axum::body::Body::from(body_string))
+        .unwrap_or_else(|_| {
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(axum::body::Body::from(r#"{"error":"Failed to build error response"}"#))
+                .expect("fallback response should always build")
+        })
 }

@@ -1,8 +1,8 @@
 use axum::{
-    routing::{get, post, put, patch, delete, options, head, any}, 
+    routing::{get, post, put, patch, delete, options, head, any},
     Router,
-    extract::{Json, Query}, 
-    http::{HeaderMap, StatusCode}, 
+    extract::{Json, Query},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
 use serde::{Deserialize, Serialize};
@@ -14,16 +14,41 @@ use crate::utils::{
 };
 use utoipa::ToSchema;
 
-/// Represents a generic JSON payload for request bodies.
+/// Request payload wrapper for POST, PUT, PATCH, and DELETE handlers.
 ///
-/// This struct is used by handlers that expect arbitrary JSON data,
-/// such as `POST`, `PUT`, and `PATCH` requests. The inner `serde_json::Value`
-/// allows for flexible parsing of any valid JSON structure.
+/// This newtype wraps a `serde_json::Value` to accept arbitrary JSON bodies
+/// in requests that support request bodies.
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct Payload(serde_json::Value);
 
+/// Serializes HTTP headers into a JSON object.
+///
+/// Converts an Axum `HeaderMap` into a `serde_json::Value` where each header
+/// name becomes a key and its value becomes a string value. Invalid UTF-8
+/// header values are replaced with `<invalid utf8>`.
+///
+/// # Arguments
+///
+/// * `headers` - Reference to the HeaderMap to serialize
+///
+/// # Returns
+///
+/// A `serde_json::Value` containing the headers as a JSON object
+fn serialize_headers(headers: &HeaderMap) -> serde_json::Value {
+    headers
+        .iter()
+        .map(|(k, v)| {
+            (
+                k.to_string(),
+                serde_json::Value::String(v.to_str().unwrap_or("<invalid utf8>").to_string()),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>()
+        .into()
+}
+
 /// Represents information about an API endpoint.
-#[derive(Serialize, Debug, Clone, Copy, ToSchema)] 
+#[derive(Serialize, Debug, Clone, Copy, ToSchema)]
 pub struct EndpointInfo {
     /// The path of the endpoint (e.g., "/get").
     #[schema(example = "/get")]
@@ -60,20 +85,20 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
     // Routes from former anything.rs
     EndpointInfo { path: "/anything", method: "ANY", description: "Echoes request details for any HTTP method." },
     EndpointInfo { path: "/anything/*path", method: "ANY", description: "Echoes request details for any HTTP method under a specific path." },
-    
+
     // Health check endpoint
     EndpointInfo { path: "/healthz", method: "GET", description: "Performs a health check." },
     // Delay endpoint
-    EndpointInfo { 
-        path: "/delay/:n", 
-        method: "ANY", 
-        description: "Delays the response by 'n' seconds. Replace :n with a number." 
+    EndpointInfo {
+        path: "/delay/:n",
+        method: "ANY",
+        description: "Delays the response by 'n' seconds. Replace :n with a number."
     },
     // Swagger UI endpoint
-    EndpointInfo { 
-        path: "/swagger-ui", 
-        method: "GET", 
-        description: "Displays the OpenAPI/Swagger UI." 
+    EndpointInfo {
+        path: "/swagger-ui",
+        method: "GET",
+        description: "Displays the OpenAPI/Swagger UI."
     },
     // Add the new entry for /endpoints itself
     EndpointInfo { path: "/endpoints", method: "GET", description: "Lists all available API endpoints." }
@@ -86,7 +111,7 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
 pub fn router() -> Router {
     Router::new()
         // Routes from get.rs
-        .route("/", get(root_handler)) 
+        .route("/", get(root_handler))
         .route("/get", get(get_handler))
         .route("/get", head(head_handler))
         // Routes from post.rs
@@ -135,7 +160,7 @@ pub fn router() -> Router {
         // Other status codes are returned directly as specified by `code`
     )
 )]
-async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _method: axum::http::Method) -> Response {
+pub async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _method: axum::http::Method) -> Response {
     StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_REQUEST).into_response()
 }
 
@@ -165,28 +190,23 @@ async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _me
     )
 )]
 pub async fn anything_handler(
-    method: axum::http::Method, 
-    axum::extract::OriginalUri(uri): axum::extract::OriginalUri, 
-    headers: HeaderMap, 
-    Query(query): Query<PrettyQuery>, 
+    method: axum::http::Method,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+    headers: HeaderMap,
+    Query(query): Query<PrettyQuery>,
     body: axum::body::Body
 ) -> impl IntoResponse {
-    let pretty = query.pretty.unwrap_or(false); 
+    let pretty = query.pretty.unwrap_or(false);
     let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
         Ok(bytes) => bytes,
-        Err(_) => return format_json_response(json!({"error": "Failed to read body"}), pretty), 
+        Err(_) => return format_json_response(json!({"error": "Failed to read body"}), pretty),
     };
-
-    let headers_json: serde_json::Value = headers.iter().map(|(k, v)| (
-        k.to_string(),
-        serde_json::Value::String(v.to_str().unwrap_or("<invalid utf8>").to_string())
-    )).collect::<serde_json::Map<_, _>>().into();
 
     let resp = json!({
         "method": method.to_string(),
         "path": uri.path(),
         "query": uri.query().unwrap_or(""),
-        "headers": headers_json,
+        "headers": serialize_headers(&headers),
         "body": String::from_utf8_lossy(&body_bytes),
     });
 
@@ -226,10 +246,10 @@ pub async fn anything_handler(
 pub async fn anything_path_handler(
     // Signature can mirror anything_handler but must include the Path extractor for "path"
     // utoipa needs to see axum::extract::Path here for the {path:.*} parameter.
-    #[allow(unused_variables)] method: axum::http::Method, 
-    #[allow(unused_variables)] uri: axum::extract::OriginalUri, 
-    #[allow(unused_variables)] headers: axum::http::HeaderMap, 
-    #[allow(unused_variables)] query: axum::extract::Query<PrettyQuery>, 
+    #[allow(unused_variables)] method: axum::http::Method,
+    #[allow(unused_variables)] uri: axum::extract::OriginalUri,
+    #[allow(unused_variables)] headers: axum::http::HeaderMap,
+    #[allow(unused_variables)] query: axum::extract::Query<PrettyQuery>,
     #[allow(unused_variables)] path_param: axum::extract::Path<String>, // This is key for utoipa
     #[allow(unused_variables)] body: axum::body::Body
 ) -> Response { // Changed to concrete Response type
@@ -254,7 +274,7 @@ pub async fn anything_path_handler(
         (status = 200, description = "Welcome message", body = String)
     )
 )]
-async fn root_handler() -> &'static str {
+pub async fn root_handler() -> &'static str {
     "Welcome to Echo Server!
 "
 }
@@ -281,17 +301,14 @@ async fn root_handler() -> &'static str {
         (status = 200, description = "Echoes request details", body = serde_json::Value)
     )
 )]
-async fn get_handler(
+pub async fn get_handler(
     headers: HeaderMap,
     Query(pretty_query): Query<PrettyQuery>,
 ) -> Response {
     let pretty = pretty_query.pretty.unwrap_or(false);
     let payload = json!({
         "method": "GET",
-        "headers": headers.iter().map(|(k, v)| (
-            k.to_string(),
-            v.to_str().unwrap_or("<invalid utf8>").to_string()
-        )).collect::<serde_json::Value>(),
+        "headers": serialize_headers(&headers),
     });
     format_json_response(payload, pretty)
 }
@@ -314,7 +331,7 @@ async fn get_handler(
         (status = 200, description = "Responds with headers for GET query")
     )
 )]
-async fn head_handler() -> impl IntoResponse {
+pub async fn head_handler() -> impl IntoResponse {
     Response::builder()
         .status(axum::http::StatusCode::OK)
         .body(axum::body::Body::empty())
@@ -347,11 +364,11 @@ async fn head_handler() -> impl IntoResponse {
         (status = 500, description = "Failed to serialize endpoint data")
     )
 )]
-async fn endpoints_handler(
+pub async fn endpoints_handler(
     Query(pretty_query): Query<PrettyQuery>,
 ) -> Response {
     let pretty = pretty_query.pretty.unwrap_or(false);
-    
+
     match serde_json::to_value(API_ENDPOINTS) {
         Ok(json_value) => format_json_response(json_value, pretty),
         Err(_) => {
@@ -390,25 +407,22 @@ async fn endpoints_handler(
         (status = 400, description = "Invalid JSON payload")
     )
 )]
-async fn post_handler(
-    headers: HeaderMap, 
-    Query(pretty_query): Query<PrettyQuery>, 
-    body: Result<Json<serde_json::Value>, axum::extract::rejection::JsonRejection> 
+pub async fn post_handler(
+    headers: HeaderMap,
+    Query(pretty_query): Query<PrettyQuery>,
+    body: Result<Json<serde_json::Value>, axum::extract::rejection::JsonRejection>
 ) -> impl IntoResponse {
     let pretty = pretty_query.pretty.unwrap_or(false);
     match body {
-        Ok(Json(payload_value)) => { 
+        Ok(Json(payload_value)) => {
             let response_payload = json!({
                 "method": "POST",
-                "headers": headers.iter().map(|(k, v)| (
-                    k.to_string(),
-                    v.to_str().unwrap_or("<invalid utf8>").to_string()
-                )).collect::<serde_json::Value>(),
-                "body": payload_value, 
+                "headers": serialize_headers(&headers),
+                "body": payload_value,
             });
             format_json_response(response_payload, pretty)
         }
-        Err(_) => format_error_response(axum::http::StatusCode::BAD_REQUEST, "Invalid JSON payload")
+        Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload")
     }
 }
 
@@ -442,9 +456,9 @@ async fn post_handler(
         (status = 400, description = "Invalid JSON payload")
     )
 )]
-async fn put_handler(
-    headers: HeaderMap, 
-    Query(pretty_query): Query<PrettyQuery>, 
+pub async fn put_handler(
+    headers: HeaderMap,
+    Query(pretty_query): Query<PrettyQuery>,
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>
 ) -> impl IntoResponse {
     let pretty = pretty_query.pretty.unwrap_or(false);
@@ -452,15 +466,12 @@ async fn put_handler(
         Ok(Json(Payload(body_json))) => {
             let payload = json!({
                 "method": "PUT",
-                "headers": headers.iter().map(|(k, v)| (
-                    k.to_string(),
-                    v.to_str().unwrap_or("<invalid utf8>").to_string()
-                )).collect::<serde_json::Value>(),
+                "headers": serialize_headers(&headers),
                 "body": body_json,
             });
             format_json_response(payload, pretty)
         }
-        Err(_) => format_error_response(axum::http::StatusCode::BAD_REQUEST, "Invalid JSON payload")
+        Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload")
     }
 }
 
@@ -494,9 +505,9 @@ async fn put_handler(
         (status = 400, description = "Invalid JSON payload")
     )
 )]
-async fn patch_handler(
-    headers: HeaderMap, 
-    Query(pretty_query): Query<PrettyQuery>, 
+pub async fn patch_handler(
+    headers: HeaderMap,
+    Query(pretty_query): Query<PrettyQuery>,
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>
 ) -> impl IntoResponse {
     let pretty = pretty_query.pretty.unwrap_or(false);
@@ -504,15 +515,12 @@ async fn patch_handler(
         Ok(Json(Payload(body_json))) => {
             let payload = json!({
                 "method": "PATCH",
-                "headers": headers.iter().map(|(k, v)| (
-                    k.to_string(),
-                    v.to_str().unwrap_or("<invalid utf8>").to_string()
-                )).collect::<serde_json::Value>(),
+                "headers": serialize_headers(&headers),
                 "body": body_json,
             });
             format_json_response(payload, pretty)
         }
-        Err(_) => format_error_response(axum::http::StatusCode::BAD_REQUEST, "Invalid JSON payload")
+        Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload")
     }
 }
 
@@ -544,31 +552,34 @@ async fn patch_handler(
         (status = 200, description = "Echoes request details, body is null if not provided", body = serde_json::Value)
     )
 )]
-async fn delete_handler(
-    headers: HeaderMap, 
-    Query(pretty_query): Query<PrettyQuery>, 
+pub async fn delete_handler(
+    headers: HeaderMap,
+    Query(pretty_query): Query<PrettyQuery>,
     // Axum's Json extractor requires the body to be valid JSON if Content-Type: application/json is sent.
     // To make the body truly optional even with Content-Type, we'd need a custom extractor or to read the body manually.
     // For now, if Content-Type: application/json is sent, a valid JSON body (e.g. "{}") is expected or it's a rejection.
     // If no Content-Type or a different one is sent, `body` will likely be an Err.
-    body: Result<Json<Payload>, axum::extract::rejection::JsonRejection> 
+    body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>
 ) -> impl IntoResponse {
     let pretty = pretty_query.pretty.unwrap_or(false);
-    // Check if body was provided and valid
-    let body_content = match body {
-        Ok(Json(Payload(body_json))) => body_json, // Body was valid JSON
-        Err(_) => serde_json::Value::Null, // Body was not provided or not valid JSON, treat as null
-    };
-
-    let payload = json!({
-        "method": "DELETE",
-        "headers": headers.iter().map(|(k, v)| (
-            k.to_string(),
-            v.to_str().unwrap_or("<invalid utf8>").to_string()
-        )).collect::<serde_json::Value>(),
-        "body": body_content,
-    });
-    format_json_response(payload, pretty)
+    match body {
+        Ok(Json(Payload(body_json))) => {
+            let payload = json!({
+                "method": "DELETE",
+                "headers": serialize_headers(&headers),
+                "body": body_json,
+            });
+            format_json_response(payload, pretty)
+        }
+        Err(_) => {
+            let payload = json!({
+                "method": "DELETE",
+                "headers": serialize_headers(&headers),
+                "body": serde_json::Value::Null,
+            });
+            format_json_response(payload, pretty)
+        }
+    }
 }
 
 // From options.rs
@@ -590,10 +601,10 @@ async fn delete_handler(
         (status = 204, description = "No content, Allow header lists allowed methods")
     )
 )]
-async fn options_handler() -> impl IntoResponse {
+pub async fn options_handler() -> impl IntoResponse {
     Response::builder()
-        .status(StatusCode::NO_CONTENT) 
-        .header(axum::http::header::ALLOW, "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD") 
+        .status(StatusCode::NO_CONTENT)
+        .header(axum::http::header::ALLOW, "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD")
         .body(axum::body::Body::empty())
         .unwrap()
 }
