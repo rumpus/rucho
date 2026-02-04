@@ -12,3 +12,5 @@ pub mod core_routes;
 pub mod delay;
 /// Module for the health check endpoint (`/healthz`).
 pub mod healthz;
+/// Module for the metrics endpoint (`/metrics`).
+pub mod metrics;

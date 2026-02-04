@@ -4,6 +4,7 @@
 //! server listeners (HTTP, HTTPS, TCP, UDP) and handling graceful shutdown.
 
 pub mod http;
+pub mod metrics_layer;
 pub mod shutdown;
 pub mod tcp;
 pub mod udp;

@@ -12,6 +12,8 @@ pub mod constants;
 pub mod error_response;
 /// Module for creating standardized JSON responses.
 pub mod json_response;
+/// Module for metrics collection and storage.
+pub mod metrics;
 /// Module for PID file management operations.
 pub mod pid;
 /// Module defining common request model structures, like query parameters.
