@@ -43,14 +43,7 @@ pub async fn setup_http_listeners(
         };
 
         if is_ssl {
-            setup_https_listener(
-                config,
-                sock_addr,
-                app_clone,
-                handle_clone,
-                server_handles,
-            )
-            .await;
+            setup_https_listener(config, sock_addr, app_clone, handle_clone, server_handles).await;
         } else {
             setup_http_listener(sock_addr, app_clone, handle_clone, server_handles).await;
         }

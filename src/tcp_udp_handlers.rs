@@ -13,11 +13,13 @@
 //! - **Graceful error handling**: Connection errors are logged but don't crash
 //!   the server.
 
+use crate::utils::constants::{
+    MAX_BUFFER_SIZE, UDP_ERROR_BACKOFF_BASE_MS, UDP_ERROR_BACKOFF_MAX_MS,
+};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpStream, UdpSocket};
-use crate::utils::constants::{MAX_BUFFER_SIZE, UDP_ERROR_BACKOFF_BASE_MS, UDP_ERROR_BACKOFF_MAX_MS};
 
 /// Handles an incoming TCP connection by echoing received data back to the client.
 ///

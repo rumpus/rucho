@@ -68,7 +68,10 @@ pub fn handle_stop_command() {
                         "Termination signal sent to process {}. It may still be shutting down.",
                         pid_val
                     );
-                    println!("You might need to use kill -9 {} if it doesn't stop.", pid_val);
+                    println!(
+                        "You might need to use kill -9 {} if it doesn't stop.",
+                        pid_val
+                    );
                 }
                 StopResult::NotFound => {
                     println!(
@@ -89,7 +92,10 @@ pub fn handle_stop_command() {
         }
         Err(e) => {
             if matches!(e, PidError::ReadFailed(_)) {
-                println!("Server not running (PID file {} not found).", pid_file_path());
+                println!(
+                    "Server not running (PID file {} not found).",
+                    pid_file_path()
+                );
             } else {
                 eprintln!("Error: {}", e);
             }
@@ -117,7 +123,10 @@ pub fn handle_status_command() {
         }
         Err(e) => {
             if matches!(e, PidError::ReadFailed(_)) {
-                println!("Server is stopped (PID file {} not found).", pid_file_path());
+                println!(
+                    "Server is stopped (PID file {} not found).",
+                    pid_file_path()
+                );
             } else {
                 eprintln!("Error: {}", e);
             }

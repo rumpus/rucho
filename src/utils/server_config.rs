@@ -3,8 +3,8 @@
 // This module configures the server to use optional HTTPS + HTTP/2 using rustls.
 // If the certificates are not found, it falls back to plain HTTP with HTTP/1.1.
 
-use std::path::PathBuf;
 use axum_server::tls_rustls::RustlsConfig;
+use std::path::PathBuf;
 
 /// Attempts to load Rustls configuration for enabling HTTPS.
 ///
@@ -24,7 +24,10 @@ use axum_server::tls_rustls::RustlsConfig;
 /// # Returns
 ///
 /// An `Option<RustlsConfig>`. `Some(RustlsConfig)` if TLS can be configured, `None` otherwise.
-pub async fn try_load_rustls_config(ssl_cert_path_opt: Option<&str>, ssl_key_path_opt: Option<&str>) -> Option<RustlsConfig> {
+pub async fn try_load_rustls_config(
+    ssl_cert_path_opt: Option<&str>,
+    ssl_key_path_opt: Option<&str>,
+) -> Option<RustlsConfig> {
     // Check if both paths are provided
     let (cert_p, key_p) = match (ssl_cert_path_opt, ssl_key_path_opt) {
         (Some(cert_path_str), Some(key_path_str)) => (cert_path_str, key_path_str),
@@ -45,7 +48,12 @@ pub async fn try_load_rustls_config(ssl_cert_path_opt: Option<&str>, ssl_key_pat
         match RustlsConfig::from_pem_file(&cert_path, &key_path).await {
             Ok(config) => Some(config),
             Err(err) => {
-                tracing::error!("Failed to load TLS config from {} and {}: {}", cert_path.display(), key_path.display(), err);
+                tracing::error!(
+                    "Failed to load TLS config from {} and {}: {}",
+                    cert_path.display(),
+                    key_path.display(),
+                    err
+                );
                 None
             }
         }
