@@ -1,9 +1,6 @@
 // Utility to create standardized JSON error responses
 
-use axum::{
-    http::StatusCode,
-    response::Response,
-};
+use axum::{http::StatusCode, response::Response};
 use serde_json::json;
 
 /// Formats a JSON error response.
@@ -34,7 +31,9 @@ pub fn format_error_response(status: StatusCode, message: &str) -> Response {
         .unwrap_or_else(|_| {
             Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(axum::body::Body::from(r#"{"error":"Failed to build error response"}"#))
+                .body(axum::body::Body::from(
+                    r#"{"error":"Failed to build error response"}"#,
+                ))
                 .expect("fallback response should always build")
         })
 }

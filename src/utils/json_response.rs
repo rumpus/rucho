@@ -1,8 +1,5 @@
 // Import necessary types from Axum and Serde
-use axum::{
-    response::Response,
-    http::StatusCode,
-};
+use axum::{http::StatusCode, response::Response};
 use serde_json::Value;
 
 /// Formats a `serde_json::Value` into an Axum `Response`.
@@ -28,24 +25,24 @@ pub fn format_json_response(data: Value, pretty: bool) -> Response {
     };
 
     match body {
-        Ok(json_string) => {
-            Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "application/json")
-                .body(axum::body::Body::from(json_string))
-                .unwrap_or_else(|_| {
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(axum::body::Body::from(r#"{"error":"Failed to build response"}"#))
-                        .expect("fallback response should always build")
-                })
-        }
-        Err(_) => {
-            Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .header("Content-Type", "application/json")
-                .body(axum::body::Body::from(r#"{"error":"Failed to serialize response"}"#))
-                .expect("fallback response should always build")
-        }
+        Ok(json_string) => Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", "application/json")
+            .body(axum::body::Body::from(json_string))
+            .unwrap_or_else(|_| {
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(axum::body::Body::from(
+                        r#"{"error":"Failed to build response"}"#,
+                    ))
+                    .expect("fallback response should always build")
+            }),
+        Err(_) => Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .header("Content-Type", "application/json")
+            .body(axum::body::Body::from(
+                r#"{"error":"Failed to serialize response"}"#,
+            ))
+            .expect("fallback response should always build"),
     }
 }

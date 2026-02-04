@@ -1,17 +1,16 @@
+use crate::utils::{
+    error_response::format_error_response, json_response::format_json_response,
+    request_models::PrettyQuery,
+};
 use axum::{
-    routing::{get, post, put, patch, delete, options, head, any},
-    Router,
     extract::{Json, Query},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
+    routing::{any, delete, get, head, options, patch, post, put},
+    Router,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use crate::utils::{
-    json_response::format_json_response,
-    error_response::format_error_response,
-    request_models::PrettyQuery,
-};
 use utoipa::ToSchema;
 
 /// Request payload wrapper for POST, PUT, PATCH, and DELETE handlers.
@@ -67,41 +66,92 @@ pub struct EndpointInfo {
 /// of available API operations, including their paths, HTTP methods, and descriptions.
 static API_ENDPOINTS: &[EndpointInfo] = &[
     // Routes from former get.rs
-    EndpointInfo { path: "/", method: "GET", description: "Root welcome message." },
-    EndpointInfo { path: "/get", method: "GET", description: "Echoes request details for GET." },
-    EndpointInfo { path: "/get", method: "HEAD", description: "Responds with headers for GET query." },
+    EndpointInfo {
+        path: "/",
+        method: "GET",
+        description: "Root welcome message.",
+    },
+    EndpointInfo {
+        path: "/get",
+        method: "GET",
+        description: "Echoes request details for GET.",
+    },
+    EndpointInfo {
+        path: "/get",
+        method: "HEAD",
+        description: "Responds with headers for GET query.",
+    },
     // Routes from former post.rs
-    EndpointInfo { path: "/post", method: "POST", description: "Echoes request details for POST, expects JSON body." },
+    EndpointInfo {
+        path: "/post",
+        method: "POST",
+        description: "Echoes request details for POST, expects JSON body.",
+    },
     // Routes from former put.rs
-    EndpointInfo { path: "/put", method: "PUT", description: "Echoes request details for PUT, expects JSON body." },
+    EndpointInfo {
+        path: "/put",
+        method: "PUT",
+        description: "Echoes request details for PUT, expects JSON body.",
+    },
     // Routes from former patch.rs
-    EndpointInfo { path: "/patch", method: "PATCH", description: "Echoes request details for PATCH, expects JSON body." },
+    EndpointInfo {
+        path: "/patch",
+        method: "PATCH",
+        description: "Echoes request details for PATCH, expects JSON body.",
+    },
     // Routes from former delete.rs
-    EndpointInfo { path: "/delete", method: "DELETE", description: "Echoes request details for DELETE." },
+    EndpointInfo {
+        path: "/delete",
+        method: "DELETE",
+        description: "Echoes request details for DELETE.",
+    },
     // Routes from former options.rs
-    EndpointInfo { path: "/options", method: "OPTIONS", description: "Responds with allowed HTTP methods." },
+    EndpointInfo {
+        path: "/options",
+        method: "OPTIONS",
+        description: "Responds with allowed HTTP methods.",
+    },
     // Routes from former status.rs
-    EndpointInfo { path: "/status/:code", method: "ANY", description: "Returns the specified HTTP status code." },
+    EndpointInfo {
+        path: "/status/:code",
+        method: "ANY",
+        description: "Returns the specified HTTP status code.",
+    },
     // Routes from former anything.rs
-    EndpointInfo { path: "/anything", method: "ANY", description: "Echoes request details for any HTTP method." },
-    EndpointInfo { path: "/anything/*path", method: "ANY", description: "Echoes request details for any HTTP method under a specific path." },
-
+    EndpointInfo {
+        path: "/anything",
+        method: "ANY",
+        description: "Echoes request details for any HTTP method.",
+    },
+    EndpointInfo {
+        path: "/anything/*path",
+        method: "ANY",
+        description: "Echoes request details for any HTTP method under a specific path.",
+    },
     // Health check endpoint
-    EndpointInfo { path: "/healthz", method: "GET", description: "Performs a health check." },
+    EndpointInfo {
+        path: "/healthz",
+        method: "GET",
+        description: "Performs a health check.",
+    },
     // Delay endpoint
     EndpointInfo {
         path: "/delay/:n",
         method: "ANY",
-        description: "Delays the response by 'n' seconds. Replace :n with a number."
+        description: "Delays the response by 'n' seconds. Replace :n with a number.",
     },
     // Swagger UI endpoint
     EndpointInfo {
         path: "/swagger-ui",
         method: "GET",
-        description: "Displays the OpenAPI/Swagger UI."
+        description: "Displays the OpenAPI/Swagger UI.",
     },
     // Add the new entry for /endpoints itself
-    EndpointInfo { path: "/endpoints", method: "GET", description: "Lists all available API endpoints." }
+    EndpointInfo {
+        path: "/endpoints",
+        method: "GET",
+        description: "Lists all available API endpoints.",
+    },
 ];
 
 /// Creates and returns the Axum router for the core API endpoints.
@@ -160,8 +210,13 @@ pub fn router() -> Router {
         // Other status codes are returned directly as specified by `code`
     )
 )]
-pub async fn status_handler(axum::extract::Path(code): axum::extract::Path<u16>, _method: axum::http::Method) -> Response {
-    StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_REQUEST).into_response()
+pub async fn status_handler(
+    axum::extract::Path(code): axum::extract::Path<u16>,
+    _method: axum::http::Method,
+) -> Response {
+    StatusCode::from_u16(code)
+        .unwrap_or(StatusCode::BAD_REQUEST)
+        .into_response()
 }
 
 // From anything.rs
@@ -194,7 +249,7 @@ pub async fn anything_handler(
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     headers: HeaderMap,
     Query(query): Query<PrettyQuery>,
-    body: axum::body::Body
+    body: axum::body::Body,
 ) -> impl IntoResponse {
     let pretty = query.pretty.unwrap_or(false);
     let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
@@ -251,8 +306,9 @@ pub async fn anything_path_handler(
     #[allow(unused_variables)] headers: axum::http::HeaderMap,
     #[allow(unused_variables)] query: axum::extract::Query<PrettyQuery>,
     #[allow(unused_variables)] path_param: axum::extract::Path<String>, // This is key for utoipa
-    #[allow(unused_variables)] body: axum::body::Body
-) -> Response { // Changed to concrete Response type
+    #[allow(unused_variables)] body: axum::body::Body,
+) -> Response {
+    // Changed to concrete Response type
     // This function body is not intended to be executed.
     // The actual logic for "/anything/*" paths is in `anything_handler`.
     // This exists for OpenAPI generation purposes.
@@ -301,10 +357,7 @@ pub async fn root_handler() -> &'static str {
         (status = 200, description = "Echoes request details", body = serde_json::Value)
     )
 )]
-pub async fn get_handler(
-    headers: HeaderMap,
-    Query(pretty_query): Query<PrettyQuery>,
-) -> Response {
+pub async fn get_handler(headers: HeaderMap, Query(pretty_query): Query<PrettyQuery>) -> Response {
     let pretty = pretty_query.pretty.unwrap_or(false);
     let payload = json!({
         "method": "GET",
@@ -364,16 +417,15 @@ pub async fn head_handler() -> impl IntoResponse {
         (status = 500, description = "Failed to serialize endpoint data")
     )
 )]
-pub async fn endpoints_handler(
-    Query(pretty_query): Query<PrettyQuery>,
-) -> Response {
+pub async fn endpoints_handler(Query(pretty_query): Query<PrettyQuery>) -> Response {
     let pretty = pretty_query.pretty.unwrap_or(false);
 
     match serde_json::to_value(API_ENDPOINTS) {
         Ok(json_value) => format_json_response(json_value, pretty),
-        Err(_) => {
-            format_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Failed to serialize endpoint data.")
-        }
+        Err(_) => format_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to serialize endpoint data.",
+        ),
     }
 }
 
@@ -410,7 +462,7 @@ pub async fn endpoints_handler(
 pub async fn post_handler(
     headers: HeaderMap,
     Query(pretty_query): Query<PrettyQuery>,
-    body: Result<Json<serde_json::Value>, axum::extract::rejection::JsonRejection>
+    body: Result<Json<serde_json::Value>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
     let pretty = pretty_query.pretty.unwrap_or(false);
     match body {
@@ -422,7 +474,7 @@ pub async fn post_handler(
             });
             format_json_response(response_payload, pretty)
         }
-        Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload")
+        Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload"),
     }
 }
 
@@ -459,7 +511,7 @@ pub async fn post_handler(
 pub async fn put_handler(
     headers: HeaderMap,
     Query(pretty_query): Query<PrettyQuery>,
-    body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>
+    body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
     let pretty = pretty_query.pretty.unwrap_or(false);
     match body {
@@ -471,7 +523,7 @@ pub async fn put_handler(
             });
             format_json_response(payload, pretty)
         }
-        Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload")
+        Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload"),
     }
 }
 
@@ -508,7 +560,7 @@ pub async fn put_handler(
 pub async fn patch_handler(
     headers: HeaderMap,
     Query(pretty_query): Query<PrettyQuery>,
-    body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>
+    body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
     let pretty = pretty_query.pretty.unwrap_or(false);
     match body {
@@ -520,7 +572,7 @@ pub async fn patch_handler(
             });
             format_json_response(payload, pretty)
         }
-        Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload")
+        Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload"),
     }
 }
 
@@ -559,7 +611,7 @@ pub async fn delete_handler(
     // To make the body truly optional even with Content-Type, we'd need a custom extractor or to read the body manually.
     // For now, if Content-Type: application/json is sent, a valid JSON body (e.g. "{}") is expected or it's a rejection.
     // If no Content-Type or a different one is sent, `body` will likely be an Err.
-    body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>
+    body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
     let pretty = pretty_query.pretty.unwrap_or(false);
     match body {
@@ -604,7 +656,10 @@ pub async fn delete_handler(
 pub async fn options_handler() -> impl IntoResponse {
     Response::builder()
         .status(StatusCode::NO_CONTENT)
-        .header(axum::http::header::ALLOW, "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD")
+        .header(
+            axum::http::header::ALLOW,
+            "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
+        )
         .body(axum::body::Body::empty())
         .unwrap()
 }

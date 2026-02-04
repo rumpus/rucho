@@ -1,12 +1,7 @@
 //! Delay endpoint for testing timeout handling and slow responses.
 
-use axum::{
-    http::StatusCode,
-    response::IntoResponse,
-    routing::any,
-    Router,
-};
 use crate::utils::constants::MAX_DELAY_SECONDS;
+use axum::{http::StatusCode, response::IntoResponse, routing::any, Router};
 
 /// Handles requests to the `/delay/:n` endpoint.
 ///

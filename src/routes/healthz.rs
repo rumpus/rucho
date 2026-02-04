@@ -1,5 +1,5 @@
 // healthz.rs
-use axum::{routing::get, Router, response::IntoResponse, http::StatusCode};
+use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 
 /// Creates and returns the Axum router for the health check endpoint.
 ///
