@@ -153,6 +153,12 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         method: "GET",
         description: "Returns a randomly generated UUID v4.",
     },
+    // IP endpoint
+    EndpointInfo {
+        path: "/ip",
+        method: "GET",
+        description: "Returns the client's IP address.",
+    },
     // Add the new entry for /endpoints itself
     EndpointInfo {
         path: "/endpoints",
@@ -188,6 +194,8 @@ pub fn router() -> Router {
         .route("/anything/*path", any(anything_handler))
         // Route for /uuid
         .route("/uuid", get(uuid_handler))
+        // Route for /ip
+        .route("/ip", get(ip_handler))
         // Route for /endpoints
         .route("/endpoints", get(endpoints_handler))
 }
@@ -466,6 +474,51 @@ pub async fn uuid_handler(Query(pretty_query): Query<PrettyQuery>) -> Response {
     let pretty = pretty_query.pretty.unwrap_or(false);
     let uuid = Uuid::new_v4();
     format_json_response(json!({"uuid": uuid.to_string()}), pretty)
+}
+
+// Handler for /ip
+/// Returns the client's IP address.
+///
+/// Extracts the client IP from request headers. Checks X-Forwarded-For first
+/// (for proxied requests), then X-Real-IP as a fallback.
+///
+/// # HTTP Method:
+/// - `GET`
+///
+/// # Query Parameters:
+/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
+///
+/// # Responses:
+/// - `200 OK`: Returns a JSON object containing the client's origin IP.
+#[utoipa::path(
+    get,
+    path = "/ip",
+    params(
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Returns the client's IP address", body = serde_json::Value)
+    )
+)]
+pub async fn ip_handler(headers: HeaderMap, Query(pretty_query): Query<PrettyQuery>) -> Response {
+    let pretty = pretty_query.pretty.unwrap_or(false);
+
+    // Try X-Forwarded-For first (common for proxied requests)
+    let origin = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string())
+        // Fall back to X-Real-IP
+        .or_else(|| {
+            headers
+                .get("x-real-ip")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string())
+        })
+        // Default if no headers present
+        .unwrap_or_else(|| "unknown".to_string());
+
+    format_json_response(json!({"origin": origin}), pretty)
 }
 
 // From post.rs
