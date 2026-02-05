@@ -12,6 +12,7 @@ services:
     environment:
       RUCHO_LOG_LEVEL: "debug"
       RUCHO_METRICS_ENABLED: "true"
+      RUCHO_COMPRESSION_ENABLED: "true"
     # If you need to persist data, uncomment the following lines and adjust the path
     # volumes:
     #   - rucho_data:/var/run/rucho
