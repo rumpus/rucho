@@ -1,5 +1,6 @@
 services:
   rucho:
+    image: rumpus/rucho:latest
     build:
       context: .
       dockerfile: Dockerfile

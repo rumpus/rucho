@@ -1,0 +1,29 @@
+# Build artifacts
+target/
+debug/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Documentation (not needed in image)
+*.md
+!README.md
+docs/
+
+# CI/CD
+.github/
+
+# Development
+tasks/
+Makefile
+
+# Debian packaging
+debian/
+*.deb
