@@ -18,3 +18,5 @@ pub mod metrics;
 pub mod pid;
 /// Module for server-specific configurations, including listener parsing and SSL setup.
 pub mod server_config;
+/// Module for request timing utilities.
+pub mod timing;

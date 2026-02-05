@@ -24,6 +24,7 @@ use rucho::cli::{
 };
 use rucho::routes::core_routes::EndpointInfo;
 use rucho::server::metrics_layer::metrics_middleware;
+use rucho::server::timing_layer::timing_middleware;
 use rucho::utils::config::Config;
 use rucho::utils::metrics::Metrics;
 
@@ -125,12 +126,13 @@ fn build_app(metrics: Option<Arc<Metrics>>) -> Router {
             }));
     }
 
-    app.layer(
-        TraceLayer::new_for_http()
-            .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
-            .on_request(DefaultOnRequest::new().level(Level::INFO))
-            .on_response(DefaultOnResponse::new().level(Level::INFO)),
-    )
-    .layer(CorsLayer::permissive())
-    .layer(NormalizePathLayer::trim_trailing_slash())
+    app.layer(middleware::from_fn(timing_middleware))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(DefaultOnResponse::new().level(Level::INFO)),
+        )
+        .layer(CorsLayer::permissive())
+        .layer(NormalizePathLayer::trim_trailing_slash())
 }
