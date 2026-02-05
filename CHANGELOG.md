@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Request Timing**: All JSON echo responses now include processing time
+  - `timing.duration_ms` field in response body (sub-millisecond precision)
+  - Middleware captures start time, handlers calculate elapsed duration
+  - Only applies to JSON echo endpoints (not `/healthz`, `/delay`, `/status`)
 - **Metrics Endpoint** (`/metrics`): Request statistics with all-time and rolling hour window
   - Total request count
   - Per-endpoint hit counts
