@@ -165,6 +165,12 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         method: "GET",
         description: "Returns the User-Agent header.",
     },
+    // Headers endpoint
+    EndpointInfo {
+        path: "/headers",
+        method: "GET",
+        description: "Returns all request headers.",
+    },
     // Add the new entry for /endpoints itself
     EndpointInfo {
         path: "/endpoints",
@@ -204,6 +210,8 @@ pub fn router() -> Router {
         .route("/ip", get(ip_handler))
         // Route for /user-agent
         .route("/user-agent", get(user_agent_handler))
+        // Route for /headers
+        .route("/headers", get(headers_handler))
         // Route for /endpoints
         .route("/endpoints", get(endpoints_handler))
 }
@@ -566,6 +574,38 @@ pub async fn user_agent_handler(
         .to_string();
 
     format_json_response(json!({"user-agent": user_agent}), pretty)
+}
+
+// Handler for /headers
+/// Returns all request headers as a JSON object.
+///
+/// Useful for debugging what headers are being sent by the client,
+/// including auth tokens, proxy headers, and custom headers.
+///
+/// # HTTP Method:
+/// - `GET`
+///
+/// # Query Parameters:
+/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
+///
+/// # Responses:
+/// - `200 OK`: Returns a JSON object containing all request headers.
+#[utoipa::path(
+    get,
+    path = "/headers",
+    params(
+        PrettyQuery
+    ),
+    responses(
+        (status = 200, description = "Returns all request headers", body = serde_json::Value)
+    )
+)]
+pub async fn headers_handler(
+    headers: HeaderMap,
+    Query(pretty_query): Query<PrettyQuery>,
+) -> Response {
+    let pretty = pretty_query.pretty.unwrap_or(false);
+    format_json_response(json!({"headers": serialize_headers(&headers)}), pretty)
 }
 
 // From post.rs
