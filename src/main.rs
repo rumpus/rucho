@@ -8,6 +8,7 @@ use clap::Parser;
 use std::str::FromStr;
 use std::sync::Arc;
 use tower_http::{
+    compression::CompressionLayer,
     cors::CorsLayer,
     normalize_path::NormalizePathLayer,
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
@@ -93,7 +94,7 @@ async fn main() {
                     None
                 };
 
-                let app = build_app(metrics);
+                let app = build_app(metrics, config.compression_enabled);
                 rucho::server::run_server(&config, app).await;
             }
         }
@@ -106,7 +107,8 @@ async fn main() {
 /// Builds the Axum application with all routes and middleware.
 ///
 /// If metrics is Some, enables the /metrics endpoint and metrics collection middleware.
-fn build_app(metrics: Option<Arc<Metrics>>) -> Router {
+/// If compression_enabled is true, enables gzip/brotli response compression.
+fn build_app(metrics: Option<Arc<Metrics>>, compression_enabled: bool) -> Router {
     let mut app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(rucho::routes::core_routes::router())
@@ -126,13 +128,23 @@ fn build_app(metrics: Option<Arc<Metrics>>) -> Router {
             }));
     }
 
-    app.layer(middleware::from_fn(timing_middleware))
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
-                .on_request(DefaultOnRequest::new().level(Level::INFO))
-                .on_response(DefaultOnResponse::new().level(Level::INFO)),
-        )
-        .layer(CorsLayer::permissive())
+    // Middleware order (innermost to outermost):
+    // routes → timing → trace → compression → cors → normalize-path
+    let app = app.layer(middleware::from_fn(timing_middleware)).layer(
+        TraceLayer::new_for_http()
+            .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+            .on_request(DefaultOnRequest::new().level(Level::INFO))
+            .on_response(DefaultOnResponse::new().level(Level::INFO)),
+    );
+
+    // Conditionally add compression layer
+    let app = if compression_enabled {
+        tracing::info!("Response compression enabled (gzip, brotli)");
+        app.layer(CompressionLayer::new())
+    } else {
+        app
+    };
+
+    app.layer(CorsLayer::permissive())
         .layer(NormalizePathLayer::trim_trailing_slash())
 }
