@@ -160,7 +160,14 @@ src/
 
 ## Docker
 
-### Build and Run
+### Pull from Docker Hub
+
+```bash
+docker pull rumpus/rucho:latest
+docker run -p 8080:8080 -p 9090:9090 rumpus/rucho:latest
+```
+
+### Build Locally
 
 ```bash
 docker build -t rucho .

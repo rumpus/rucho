@@ -39,6 +39,8 @@
 - [x] PID file management
 - [x] GitHub Actions CI pipeline
 - [x] CORS support (permissive)
+- [x] Docker Hub publishing (`rumpus/rucho`)
+- [x] Optimized multi-stage Dockerfile (189MB image)
 
 ### Observability
 - [x] `/metrics` endpoint (JSON format, toggleable)
