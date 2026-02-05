@@ -40,3 +40,8 @@ server_listen_secondary = 0.0.0.0:9090
 # When enabled, the server exposes request statistics at /metrics.
 # Example: metrics_enabled = true
 metrics_enabled = false
+
+# Enable response compression (gzip, brotli).
+# When enabled, responses are compressed based on client Accept-Encoding header.
+# Example: compression_enabled = true
+compression_enabled = false

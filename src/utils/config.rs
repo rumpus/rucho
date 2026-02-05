@@ -57,6 +57,8 @@ pub struct Config {
     pub ssl_key: Option<String>,
     /// Enable the /metrics endpoint for request statistics.
     pub metrics_enabled: bool,
+    /// Enable response compression (gzip, brotli) based on client Accept-Encoding.
+    pub compression_enabled: bool,
 }
 
 impl Default for Config {
@@ -73,6 +75,7 @@ impl Default for Config {
             ssl_cert: None,
             ssl_key: None,
             metrics_enabled: false,
+            compression_enabled: false,
         }
     }
 }
@@ -128,6 +131,10 @@ impl Config {
                     "ssl_key" => config.ssl_key = Some(value.to_string()),
                     "metrics_enabled" => {
                         config.metrics_enabled = value.eq_ignore_ascii_case("true") || value == "1"
+                    }
+                    "compression_enabled" => {
+                        config.compression_enabled =
+                            value.eq_ignore_ascii_case("true") || value == "1"
                     }
                     _ => eprintln!("Warning: Unknown key in config file: {}", key),
                 }
@@ -201,6 +208,12 @@ impl Config {
         load_env_var!(config, ssl_cert, "RUCHO_SSL_CERT", option);
         load_env_var!(config, ssl_key, "RUCHO_SSL_KEY", option);
         load_env_var!(config, metrics_enabled, "RUCHO_METRICS_ENABLED", bool);
+        load_env_var!(
+            config,
+            compression_enabled,
+            "RUCHO_COMPRESSION_ENABLED",
+            bool
+        );
 
         config
     }
@@ -246,6 +259,7 @@ impl Config {
     /// - `ssl_cert` (`RUCHO_SSL_CERT`)
     /// - `ssl_key` (`RUCHO_SSL_KEY`)
     /// - `metrics_enabled` (`RUCHO_METRICS_ENABLED`)
+    /// - `compression_enabled` (`RUCHO_COMPRESSION_ENABLED`)
     pub fn load() -> Self {
         Self::load_from_paths(None, None)
     }
@@ -313,6 +327,7 @@ mod tests {
             env::remove_var("RUCHO_SSL_CERT");
             env::remove_var("RUCHO_SSL_KEY");
             env::remove_var("RUCHO_METRICS_ENABLED");
+            env::remove_var("RUCHO_COMPRESSION_ENABLED");
         }
 
         fn create_config_file(&self, path: &std::path::Path, content: &str) {
@@ -732,5 +747,75 @@ mod tests {
             config.validate(),
             Err(ConfigValidationError::SslKeyWithoutCert)
         );
+    }
+
+    #[test]
+    fn test_compression_enabled_default_false() {
+        let _env = TestEnv::new();
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_compression_test_etc.conf");
+        let non_existent_cwd = PathBuf::from("./non_existent_compression_test_cwd.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+
+        assert!(!config.compression_enabled);
+    }
+
+    #[test]
+    fn test_load_compression_enabled_from_file() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "compression_enabled = true");
+
+        let non_existent_etc = env_setup
+            .etc_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let config = Config::load_from_paths(
+            Some(non_existent_etc),
+            Some(env_setup.cwd_rucho_conf_path.clone()),
+        );
+
+        assert!(config.compression_enabled);
+    }
+
+    #[test]
+    fn test_load_compression_enabled_from_env() {
+        let env_setup = TestEnv::new();
+        env::set_var("RUCHO_COMPRESSION_ENABLED", "true");
+
+        let non_existent_etc = env_setup
+            .etc_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let non_existent_cwd = env_setup
+            .cwd_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+
+        assert!(config.compression_enabled);
+    }
+
+    #[test]
+    fn test_env_overrides_file_for_compression() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(
+            &env_setup.cwd_rucho_conf_path,
+            "compression_enabled = false",
+        );
+        env::set_var("RUCHO_COMPRESSION_ENABLED", "true");
+
+        let non_existent_etc = env_setup
+            .etc_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let config = Config::load_from_paths(
+            Some(non_existent_etc),
+            Some(env_setup.cwd_rucho_conf_path.clone()),
+        );
+
+        assert!(config.compression_enabled);
     }
 }
