@@ -34,7 +34,6 @@
 - [x] PID file management
 - [x] Configuration via files and environment variables
 - [ ] JSON structured server logs
-- [ ] Panic recovery middleware
 - [ ] Request/response size metrics
 - [ ] Helm Chart for Kubernetes deployment
 
