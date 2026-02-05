@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Toggle via `metrics_enabled` config or `RUCHO_METRICS_ENABLED` env var
 - **GitHub Actions CI**: Automated checks (fmt, clippy, test) and build pipeline
 
+### Changed
+
+- **Pretty JSON Default**: All JSON responses are now pretty-printed by default (removed `?pretty=true` query parameter)
+
 ### Fixed
 
 - Docker Compose validation errors (removed obsolete `version` attribute, fixed empty environment block)

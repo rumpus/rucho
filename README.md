@@ -67,9 +67,9 @@ rucho version  # Display version
 | GET     | `/endpoints`      | List all endpoints                                   |
 | GET     | `/swagger-ui`     | OpenAPI documentation                                |
 
-### Query Parameters
+### JSON Output
 
-All echo endpoints support `?pretty=true` for formatted JSON output.
+All JSON responses are pretty-printed by default for readability.
 
 ## Configuration
 
@@ -152,7 +152,6 @@ src/
     ├── error_response.rs
     ├── json_response.rs
     ├── pid.rs           # PID file management
-    ├── request_models.rs
     └── server_config.rs # Listener and TLS configuration
 ```
 
@@ -202,9 +201,6 @@ curl http://localhost:8080/get
 curl -X POST http://localhost:8080/post \
   -H "Content-Type: application/json" \
   -d '{"key": "value"}'
-
-# Pretty-printed response
-curl "http://localhost:8080/get?pretty=true"
 
 # Simulate 503 error
 curl -i http://localhost:8080/status/503

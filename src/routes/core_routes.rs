@@ -1,9 +1,6 @@
-use crate::utils::{
-    error_response::format_error_response, json_response::format_json_response,
-    request_models::PrettyQuery,
-};
+use crate::utils::{error_response::format_error_response, json_response::format_json_response};
 use axum::{
-    extract::{Json, Query},
+    extract::Json,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{any, delete, get, head, options, patch, post, put},
@@ -258,9 +255,6 @@ pub async fn status_handler(
 /// This endpoint is useful for debugging and understanding how requests are processed.
 /// It reflects the method, path, query parameters, headers, and body of the request.
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Responses:
 /// - `200 OK`: Successfully echoed the request details as a JSON object.
 ///
@@ -270,9 +264,6 @@ pub async fn status_handler(
 #[utoipa::path(
     get, post, put, patch, delete, options, head, // Indicates this path works for all these methods
     path = "/anything",
-    params(
-        PrettyQuery
-    ),
     responses(
         (status = 200, description = "Echoes request details", body = serde_json::Value)
     )
@@ -281,13 +272,11 @@ pub async fn anything_handler(
     method: axum::http::Method,
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     headers: HeaderMap,
-    Query(query): Query<PrettyQuery>,
     body: axum::body::Body,
 ) -> impl IntoResponse {
-    let pretty = query.pretty.unwrap_or(false);
     let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
         Ok(bytes) => bytes,
-        Err(_) => return format_json_response(json!({"error": "Failed to read body"}), pretty),
+        Err(_) => return format_json_response(json!({"error": "Failed to read body"})),
     };
 
     let resp = json!({
@@ -298,15 +287,14 @@ pub async fn anything_handler(
         "body": String::from_utf8_lossy(&body_bytes),
     });
 
-    format_json_response(resp, pretty)
+    format_json_response(resp)
 }
 
 #[utoipa::path(
     get, post, put, patch, delete, options, head,
     path = "/anything/{path:.*}",
     params(
-        ("path" = String, Path, description = "Subpath for anything endpoint"),
-        PrettyQuery
+        ("path" = String, Path, description = "Subpath for anything endpoint")
     ),
     responses(
         (status = 200, description = "Echoes request details for subpath", body = serde_json::Value)
@@ -325,9 +313,6 @@ pub async fn anything_handler(
 /// # Path Parameters:
 /// - `path`: The subpath captured by the wildcard (e.g., "foo/bar").
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Responses:
 /// - `200 OK`: Echoes request details for the subpath.
 /// - **Note**: This handler, if ever called directly, returns `501 Not Implemented`.
@@ -337,7 +322,6 @@ pub async fn anything_path_handler(
     #[allow(unused_variables)] method: axum::http::Method,
     #[allow(unused_variables)] uri: axum::extract::OriginalUri,
     #[allow(unused_variables)] headers: axum::http::HeaderMap,
-    #[allow(unused_variables)] query: axum::extract::Query<PrettyQuery>,
     #[allow(unused_variables)] path_param: axum::extract::Path<String>, // This is key for utoipa
     #[allow(unused_variables)] body: axum::body::Body,
 ) -> Response {
@@ -375,28 +359,21 @@ pub async fn root_handler() -> &'static str {
 /// # HTTP Method:
 /// - `GET`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Responses:
 /// - `200 OK`: Returns a JSON object containing the method and headers.
 #[utoipa::path(
     get,
     path = "/get",
-    params(
-        PrettyQuery
-    ),
     responses(
         (status = 200, description = "Echoes request details", body = serde_json::Value)
     )
 )]
-pub async fn get_handler(headers: HeaderMap, Query(pretty_query): Query<PrettyQuery>) -> Response {
-    let pretty = pretty_query.pretty.unwrap_or(false);
+pub async fn get_handler(headers: HeaderMap) -> Response {
     let payload = json!({
         "method": "GET",
         "headers": serialize_headers(&headers),
     });
-    format_json_response(payload, pretty)
+    format_json_response(payload)
 }
 
 /// Handles HEAD requests to `/get`.
@@ -433,28 +410,20 @@ pub async fn head_handler() -> impl IntoResponse {
 /// # HTTP Method:
 /// - `GET`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Responses:
 /// - `200 OK`: Successfully returns the list of endpoints.
 /// - `500 Internal Server Error`: If there's an issue serializing the endpoint data.
 #[utoipa::path(
     get,
     path = "/endpoints",
-    params(
-        PrettyQuery
-    ),
     responses(
         (status = 200, description = "Lists all available API endpoints", body = Vec<EndpointInfo>),
         (status = 500, description = "Failed to serialize endpoint data")
     )
 )]
-pub async fn endpoints_handler(Query(pretty_query): Query<PrettyQuery>) -> Response {
-    let pretty = pretty_query.pretty.unwrap_or(false);
-
+pub async fn endpoints_handler() -> Response {
     match serde_json::to_value(API_ENDPOINTS) {
-        Ok(json_value) => format_json_response(json_value, pretty),
+        Ok(json_value) => format_json_response(json_value),
         Err(_) => format_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Failed to serialize endpoint data.",
@@ -471,25 +440,18 @@ pub async fn endpoints_handler(Query(pretty_query): Query<PrettyQuery>) -> Respo
 /// # HTTP Method:
 /// - `GET`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Responses:
 /// - `200 OK`: Returns a JSON object containing the generated UUID.
 #[utoipa::path(
     get,
     path = "/uuid",
-    params(
-        PrettyQuery
-    ),
     responses(
         (status = 200, description = "Returns a randomly generated UUID", body = serde_json::Value)
     )
 )]
-pub async fn uuid_handler(Query(pretty_query): Query<PrettyQuery>) -> Response {
-    let pretty = pretty_query.pretty.unwrap_or(false);
+pub async fn uuid_handler() -> Response {
     let uuid = Uuid::new_v4();
-    format_json_response(json!({"uuid": uuid.to_string()}), pretty)
+    format_json_response(json!({"uuid": uuid.to_string()}))
 }
 
 // Handler for /ip
@@ -501,24 +463,16 @@ pub async fn uuid_handler(Query(pretty_query): Query<PrettyQuery>) -> Response {
 /// # HTTP Method:
 /// - `GET`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Responses:
 /// - `200 OK`: Returns a JSON object containing the client's origin IP.
 #[utoipa::path(
     get,
     path = "/ip",
-    params(
-        PrettyQuery
-    ),
     responses(
         (status = 200, description = "Returns the client's IP address", body = serde_json::Value)
     )
 )]
-pub async fn ip_handler(headers: HeaderMap, Query(pretty_query): Query<PrettyQuery>) -> Response {
-    let pretty = pretty_query.pretty.unwrap_or(false);
-
+pub async fn ip_handler(headers: HeaderMap) -> Response {
     // Try X-Forwarded-For first (common for proxied requests)
     let origin = headers
         .get("x-forwarded-for")
@@ -534,7 +488,7 @@ pub async fn ip_handler(headers: HeaderMap, Query(pretty_query): Query<PrettyQue
         // Default if no headers present
         .unwrap_or_else(|| "unknown".to_string());
 
-    format_json_response(json!({"origin": origin}), pretty)
+    format_json_response(json!({"origin": origin}))
 }
 
 // Handler for /user-agent
@@ -546,34 +500,23 @@ pub async fn ip_handler(headers: HeaderMap, Query(pretty_query): Query<PrettyQue
 /// # HTTP Method:
 /// - `GET`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Responses:
 /// - `200 OK`: Returns a JSON object containing the User-Agent string.
 #[utoipa::path(
     get,
     path = "/user-agent",
-    params(
-        PrettyQuery
-    ),
     responses(
         (status = 200, description = "Returns the User-Agent header", body = serde_json::Value)
     )
 )]
-pub async fn user_agent_handler(
-    headers: HeaderMap,
-    Query(pretty_query): Query<PrettyQuery>,
-) -> Response {
-    let pretty = pretty_query.pretty.unwrap_or(false);
-
+pub async fn user_agent_handler(headers: HeaderMap) -> Response {
     let user_agent = headers
         .get(axum::http::header::USER_AGENT)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string();
 
-    format_json_response(json!({"user-agent": user_agent}), pretty)
+    format_json_response(json!({"user-agent": user_agent}))
 }
 
 // Handler for /headers
@@ -585,27 +528,17 @@ pub async fn user_agent_handler(
 /// # HTTP Method:
 /// - `GET`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Responses:
 /// - `200 OK`: Returns a JSON object containing all request headers.
 #[utoipa::path(
     get,
     path = "/headers",
-    params(
-        PrettyQuery
-    ),
     responses(
         (status = 200, description = "Returns all request headers", body = serde_json::Value)
     )
 )]
-pub async fn headers_handler(
-    headers: HeaderMap,
-    Query(pretty_query): Query<PrettyQuery>,
-) -> Response {
-    let pretty = pretty_query.pretty.unwrap_or(false);
-    format_json_response(json!({"headers": serialize_headers(&headers)}), pretty)
+pub async fn headers_handler(headers: HeaderMap) -> Response {
+    format_json_response(json!({"headers": serialize_headers(&headers)}))
 }
 
 // From post.rs
@@ -617,9 +550,6 @@ pub async fn headers_handler(
 /// # HTTP Method:
 /// - `POST`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Request Body:
 /// - `Payload`: A generic JSON object.
 ///
@@ -629,9 +559,6 @@ pub async fn headers_handler(
 #[utoipa::path(
     post,
     path = "/post",
-    params(
-        PrettyQuery
-    ),
     request_body = Payload,
     responses(
         (status = 200, description = "Echoes request details", body = serde_json::Value),
@@ -640,10 +567,8 @@ pub async fn headers_handler(
 )]
 pub async fn post_handler(
     headers: HeaderMap,
-    Query(pretty_query): Query<PrettyQuery>,
     body: Result<Json<serde_json::Value>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
-    let pretty = pretty_query.pretty.unwrap_or(false);
     match body {
         Ok(Json(payload_value)) => {
             let response_payload = json!({
@@ -651,7 +576,7 @@ pub async fn post_handler(
                 "headers": serialize_headers(&headers),
                 "body": payload_value,
             });
-            format_json_response(response_payload, pretty)
+            format_json_response(response_payload)
         }
         Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload"),
     }
@@ -666,9 +591,6 @@ pub async fn post_handler(
 /// # HTTP Method:
 /// - `PUT`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Request Body:
 /// - `Payload`: A generic JSON object.
 ///
@@ -678,9 +600,6 @@ pub async fn post_handler(
 #[utoipa::path(
     put,
     path = "/put",
-    params(
-        PrettyQuery
-    ),
     request_body = Payload,
     responses(
         (status = 200, description = "Echoes request details", body = serde_json::Value),
@@ -689,10 +608,8 @@ pub async fn post_handler(
 )]
 pub async fn put_handler(
     headers: HeaderMap,
-    Query(pretty_query): Query<PrettyQuery>,
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
-    let pretty = pretty_query.pretty.unwrap_or(false);
     match body {
         Ok(Json(Payload(body_json))) => {
             let payload = json!({
@@ -700,7 +617,7 @@ pub async fn put_handler(
                 "headers": serialize_headers(&headers),
                 "body": body_json,
             });
-            format_json_response(payload, pretty)
+            format_json_response(payload)
         }
         Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload"),
     }
@@ -715,9 +632,6 @@ pub async fn put_handler(
 /// # HTTP Method:
 /// - `PATCH`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Request Body:
 /// - `Payload`: A generic JSON object.
 ///
@@ -727,9 +641,6 @@ pub async fn put_handler(
 #[utoipa::path(
     patch,
     path = "/patch",
-    params(
-        PrettyQuery
-    ),
     request_body = Payload,
     responses(
         (status = 200, description = "Echoes request details", body = serde_json::Value),
@@ -738,10 +649,8 @@ pub async fn put_handler(
 )]
 pub async fn patch_handler(
     headers: HeaderMap,
-    Query(pretty_query): Query<PrettyQuery>,
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
-    let pretty = pretty_query.pretty.unwrap_or(false);
     match body {
         Ok(Json(Payload(body_json))) => {
             let payload = json!({
@@ -749,7 +658,7 @@ pub async fn patch_handler(
                 "headers": serialize_headers(&headers),
                 "body": body_json,
             });
-            format_json_response(payload, pretty)
+            format_json_response(payload)
         }
         Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload"),
     }
@@ -764,9 +673,6 @@ pub async fn patch_handler(
 /// # HTTP Method:
 /// - `DELETE`
 ///
-/// # Query Parameters:
-/// - `pretty` (optional, boolean): If `true`, the JSON response will be pretty-printed.
-///
 /// # Request Body:
 /// - `Payload` (optional): A generic JSON object.
 ///
@@ -775,9 +681,6 @@ pub async fn patch_handler(
 #[utoipa::path(
     delete,
     path = "/delete",
-    params(
-        PrettyQuery
-    ),
     request_body = Option<Payload>, // Indicates optional body
     responses(
         (status = 200, description = "Echoes request details, body is null if not provided", body = serde_json::Value)
@@ -785,14 +688,12 @@ pub async fn patch_handler(
 )]
 pub async fn delete_handler(
     headers: HeaderMap,
-    Query(pretty_query): Query<PrettyQuery>,
     // Axum's Json extractor requires the body to be valid JSON if Content-Type: application/json is sent.
     // To make the body truly optional even with Content-Type, we'd need a custom extractor or to read the body manually.
     // For now, if Content-Type: application/json is sent, a valid JSON body (e.g. "{}") is expected or it's a rejection.
     // If no Content-Type or a different one is sent, `body` will likely be an Err.
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
-    let pretty = pretty_query.pretty.unwrap_or(false);
     match body {
         Ok(Json(Payload(body_json))) => {
             let payload = json!({
@@ -800,7 +701,7 @@ pub async fn delete_handler(
                 "headers": serialize_headers(&headers),
                 "body": body_json,
             });
-            format_json_response(payload, pretty)
+            format_json_response(payload)
         }
         Err(_) => {
             let payload = json!({
@@ -808,7 +709,7 @@ pub async fn delete_handler(
                 "headers": serialize_headers(&headers),
                 "body": serde_json::Value::Null,
             });
-            format_json_response(payload, pretty)
+            format_json_response(payload)
         }
     }
 }
