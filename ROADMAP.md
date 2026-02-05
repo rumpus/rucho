@@ -43,13 +43,13 @@
 ### Observability
 - [x] `/metrics` endpoint (JSON format, toggleable)
 - [x] Request tracing and logging
+- [x] Request/response timing in echo responses (`timing.duration_ms`)
 
 ---
 
 ## Tier 1: Performance & Speed (Next)
 
 - [ ] Response compression (gzip, brotli)
-- [ ] Request/response timing in echo responses
 - [ ] Connection keep-alive tuning
 - [ ] Zero-copy response optimizations
 - [ ] Benchmark suite with performance baselines
