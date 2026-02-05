@@ -12,6 +12,8 @@ Designed for testing, debugging, and simulating various HTTP behaviors.
 - Configurable response delay (`/delay/:n`, max 300s)
 - TCP and UDP echo listeners for protocol testing
 - HTTPS support via Rustls with HTTP/2
+- Response compression (gzip, brotli) - optional, client-negotiated
+- Request timing in JSON responses (`timing.duration_ms`)
 - OpenAPI/Swagger documentation
 - CLI for server management (start, stop, status)
 - Configuration via files and environment variables
@@ -95,6 +97,7 @@ Rucho loads configuration in this order (later overrides earlier):
 | `ssl_cert`                  | (none)               | `RUCHO_SSL_CERT`               | Path to SSL certificate        |
 | `ssl_key`                   | (none)               | `RUCHO_SSL_KEY`                | Path to SSL private key        |
 | `metrics_enabled`           | `false`              | `RUCHO_METRICS_ENABLED`        | Enable /metrics endpoint       |
+| `compression_enabled`       | `false`              | `RUCHO_COMPRESSION_ENABLED`    | Enable gzip/brotli compression |
 
 ### HTTPS Configuration
 
@@ -190,6 +193,20 @@ sudo systemctl stop rucho
 sudo systemctl start rucho
 sudo systemctl restart rucho
 ```
+
+### Response Compression
+
+Enable optional response compression:
+
+```ini
+compression_enabled = true
+```
+
+Or via environment variable: `RUCHO_COMPRESSION_ENABLED=true`
+
+When enabled, responses are compressed based on the client's `Accept-Encoding` header:
+- `Accept-Encoding: gzip` → gzip compression
+- `Accept-Encoding: br` → brotli compression
 
 ## Examples
 
