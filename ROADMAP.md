@@ -5,7 +5,7 @@
 ## Tier 1: Core Platform Improvements (Completed)
 
 - [x] `/healthz` endpoint
-- [x] Optional pretty JSON output (`?pretty=true`)
+- [x] Pretty-printed JSON output (default)
 - [x] Graceful shutdown handling (SIGINT/SIGTERM)
 - [x] Support additional HTTP methods (HEAD, OPTIONS, ANY)
 - [x] CLI commands for server management (start, stop, status, version)

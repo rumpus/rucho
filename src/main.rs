@@ -26,7 +26,6 @@ use rucho::routes::core_routes::EndpointInfo;
 use rucho::server::metrics_layer::metrics_middleware;
 use rucho::utils::config::Config;
 use rucho::utils::metrics::Metrics;
-use rucho::utils::request_models::PrettyQuery;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -47,7 +46,7 @@ use rucho::utils::request_models::PrettyQuery;
         rucho::routes::healthz::healthz_handler,
     ),
     components(
-        schemas(EndpointInfo, PrettyQuery, rucho::routes::core_routes::Payload)
+        schemas(EndpointInfo, rucho::routes::core_routes::Payload)
     ),
     tags(
         (name = "Rucho", description = "Rucho API")

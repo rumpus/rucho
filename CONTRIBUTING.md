@@ -154,7 +154,6 @@ src/
     ├── error_response.rs
     ├── json_response.rs
     ├── pid.rs           # PID file management
-    ├── request_models.rs
     └── server_config.rs # Listener and TLS configuration
 ```
 

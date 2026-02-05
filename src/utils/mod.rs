@@ -16,7 +16,5 @@ pub mod json_response;
 pub mod metrics;
 /// Module for PID file management operations.
 pub mod pid;
-/// Module defining common request model structures, like query parameters.
-pub mod request_models;
 /// Module for server-specific configurations, including listener parsing and SSL setup.
 pub mod server_config;
