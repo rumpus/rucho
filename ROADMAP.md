@@ -42,14 +42,15 @@
 
 ## Future Bonus Ideas
 
-- [ ] `/uuid` — return random UUID
-- [ ] `/ip` — return requester IP
-- [ ] `/user-agent` — return User-Agent
-- [ ] `/headers` — echo headers
+- [x] `/uuid` — return random UUID
+- [x] `/ip` — return requester IP
+- [x] `/user-agent` — return User-Agent
+- [x] `/headers` — echo headers
 - [ ] `/redirect/:n` — perform chained redirects
 - [ ] `/stream/:n` — stream multiple JSON objects
-- [ ] Expose `/metrics` for Prometheus
-- [ ] GitHub Actions (CI/CD automation)
+- [x] `/metrics` — request statistics (basic JSON format)
+- [ ] Expose `/metrics` for Prometheus (extended format)
+- [x] GitHub Actions (CI/CD automation)
 - [ ] Add rate limiting middleware to prevent abuse
 - [ ] Add authentication/authorization middleware (e.g., JWT or OAuth2)
 - [ ] Provide Terraform scripts for cloud infrastructure provisioning
@@ -71,9 +72,12 @@
 - Docker and Docker Compose
 - Systemd integration
 - OpenAPI/Swagger UI
+- GitHub Actions CI pipeline
+- `/metrics` endpoint (basic JSON format, toggleable)
+- Utility endpoints: `/uuid`, `/ip`, `/user-agent`, `/headers`
 
 **In Progress:**
-- Tier 3 productionization (structured logs, metrics, Helm)
+- Tier 3 productionization (structured logs, Helm)
 
 ---
 
