@@ -1,101 +1,126 @@
 # Rucho - Project Roadmap
 
+> **Goal:** A highly robust, enterprise-grade, production-ready echo server built for extreme speed and performance.
+
 ---
 
-## Tier 1: Core Platform Improvements (Completed)
+## Completed
 
-- [x] `/healthz` endpoint
+### Core Foundation
+- [x] HTTP echo endpoints (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
+- [x] `/anything` wildcard endpoint (supports ANY method and subpaths)
+- [x] `/status/:code` — return any HTTP status code
+- [x] `/delay/:n` — configurable response delay (max 300s)
+- [x] `/healthz` — health check endpoint
+- [x] `/endpoints` — self-documenting endpoint list
 - [x] Pretty-printed JSON output (default)
-- [x] Graceful shutdown handling (SIGINT/SIGTERM)
-- [x] Support additional HTTP methods (HEAD, OPTIONS, ANY)
-- [x] CLI commands for server management (start, stop, status, version)
+- [x] Graceful shutdown (SIGINT/SIGTERM)
+- [x] CLI commands (start, stop, status, version)
 
----
+### Protocol Support
+- [x] HTTP/1.1
+- [x] HTTP/2 (with TLS)
+- [x] HTTPS via Rustls
+- [x] TCP echo listener
+- [x] UDP echo listener
 
-## Tier 2: Developer Utility Endpoints (Completed)
+### Utility Endpoints
+- [x] `/uuid` — random UUID generation
+- [x] `/ip` — client IP detection
+- [x] `/user-agent` — User-Agent echo
+- [x] `/headers` — request headers echo
 
-- [x] `/delay/:n` — delay response by `n` seconds (max 300s)
-- [x] `/status/:code` — return specified HTTP status code (supports ANY method)
-- [x] Add support for HTTP/2 (via Axum and Hyper, enabled with TLS)
-- [x] Add HTTPS support (via Rustls)
-- [x] TCP echo listener for protocol testing
-- [x] UDP echo listener for protocol testing
-- [ ] WebSocket echo support
-- [ ] gRPC echo server
-
----
-
-## Tier 3: Productionization Features
-
-- [x] Dockerfile for container builds
+### Production Infrastructure
+- [x] Docker container builds
 - [x] Docker Compose support
 - [x] Systemd service integration
 - [x] OpenAPI/Swagger documentation
-- [x] PID file management
 - [x] Configuration via files and environment variables
+- [x] PID file management
+- [x] GitHub Actions CI pipeline
+- [x] CORS support (permissive)
+
+### Observability
+- [x] `/metrics` endpoint (JSON format, toggleable)
+- [x] Request tracing and logging
+
+---
+
+## Tier 1: Performance & Speed (Next)
+
+- [ ] Response compression (gzip, brotli)
+- [ ] Request/response timing in echo responses
+- [ ] Connection keep-alive tuning
+- [ ] Zero-copy response optimizations
+- [ ] Benchmark suite with performance baselines
+
+---
+
+## Tier 2: Enterprise Observability
+
 - [ ] JSON structured server logs
+- [ ] Prometheus metrics format (`/metrics`)
 - [ ] Request/response size metrics
-- [ ] Helm Chart for Kubernetes deployment
+- [ ] OpenTelemetry tracing support
+- [ ] Latency percentile tracking (p50, p95, p99)
 
 ---
 
-## Future Bonus Ideas
+## Tier 3: Production Deployment
 
-- [x] `/uuid` — return random UUID
-- [x] `/ip` — return requester IP
-- [x] `/user-agent` — return User-Agent
-- [x] `/headers` — echo headers
-- [ ] `/redirect/:n` — perform chained redirects
-- [ ] `/stream/:n` — stream multiple JSON objects
-- [x] `/metrics` — request statistics (basic JSON format)
-- [ ] Expose `/metrics` for Prometheus (extended format)
-- [x] GitHub Actions (CI/CD automation)
-- [ ] Add rate limiting middleware to prevent abuse
-- [ ] Add authentication/authorization middleware (e.g., JWT or OAuth2)
-- [ ] Provide Terraform scripts for cloud infrastructure provisioning
-- [ ] Request replay feature
-- [ ] Plugin system for extensibility (Lua, Wasm)
+- [ ] Helm Chart for Kubernetes
+- [ ] Horizontal scaling documentation
+- [ ] Resource limit recommendations
+- [ ] High-availability configuration guide
 
 ---
 
-## Status
+## Tier 4: Advanced Protocol Support
 
-**Completed:**
-- Basic Echo Server with all HTTP methods
-- `/anything` endpoint (supports ANY method and subpaths)
-- `/endpoints` self-documenting endpoint list
-- Modular codebase (cli/, server/, routes/, utils/)
-- Configuration via files and environment variables
-- CORS support (permissive)
-- TCP/UDP echo listeners
-- Docker and Docker Compose
-- Systemd integration
-- OpenAPI/Swagger UI
-- GitHub Actions CI pipeline
-- `/metrics` endpoint (basic JSON format, toggleable)
-- Utility endpoints: `/uuid`, `/ip`, `/user-agent`, `/headers`
+- [ ] WebSocket echo support
+- [ ] HTTP/3 (QUIC) support
+- [ ] `/redirect/:n` — chained redirects
+- [ ] `/stream/:n` — streaming JSON responses
 
-**In Progress:**
-- Tier 3 productionization (structured logs, Helm)
+---
+
+## Tier 5: Security & Resilience
+
+- [ ] Rate limiting middleware
+- [ ] Request size limits (configurable)
+- [ ] Connection limits per IP
+- [ ] Slow client timeout handling
+
+---
+
+## Non-Goals
+
+The following are explicitly out of scope to maintain focus on the core mission:
+
+- Authentication/authorization middleware
+- gRPC support
+- Plugin/extension systems
+- Infrastructure provisioning (Terraform, etc.)
+- Request replay features
 
 ---
 
 ## Timeline
 
-| Phase   | Focus                                                    | Status |
-|---------|----------------------------------------------------------|--------|
-| Phase 1 | Core improvements (healthz, methods, shutdown)           | Done   |
-| Phase 2 | Developer endpoints (delay, status, HTTPS, TCP/UDP)      | Done   |
-| Phase 3 | Productionization (Docker, Swagger, systemd)             | Done   |
-| Phase 4 | Advanced productionization (logs, metrics, Helm)         | Next   |
-| Phase 5 | Bonus features (WebSocket, gRPC, Prometheus)             | Future |
+| Phase | Focus | Status |
+|-------|-------|--------|
+| Phase 1 | Core echo functionality | ✅ Done |
+| Phase 2 | Protocol support (HTTP/2, TLS, TCP/UDP) | ✅ Done |
+| Phase 3 | Production infrastructure (Docker, systemd) | ✅ Done |
+| Phase 4 | Performance optimizations | 🔄 Next |
+| Phase 5 | Enterprise observability | Planned |
+| Phase 6 | Advanced protocols (WebSocket, HTTP/3) | Future |
 
 ---
 
 ## Contributing
 
-Contributions, suggestions, and ideas are welcome!
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
