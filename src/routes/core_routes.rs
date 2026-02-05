@@ -1,10 +1,14 @@
-use crate::utils::{error_response::format_error_response, json_response::format_json_response};
+use crate::utils::{
+    error_response::format_error_response,
+    json_response::{format_json_response, format_json_response_with_timing},
+    timing::RequestTiming,
+};
 use axum::{
     extract::Json,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{any, delete, get, head, options, patch, post, put},
-    Router,
+    Extension, Router,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -272,6 +276,7 @@ pub async fn anything_handler(
     method: axum::http::Method,
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     headers: HeaderMap,
+    timing: Option<Extension<RequestTiming>>,
     body: axum::body::Body,
 ) -> impl IntoResponse {
     let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
@@ -287,7 +292,8 @@ pub async fn anything_handler(
         "body": String::from_utf8_lossy(&body_bytes),
     });
 
-    format_json_response(resp)
+    let duration_ms = timing.map(|t| t.elapsed_ms());
+    format_json_response_with_timing(resp, duration_ms)
 }
 
 #[utoipa::path(
@@ -368,12 +374,13 @@ pub async fn root_handler() -> &'static str {
         (status = 200, description = "Echoes request details", body = serde_json::Value)
     )
 )]
-pub async fn get_handler(headers: HeaderMap) -> Response {
+pub async fn get_handler(headers: HeaderMap, timing: Option<Extension<RequestTiming>>) -> Response {
     let payload = json!({
         "method": "GET",
         "headers": serialize_headers(&headers),
     });
-    format_json_response(payload)
+    let duration_ms = timing.map(|t| t.elapsed_ms());
+    format_json_response_with_timing(payload, duration_ms)
 }
 
 /// Handles HEAD requests to `/get`.
@@ -421,9 +428,12 @@ pub async fn head_handler() -> impl IntoResponse {
         (status = 500, description = "Failed to serialize endpoint data")
     )
 )]
-pub async fn endpoints_handler() -> Response {
+pub async fn endpoints_handler(timing: Option<Extension<RequestTiming>>) -> Response {
     match serde_json::to_value(API_ENDPOINTS) {
-        Ok(json_value) => format_json_response(json_value),
+        Ok(json_value) => {
+            let duration_ms = timing.map(|t| t.elapsed_ms());
+            format_json_response_with_timing(json!({"endpoints": json_value}), duration_ms)
+        }
         Err(_) => format_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Failed to serialize endpoint data.",
@@ -449,9 +459,10 @@ pub async fn endpoints_handler() -> Response {
         (status = 200, description = "Returns a randomly generated UUID", body = serde_json::Value)
     )
 )]
-pub async fn uuid_handler() -> Response {
+pub async fn uuid_handler(timing: Option<Extension<RequestTiming>>) -> Response {
     let uuid = Uuid::new_v4();
-    format_json_response(json!({"uuid": uuid.to_string()}))
+    let duration_ms = timing.map(|t| t.elapsed_ms());
+    format_json_response_with_timing(json!({"uuid": uuid.to_string()}), duration_ms)
 }
 
 // Handler for /ip
@@ -472,7 +483,7 @@ pub async fn uuid_handler() -> Response {
         (status = 200, description = "Returns the client's IP address", body = serde_json::Value)
     )
 )]
-pub async fn ip_handler(headers: HeaderMap) -> Response {
+pub async fn ip_handler(headers: HeaderMap, timing: Option<Extension<RequestTiming>>) -> Response {
     // Try X-Forwarded-For first (common for proxied requests)
     let origin = headers
         .get("x-forwarded-for")
@@ -488,7 +499,8 @@ pub async fn ip_handler(headers: HeaderMap) -> Response {
         // Default if no headers present
         .unwrap_or_else(|| "unknown".to_string());
 
-    format_json_response(json!({"origin": origin}))
+    let duration_ms = timing.map(|t| t.elapsed_ms());
+    format_json_response_with_timing(json!({"origin": origin}), duration_ms)
 }
 
 // Handler for /user-agent
@@ -509,14 +521,18 @@ pub async fn ip_handler(headers: HeaderMap) -> Response {
         (status = 200, description = "Returns the User-Agent header", body = serde_json::Value)
     )
 )]
-pub async fn user_agent_handler(headers: HeaderMap) -> Response {
+pub async fn user_agent_handler(
+    headers: HeaderMap,
+    timing: Option<Extension<RequestTiming>>,
+) -> Response {
     let user_agent = headers
         .get(axum::http::header::USER_AGENT)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string();
 
-    format_json_response(json!({"user-agent": user_agent}))
+    let duration_ms = timing.map(|t| t.elapsed_ms());
+    format_json_response_with_timing(json!({"user-agent": user_agent}), duration_ms)
 }
 
 // Handler for /headers
@@ -537,8 +553,12 @@ pub async fn user_agent_handler(headers: HeaderMap) -> Response {
         (status = 200, description = "Returns all request headers", body = serde_json::Value)
     )
 )]
-pub async fn headers_handler(headers: HeaderMap) -> Response {
-    format_json_response(json!({"headers": serialize_headers(&headers)}))
+pub async fn headers_handler(
+    headers: HeaderMap,
+    timing: Option<Extension<RequestTiming>>,
+) -> Response {
+    let duration_ms = timing.map(|t| t.elapsed_ms());
+    format_json_response_with_timing(json!({"headers": serialize_headers(&headers)}), duration_ms)
 }
 
 // From post.rs
@@ -567,6 +587,7 @@ pub async fn headers_handler(headers: HeaderMap) -> Response {
 )]
 pub async fn post_handler(
     headers: HeaderMap,
+    timing: Option<Extension<RequestTiming>>,
     body: Result<Json<serde_json::Value>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
     match body {
@@ -576,7 +597,8 @@ pub async fn post_handler(
                 "headers": serialize_headers(&headers),
                 "body": payload_value,
             });
-            format_json_response(response_payload)
+            let duration_ms = timing.map(|t| t.elapsed_ms());
+            format_json_response_with_timing(response_payload, duration_ms)
         }
         Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload"),
     }
@@ -608,6 +630,7 @@ pub async fn post_handler(
 )]
 pub async fn put_handler(
     headers: HeaderMap,
+    timing: Option<Extension<RequestTiming>>,
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
     match body {
@@ -617,7 +640,8 @@ pub async fn put_handler(
                 "headers": serialize_headers(&headers),
                 "body": body_json,
             });
-            format_json_response(payload)
+            let duration_ms = timing.map(|t| t.elapsed_ms());
+            format_json_response_with_timing(payload, duration_ms)
         }
         Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload"),
     }
@@ -649,6 +673,7 @@ pub async fn put_handler(
 )]
 pub async fn patch_handler(
     headers: HeaderMap,
+    timing: Option<Extension<RequestTiming>>,
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
     match body {
@@ -658,7 +683,8 @@ pub async fn patch_handler(
                 "headers": serialize_headers(&headers),
                 "body": body_json,
             });
-            format_json_response(payload)
+            let duration_ms = timing.map(|t| t.elapsed_ms());
+            format_json_response_with_timing(payload, duration_ms)
         }
         Err(_) => format_error_response(StatusCode::BAD_REQUEST, "Invalid JSON payload"),
     }
@@ -688,12 +714,14 @@ pub async fn patch_handler(
 )]
 pub async fn delete_handler(
     headers: HeaderMap,
+    timing: Option<Extension<RequestTiming>>,
     // Axum's Json extractor requires the body to be valid JSON if Content-Type: application/json is sent.
     // To make the body truly optional even with Content-Type, we'd need a custom extractor or to read the body manually.
     // For now, if Content-Type: application/json is sent, a valid JSON body (e.g. "{}") is expected or it's a rejection.
     // If no Content-Type or a different one is sent, `body` will likely be an Err.
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
+    let duration_ms = timing.map(|t| t.elapsed_ms());
     match body {
         Ok(Json(Payload(body_json))) => {
             let payload = json!({
@@ -701,7 +729,7 @@ pub async fn delete_handler(
                 "headers": serialize_headers(&headers),
                 "body": body_json,
             });
-            format_json_response(payload)
+            format_json_response_with_timing(payload, duration_ms)
         }
         Err(_) => {
             let payload = json!({
@@ -709,7 +737,7 @@ pub async fn delete_handler(
                 "headers": serialize_headers(&headers),
                 "body": serde_json::Value::Null,
             });
-            format_json_response(payload)
+            format_json_response_with_timing(payload, duration_ms)
         }
     }
 }

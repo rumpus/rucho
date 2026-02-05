@@ -7,6 +7,7 @@ pub mod http;
 pub mod metrics_layer;
 pub mod shutdown;
 pub mod tcp;
+pub mod timing_layer;
 pub mod udp;
 
 use axum::Router;
