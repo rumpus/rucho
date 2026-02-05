@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Response Compression**: Optional gzip/brotli compression based on client `Accept-Encoding`
+  - Toggle via `compression_enabled` config or `RUCHO_COMPRESSION_ENABLED` env var
+  - Off by default to preserve raw response inspection
 - **Request Timing**: All JSON echo responses now include processing time
   - `timing.duration_ms` field in response body (sub-millisecond precision)
   - Middleware captures start time, handlers calculate elapsed duration
