@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Pretty JSON Default**: All JSON responses are now pretty-printed by default (removed `?pretty=true` query parameter)
+- **Docker Optimization**: Multi-stage build reduces image from 3.4GB to 189MB
+  - Now available on Docker Hub: `docker pull rumpus/rucho:latest`
+  - Added container HEALTHCHECK
+  - Added `.dockerignore` for faster builds
 
 ### Fixed
 

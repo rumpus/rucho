@@ -1,32 +1,45 @@
-FROM ubuntu:latest
-
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-# Install dependencies, Rust, create user/group
-RUN apt-get update && apt-get install -y curl build-essential jq &&     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&     groupadd -r rucho &&     useradd -r -g rucho -s /sbin/nologin -c "Rucho service user" rucho &&     apt-get clean && rm -rf /var/lib/apt/lists/*
+# Build stage
+FROM rust:1.84-bookworm AS builder
 
 WORKDIR /app
 
-# Copy application source and build
+# Copy manifests first for better layer caching
 COPY Cargo.toml Cargo.lock ./
-COPY src ./src
+
+# Create dummy src to cache dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release
+RUN rm -rf src
 
-# Install binary, create config/doc/run directories, set initial ownership
-RUN cp /app/target/release/rucho /usr/local/bin/rucho &&     mkdir -p /etc/rucho &&     mkdir -p /usr/share/doc/rucho/examples &&     mkdir -p /var/run/rucho &&     chown rucho:rucho /usr/local/bin/rucho &&     chown rucho:rucho /etc/rucho &&     chown rucho:rucho /var/run/rucho
+# Copy actual source and rebuild
+COPY src ./src
+RUN touch src/main.rs && cargo build --release
 
-# Copy configuration files
-COPY config_samples/rucho.conf.default /usr/share/doc/rucho/examples/rucho.conf.default
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install only runtime dependencies (CA certs for HTTPS)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r rucho \
+    && useradd -r -g rucho -s /sbin/nologin -c "Rucho service user" rucho \
+    && mkdir -p /etc/rucho /var/run/rucho \
+    && chown rucho:rucho /etc/rucho /var/run/rucho
+
+# Copy binary from builder
+COPY --from=builder /app/target/release/rucho /usr/local/bin/rucho
+
+# Copy config
 COPY config_samples/rucho.conf.default /etc/rucho/rucho.conf
 
-# Set ownership for copied active configuration file
-RUN chown rucho:rucho /etc/rucho/rucho.conf
+RUN chown rucho:rucho /usr/local/bin/rucho /etc/rucho/rucho.conf
 
-# Clean up build artifacts (target directory) and cargo registry/git sources to reduce final image size.
-RUN rm -rf /app/target /root/.cargo
-
-EXPOSE 8080
-EXPOSE 9090
+EXPOSE 8080 9090
 
 USER rucho
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/usr/local/bin/rucho", "status"]
+
 CMD ["/usr/local/bin/rucho", "start"]
