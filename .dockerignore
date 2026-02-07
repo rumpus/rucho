@@ -27,3 +27,14 @@ Makefile
 # Debian packaging
 debian/
 *.deb
+
+# Environment files (may contain secrets)
+.env
+.env.*
+
+# Coverage reports
+coverage/
+tarpaulin-report.html
+
+# Docker compose overrides
+docker-compose.override.yml
