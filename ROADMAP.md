@@ -55,7 +55,7 @@
 ## Tier 1: Performance & Speed (Next)
 
 - [x] Response compression (gzip, brotli) — toggleable via config
-- [ ] Connection keep-alive tuning
+- [x] Connection keep-alive tuning
 - [ ] Zero-copy response optimizations
 - [ ] Benchmark suite with performance baselines
 

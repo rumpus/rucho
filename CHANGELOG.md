@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Connection Keep-Alive Tuning**: TCP and HTTP connection tuning for performance and resilience
+  - TCP keep-alive (idle time, probe interval, retries) via `socket2`
+  - TCP_NODELAY to disable Nagle's algorithm (enabled by default)
+  - HTTP keep-alive timeout and HTTP/2 ping configuration
+  - Header read timeout to protect against slowloris-style attacks
+  - All settings configurable via config files and `RUCHO_*` environment variables
 - **Chaos Engineering Mode**: Random failure, delay, and response corruption injection for resilience testing
   - Enable via `chaos_mode` config or `RUCHO_CHAOS_MODE` env var (comma-separated: `failure`, `delay`, `corruption`)
   - Failure injection: return configurable HTTP error codes at a set probability
