@@ -13,6 +13,7 @@ Designed for testing, debugging, and simulating various HTTP behaviors.
 - TCP and UDP echo listeners for protocol testing
 - HTTPS support via Rustls with HTTP/2
 - Response compression (gzip, brotli) - optional, client-negotiated
+- Connection keep-alive tuning (TCP keep-alive, TCP_NODELAY, header timeout)
 - Chaos engineering mode for resilience testing
 - Request timing in JSON responses (`timing.duration_ms`)
 - OpenAPI/Swagger documentation
@@ -99,6 +100,12 @@ Rucho loads configuration in this order (later overrides earlier):
 | `ssl_key`                   | (none)               | `RUCHO_SSL_KEY`                | Path to SSL private key        |
 | `metrics_enabled`           | `false`              | `RUCHO_METRICS_ENABLED`        | Enable /metrics endpoint       |
 | `compression_enabled`       | `false`              | `RUCHO_COMPRESSION_ENABLED`    | Enable gzip/brotli compression |
+| `http_keep_alive_timeout`   | `75`                 | `RUCHO_HTTP_KEEP_ALIVE_TIMEOUT`| HTTP idle connection timeout (seconds) |
+| `tcp_keepalive_time`        | `60`                 | `RUCHO_TCP_KEEPALIVE_TIME`     | TCP keepalive idle time (seconds) |
+| `tcp_keepalive_interval`    | `15`                 | `RUCHO_TCP_KEEPALIVE_INTERVAL` | TCP keepalive probe interval (seconds) |
+| `tcp_keepalive_retries`     | `5`                  | `RUCHO_TCP_KEEPALIVE_RETRIES`  | TCP keepalive probe retries (1-10) |
+| `tcp_nodelay`               | `true`               | `RUCHO_TCP_NODELAY`            | Disable Nagle's algorithm |
+| `header_read_timeout`       | `30`                 | `RUCHO_HEADER_READ_TIMEOUT`    | Max time to read request headers (seconds) |
 | `chaos_mode`                | (none)               | `RUCHO_CHAOS_MODE`             | Enable [chaos types](#chaos-engineering-mode) |
 
 ### HTTPS Configuration
@@ -222,6 +229,24 @@ Or via environment variable: `RUCHO_COMPRESSION_ENABLED=true`
 When enabled, responses are compressed based on the client's `Accept-Encoding` header:
 - `Accept-Encoding: gzip` → gzip compression
 - `Accept-Encoding: br` → brotli compression
+
+### Connection Keep-Alive Tuning
+
+Rucho configures TCP and HTTP connection settings for lower latency, faster dead-connection detection, and protection against slow clients. All settings have sensible defaults and can be overridden via config file or environment variables.
+
+- **TCP keep-alive** sends probe packets on idle connections to detect crashed peers (~90s detection vs OS default ~2 hours)
+- **TCP_NODELAY** disables Nagle's algorithm, eliminating buffering delays for small echo responses (enabled by default)
+- **Header read timeout** protects against slowloris-style attacks by closing connections that send headers too slowly
+
+```ini
+# Example: aggressive tuning for high-traffic environments
+http_keep_alive_timeout = 30
+tcp_keepalive_time = 30
+tcp_keepalive_interval = 10
+tcp_keepalive_retries = 3
+tcp_nodelay = true
+header_read_timeout = 15
+```
 
 ### Chaos Engineering Mode
 

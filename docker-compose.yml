@@ -14,6 +14,13 @@ services:
       RUCHO_LOG_LEVEL: "debug"
       RUCHO_METRICS_ENABLED: "true"
       RUCHO_COMPRESSION_ENABLED: "true"
+      # Connection keep-alive tuning (defaults shown)
+      # RUCHO_HTTP_KEEP_ALIVE_TIMEOUT: "75"
+      # RUCHO_TCP_KEEPALIVE_TIME: "60"
+      # RUCHO_TCP_KEEPALIVE_INTERVAL: "15"
+      # RUCHO_TCP_KEEPALIVE_RETRIES: "5"
+      # RUCHO_TCP_NODELAY: "true"
+      # RUCHO_HEADER_READ_TIMEOUT: "30"
       # Chaos engineering mode (uncomment to enable)
       # RUCHO_CHAOS_MODE: "failure,delay"
       # RUCHO_CHAOS_FAILURE_RATE: "0.1"
