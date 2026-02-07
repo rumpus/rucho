@@ -163,6 +163,25 @@ src/
     └── timing.rs        # Timing utilities
 ```
 
+## Releasing
+
+Releases are automated via GitHub Actions. When a version tag is pushed, the [release workflow](.github/workflows/release.yml) runs fmt/clippy/test, builds a release binary, creates a GitHub release, and pushes a Docker image to Docker Hub.
+
+To cut a new release:
+
+1. Create a release branch (`release/v<version>`)
+2. Bump `version` in `Cargo.toml`
+3. Move the `## [Unreleased]` section in `CHANGELOG.md` to `## [<version>] - <date>` and add a new empty `## [Unreleased]` above it
+4. Merge the PR to main
+5. Tag and push:
+   ```bash
+   git checkout main && git pull
+   git tag v<version>
+   git push origin v<version>
+   ```
+
+The tag push triggers the workflow, which creates the GitHub release with the binary and pushes `rumpus/rucho:<version>` and `rumpus/rucho:latest` to Docker Hub.
+
 ## Reporting Issues
 
 When reporting issues, please include:
