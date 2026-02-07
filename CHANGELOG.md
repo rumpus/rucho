@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Consolidate Dockerfile builder layers and use `COPY --chown` to eliminate standalone `RUN chown`
+- Harden docker-compose.yml with restart policy, resource limits, logging caps, and read-only config mount
+- Add OCI metadata labels to Docker image
+- Add `.env*`, coverage artifacts, and compose overrides to `.dockerignore`
+- Add Docker build smoke test to CI pipeline
+
 ## [1.0.0] - 2026-02-07
 
 ### Added
