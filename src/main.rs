@@ -95,6 +95,14 @@ async fn main() {
                     None
                 };
 
+                tracing::info!(
+                    "Connection settings: TCP keep-alive={}s, TCP nodelay={}, HTTP timeout={}s, header timeout={}s",
+                    config.tcp_keepalive_time,
+                    config.tcp_nodelay,
+                    config.http_keep_alive_timeout,
+                    config.header_read_timeout,
+                );
+
                 // Log chaos mode if enabled
                 if config.chaos.is_enabled() {
                     tracing::info!("Chaos mode enabled: {}", config.chaos.modes.join(", "));
