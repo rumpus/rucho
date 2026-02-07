@@ -3,6 +3,7 @@
 //! This module provides functionality for setting up and running the various
 //! server listeners (HTTP, HTTPS, TCP, UDP) and handling graceful shutdown.
 
+pub mod chaos_layer;
 pub mod http;
 pub mod metrics_layer;
 pub mod shutdown;

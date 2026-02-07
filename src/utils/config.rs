@@ -7,6 +7,71 @@ use crate::utils::constants::{
     DEFAULT_SERVER_LISTEN_SECONDARY,
 };
 
+/// Configuration for chaos engineering mode.
+///
+/// Chaos mode enables random injection of failures, delays, and response corruption
+/// to help test application resilience. Each chaos type is configured independently
+/// and rolls against its own probability rate per request.
+#[derive(Debug, Clone)]
+pub struct ChaosConfig {
+    /// Active chaos types (e.g., "failure", "delay", "corruption").
+    pub modes: Vec<String>,
+    /// Probability of injecting a failure response (0.01-1.0).
+    pub failure_rate: f64,
+    /// HTTP status codes to randomly return on failure (e.g., [500, 502, 503]).
+    pub failure_codes: Vec<u16>,
+    /// Probability of injecting a delay (0.01-1.0).
+    pub delay_rate: f64,
+    /// Delay duration in milliseconds, or "random" for random delays.
+    pub delay_ms: String,
+    /// Maximum delay in milliseconds when delay_ms is "random".
+    pub delay_max_ms: u64,
+    /// Probability of corrupting the response body (0.01-1.0).
+    pub corruption_rate: f64,
+    /// How to corrupt the response body: "empty", "truncate", or "garbage".
+    pub corruption_type: String,
+    /// Whether to add X-Chaos header to affected responses (default: true).
+    pub inform_header: bool,
+}
+
+impl Default for ChaosConfig {
+    fn default() -> Self {
+        ChaosConfig {
+            modes: Vec::new(),
+            failure_rate: 0.0,
+            failure_codes: Vec::new(),
+            delay_rate: 0.0,
+            delay_ms: String::new(),
+            delay_max_ms: 0,
+            corruption_rate: 0.0,
+            corruption_type: String::new(),
+            inform_header: true,
+        }
+    }
+}
+
+impl ChaosConfig {
+    /// Returns true if any chaos mode is enabled.
+    pub fn is_enabled(&self) -> bool {
+        !self.modes.is_empty()
+    }
+
+    /// Returns true if failure injection is enabled.
+    pub fn has_failure(&self) -> bool {
+        self.modes.iter().any(|m| m == "failure")
+    }
+
+    /// Returns true if delay injection is enabled.
+    pub fn has_delay(&self) -> bool {
+        self.modes.iter().any(|m| m == "delay")
+    }
+
+    /// Returns true if response corruption is enabled.
+    pub fn has_corruption(&self) -> bool {
+        self.modes.iter().any(|m| m == "corruption")
+    }
+}
+
 /// Macro to load an environment variable into a config field.
 macro_rules! load_env_var {
     ($config:expr, $field:ident, $env_var:expr) => {
@@ -59,6 +124,8 @@ pub struct Config {
     pub metrics_enabled: bool,
     /// Enable response compression (gzip, brotli) based on client Accept-Encoding.
     pub compression_enabled: bool,
+    /// Chaos engineering configuration.
+    pub chaos: ChaosConfig,
 }
 
 impl Default for Config {
@@ -76,6 +143,7 @@ impl Default for Config {
             ssl_key: None,
             metrics_enabled: false,
             compression_enabled: false,
+            chaos: ChaosConfig::default(),
         }
     }
 }
@@ -87,6 +155,8 @@ pub enum ConfigValidationError {
     SslCertWithoutKey,
     /// SSL key specified without certificate
     SslKeyWithoutCert,
+    /// A chaos configuration requirement is not met
+    Chaos(String),
 }
 
 impl std::fmt::Display for ConfigValidationError {
@@ -97,6 +167,9 @@ impl std::fmt::Display for ConfigValidationError {
             }
             ConfigValidationError::SslKeyWithoutCert => {
                 write!(f, "SSL key specified without certificate")
+            }
+            ConfigValidationError::Chaos(msg) => {
+                write!(f, "Chaos config error: {}", msg)
             }
         }
     }
@@ -134,6 +207,49 @@ impl Config {
                     }
                     "compression_enabled" => {
                         config.compression_enabled =
+                            value.eq_ignore_ascii_case("true") || value == "1"
+                    }
+                    "chaos_mode" => {
+                        config.chaos.modes = value
+                            .split(',')
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty())
+                            .collect();
+                    }
+                    "chaos_failure_rate" => {
+                        if let Ok(v) = value.parse::<f64>() {
+                            config.chaos.failure_rate = v;
+                        }
+                    }
+                    "chaos_failure_codes" => {
+                        config.chaos.failure_codes = value
+                            .split(',')
+                            .filter_map(|s| s.trim().parse::<u16>().ok())
+                            .collect();
+                    }
+                    "chaos_delay_rate" => {
+                        if let Ok(v) = value.parse::<f64>() {
+                            config.chaos.delay_rate = v;
+                        }
+                    }
+                    "chaos_delay_ms" => {
+                        config.chaos.delay_ms = value.to_string();
+                    }
+                    "chaos_delay_max_ms" => {
+                        if let Ok(v) = value.parse::<u64>() {
+                            config.chaos.delay_max_ms = v;
+                        }
+                    }
+                    "chaos_corruption_rate" => {
+                        if let Ok(v) = value.parse::<f64>() {
+                            config.chaos.corruption_rate = v;
+                        }
+                    }
+                    "chaos_corruption_type" => {
+                        config.chaos.corruption_type = value.to_string();
+                    }
+                    "chaos_inform_header" => {
+                        config.chaos.inform_header =
                             value.eq_ignore_ascii_case("true") || value == "1"
                     }
                     _ => eprintln!("Warning: Unknown key in config file: {}", key),
@@ -215,6 +331,50 @@ impl Config {
             bool
         );
 
+        // Chaos mode env vars (manual parsing since macro doesn't support nested fields)
+        if let Ok(value) = env::var("RUCHO_CHAOS_MODE") {
+            config.chaos.modes = value
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+        }
+        if let Ok(value) = env::var("RUCHO_CHAOS_FAILURE_RATE") {
+            if let Ok(v) = value.parse::<f64>() {
+                config.chaos.failure_rate = v;
+            }
+        }
+        if let Ok(value) = env::var("RUCHO_CHAOS_FAILURE_CODES") {
+            config.chaos.failure_codes = value
+                .split(',')
+                .filter_map(|s| s.trim().parse::<u16>().ok())
+                .collect();
+        }
+        if let Ok(value) = env::var("RUCHO_CHAOS_DELAY_RATE") {
+            if let Ok(v) = value.parse::<f64>() {
+                config.chaos.delay_rate = v;
+            }
+        }
+        if let Ok(value) = env::var("RUCHO_CHAOS_DELAY_MS") {
+            config.chaos.delay_ms = value;
+        }
+        if let Ok(value) = env::var("RUCHO_CHAOS_DELAY_MAX_MS") {
+            if let Ok(v) = value.parse::<u64>() {
+                config.chaos.delay_max_ms = v;
+            }
+        }
+        if let Ok(value) = env::var("RUCHO_CHAOS_CORRUPTION_RATE") {
+            if let Ok(v) = value.parse::<f64>() {
+                config.chaos.corruption_rate = v;
+            }
+        }
+        if let Ok(value) = env::var("RUCHO_CHAOS_CORRUPTION_TYPE") {
+            config.chaos.corruption_type = value;
+        }
+        if let Ok(value) = env::var("RUCHO_CHAOS_INFORM_HEADER") {
+            config.chaos.inform_header = value.eq_ignore_ascii_case("true") || value == "1";
+        }
+
         config
     }
 
@@ -230,10 +390,103 @@ impl Config {
     /// - `SslKeyWithoutCert`: SSL key is specified but certificate is missing
     pub fn validate(&self) -> Result<(), ConfigValidationError> {
         match (&self.ssl_cert, &self.ssl_key) {
-            (Some(_), None) => Err(ConfigValidationError::SslCertWithoutKey),
-            (None, Some(_)) => Err(ConfigValidationError::SslKeyWithoutCert),
-            _ => Ok(()),
+            (Some(_), None) => return Err(ConfigValidationError::SslCertWithoutKey),
+            (None, Some(_)) => return Err(ConfigValidationError::SslKeyWithoutCert),
+            _ => {}
         }
+
+        self.validate_chaos()?;
+
+        Ok(())
+    }
+
+    /// Validates the chaos engineering configuration.
+    ///
+    /// Checks that all required sub-configs are present for each enabled chaos type,
+    /// rates are within valid ranges, and values are well-formed.
+    fn validate_chaos(&self) -> Result<(), ConfigValidationError> {
+        let chaos = &self.chaos;
+
+        if !chaos.is_enabled() {
+            return Ok(());
+        }
+
+        // Check for unknown chaos types
+        let valid_types = ["failure", "delay", "corruption"];
+        for mode in &chaos.modes {
+            if !valid_types.contains(&mode.as_str()) {
+                return Err(ConfigValidationError::Chaos(format!(
+                    "Unknown chaos type '{}'. Valid types: failure, delay, corruption",
+                    mode
+                )));
+            }
+        }
+
+        // Validate failure config
+        if chaos.has_failure() {
+            if chaos.failure_rate < 0.01 || chaos.failure_rate > 1.0 {
+                return Err(ConfigValidationError::Chaos(
+                    "chaos_failure_rate must be between 0.01 and 1.0".to_string(),
+                ));
+            }
+            if chaos.failure_codes.is_empty() {
+                return Err(ConfigValidationError::Chaos(
+                    "chaos_failure_codes is required when failure mode is enabled".to_string(),
+                ));
+            }
+            for &code in &chaos.failure_codes {
+                if !(400..=599).contains(&code) {
+                    return Err(ConfigValidationError::Chaos(format!(
+                        "Invalid failure code {}. Must be between 400 and 599",
+                        code
+                    )));
+                }
+            }
+        }
+
+        // Validate delay config
+        if chaos.has_delay() {
+            if chaos.delay_rate < 0.01 || chaos.delay_rate > 1.0 {
+                return Err(ConfigValidationError::Chaos(
+                    "chaos_delay_rate must be between 0.01 and 1.0".to_string(),
+                ));
+            }
+            if chaos.delay_ms.is_empty() {
+                return Err(ConfigValidationError::Chaos(
+                    "chaos_delay_ms is required when delay mode is enabled".to_string(),
+                ));
+            }
+            if chaos.delay_ms == "random" {
+                if chaos.delay_max_ms == 0 {
+                    return Err(ConfigValidationError::Chaos(
+                        "chaos_delay_max_ms is required when chaos_delay_ms is 'random'"
+                            .to_string(),
+                    ));
+                }
+            } else if chaos.delay_ms.parse::<u64>().is_err() {
+                return Err(ConfigValidationError::Chaos(
+                    "chaos_delay_ms must be a number or 'random'".to_string(),
+                ));
+            }
+        }
+
+        // Validate corruption config
+        if chaos.has_corruption() {
+            if chaos.corruption_rate < 0.01 || chaos.corruption_rate > 1.0 {
+                return Err(ConfigValidationError::Chaos(
+                    "chaos_corruption_rate must be between 0.01 and 1.0".to_string(),
+                ));
+            }
+            let valid_corruption_types = ["empty", "truncate", "garbage"];
+            if !valid_corruption_types.contains(&chaos.corruption_type.as_str()) {
+                return Err(ConfigValidationError::Chaos(format!(
+                    "Invalid chaos_corruption_type '{}'. Valid types: empty, truncate, garbage",
+                    chaos.corruption_type
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     /// Loads the configuration for the application.
@@ -328,6 +581,15 @@ mod tests {
             env::remove_var("RUCHO_SSL_KEY");
             env::remove_var("RUCHO_METRICS_ENABLED");
             env::remove_var("RUCHO_COMPRESSION_ENABLED");
+            env::remove_var("RUCHO_CHAOS_MODE");
+            env::remove_var("RUCHO_CHAOS_FAILURE_RATE");
+            env::remove_var("RUCHO_CHAOS_FAILURE_CODES");
+            env::remove_var("RUCHO_CHAOS_DELAY_RATE");
+            env::remove_var("RUCHO_CHAOS_DELAY_MS");
+            env::remove_var("RUCHO_CHAOS_DELAY_MAX_MS");
+            env::remove_var("RUCHO_CHAOS_CORRUPTION_RATE");
+            env::remove_var("RUCHO_CHAOS_CORRUPTION_TYPE");
+            env::remove_var("RUCHO_CHAOS_INFORM_HEADER");
         }
 
         fn create_config_file(&self, path: &std::path::Path, content: &str) {
@@ -817,5 +1079,241 @@ mod tests {
         );
 
         assert!(config.compression_enabled);
+    }
+
+    // --- Chaos config tests ---
+
+    #[test]
+    fn test_chaos_disabled_by_default() {
+        let _env = TestEnv::new();
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_chaos_default_etc.conf");
+        let non_existent_cwd = PathBuf::from("./non_existent_chaos_default_cwd.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+
+        assert!(!config.chaos.is_enabled());
+        assert!(config.chaos.modes.is_empty());
+        assert!(config.chaos.inform_header); // default true
+    }
+
+    #[test]
+    fn test_chaos_config_from_file() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(
+            &env_setup.cwd_rucho_conf_path,
+            "chaos_mode = failure,delay\n\
+             chaos_failure_rate = 0.5\n\
+             chaos_failure_codes = 500,503\n\
+             chaos_delay_rate = 0.3\n\
+             chaos_delay_ms = 2000\n\
+             chaos_inform_header = false",
+        );
+
+        let non_existent_etc = env_setup
+            .etc_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let config = Config::load_from_paths(
+            Some(non_existent_etc),
+            Some(env_setup.cwd_rucho_conf_path.clone()),
+        );
+
+        assert!(config.chaos.is_enabled());
+        assert_eq!(config.chaos.modes, vec!["failure", "delay"]);
+        assert!((config.chaos.failure_rate - 0.5).abs() < f64::EPSILON);
+        assert_eq!(config.chaos.failure_codes, vec![500, 503]);
+        assert!((config.chaos.delay_rate - 0.3).abs() < f64::EPSILON);
+        assert_eq!(config.chaos.delay_ms, "2000");
+        assert!(!config.chaos.inform_header);
+    }
+
+    #[test]
+    fn test_chaos_config_from_env() {
+        let env_setup = TestEnv::new();
+        env::set_var("RUCHO_CHAOS_MODE", "corruption");
+        env::set_var("RUCHO_CHAOS_CORRUPTION_RATE", "0.1");
+        env::set_var("RUCHO_CHAOS_CORRUPTION_TYPE", "empty");
+
+        let non_existent_etc = env_setup
+            .etc_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let non_existent_cwd = env_setup
+            .cwd_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+
+        assert!(config.chaos.is_enabled());
+        assert!(config.chaos.has_corruption());
+        assert!((config.chaos.corruption_rate - 0.1).abs() < f64::EPSILON);
+        assert_eq!(config.chaos.corruption_type, "empty");
+    }
+
+    #[test]
+    fn test_chaos_env_overrides_file() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(
+            &env_setup.cwd_rucho_conf_path,
+            "chaos_mode = failure\n\
+             chaos_failure_rate = 0.5\n\
+             chaos_failure_codes = 500",
+        );
+        env::set_var("RUCHO_CHAOS_FAILURE_RATE", "0.9");
+
+        let non_existent_etc = env_setup
+            .etc_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let config = Config::load_from_paths(
+            Some(non_existent_etc),
+            Some(env_setup.cwd_rucho_conf_path.clone()),
+        );
+
+        assert!((config.chaos.failure_rate - 0.9).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_chaos_validate_valid_failure_config() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["failure".to_string()];
+        config.chaos.failure_rate = 0.5;
+        config.chaos.failure_codes = vec![500, 503];
+
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_chaos_validate_missing_failure_codes() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["failure".to_string()];
+        config.chaos.failure_rate = 0.5;
+        // failure_codes empty
+
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Chaos(_))
+        ));
+    }
+
+    #[test]
+    fn test_chaos_validate_failure_rate_too_low() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["failure".to_string()];
+        config.chaos.failure_rate = 0.001;
+        config.chaos.failure_codes = vec![500];
+
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Chaos(_))
+        ));
+    }
+
+    #[test]
+    fn test_chaos_validate_failure_rate_too_high() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["failure".to_string()];
+        config.chaos.failure_rate = 1.5;
+        config.chaos.failure_codes = vec![500];
+
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Chaos(_))
+        ));
+    }
+
+    #[test]
+    fn test_chaos_validate_invalid_failure_code() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["failure".to_string()];
+        config.chaos.failure_rate = 0.5;
+        config.chaos.failure_codes = vec![200]; // not 400-599
+
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Chaos(_))
+        ));
+    }
+
+    #[test]
+    fn test_chaos_validate_missing_delay_ms() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["delay".to_string()];
+        config.chaos.delay_rate = 0.5;
+        // delay_ms empty
+
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Chaos(_))
+        ));
+    }
+
+    #[test]
+    fn test_chaos_validate_random_delay_missing_max() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["delay".to_string()];
+        config.chaos.delay_rate = 0.5;
+        config.chaos.delay_ms = "random".to_string();
+        config.chaos.delay_max_ms = 0;
+
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Chaos(_))
+        ));
+    }
+
+    #[test]
+    fn test_chaos_validate_valid_delay_random() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["delay".to_string()];
+        config.chaos.delay_rate = 0.5;
+        config.chaos.delay_ms = "random".to_string();
+        config.chaos.delay_max_ms = 3000;
+
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_chaos_validate_invalid_corruption_type() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["corruption".to_string()];
+        config.chaos.corruption_rate = 0.5;
+        config.chaos.corruption_type = "invalid".to_string();
+
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Chaos(_))
+        ));
+    }
+
+    #[test]
+    fn test_chaos_validate_valid_corruption() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["corruption".to_string()];
+        config.chaos.corruption_rate = 0.5;
+        config.chaos.corruption_type = "truncate".to_string();
+
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_chaos_validate_unknown_type() {
+        let mut config = Config::default();
+        config.chaos.modes = vec!["unknown".to_string()];
+
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Chaos(_))
+        ));
+    }
+
+    #[test]
+    fn test_chaos_validate_disabled_skips_validation() {
+        let config = Config::default();
+        // chaos is disabled by default, should pass even without sub-configs
+        assert!(config.validate().is_ok());
     }
 }

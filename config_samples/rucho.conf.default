@@ -45,3 +45,35 @@ metrics_enabled = false
 # When enabled, responses are compressed based on client Accept-Encoding header.
 # Example: compression_enabled = true
 compression_enabled = false
+
+# --- Chaos Engineering Mode ---
+# Chaos mode injects random failures, delays, and response corruption
+# to help test application resilience. Disabled by default.
+#
+# Enable chaos types (comma-separated): failure, delay, corruption
+# Example: chaos_mode = failure,delay
+# chaos_mode =
+#
+# -- Failure injection --
+# Probability of returning a failure response (0.01-1.0)
+# chaos_failure_rate = 0.1
+# HTTP status codes to randomly return (comma-separated, 400-599)
+# chaos_failure_codes = 500,502,503
+#
+# -- Delay injection --
+# Probability of adding a delay to the request (0.01-1.0)
+# chaos_delay_rate = 0.2
+# Delay in milliseconds, or "random" for random delays
+# chaos_delay_ms = 2000
+# Maximum delay in ms when chaos_delay_ms = random (required if random)
+# chaos_delay_max_ms = 5000
+#
+# -- Response corruption --
+# Probability of corrupting the response body (0.01-1.0)
+# chaos_corruption_rate = 0.05
+# Corruption type: empty, truncate, or garbage
+# chaos_corruption_type = empty
+#
+# -- Inform header --
+# Add X-Chaos response header to affected requests (default: true)
+# chaos_inform_header = true

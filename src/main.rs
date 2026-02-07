@@ -24,9 +24,10 @@ use rucho::cli::{
     Args, CliCommand,
 };
 use rucho::routes::core_routes::EndpointInfo;
+use rucho::server::chaos_layer::chaos_middleware;
 use rucho::server::metrics_layer::metrics_middleware;
 use rucho::server::timing_layer::timing_middleware;
-use rucho::utils::config::Config;
+use rucho::utils::config::{ChaosConfig, Config};
 use rucho::utils::metrics::Metrics;
 
 #[derive(OpenApi)]
@@ -94,7 +95,13 @@ async fn main() {
                     None
                 };
 
-                let app = build_app(metrics, config.compression_enabled);
+                // Log chaos mode if enabled
+                if config.chaos.is_enabled() {
+                    tracing::info!("Chaos mode enabled: {}", config.chaos.modes.join(", "));
+                }
+
+                let chaos = Arc::new(config.chaos.clone());
+                let app = build_app(metrics, config.compression_enabled, chaos);
                 rucho::server::run_server(&config, app).await;
             }
         }
@@ -108,7 +115,12 @@ async fn main() {
 ///
 /// If metrics is Some, enables the /metrics endpoint and metrics collection middleware.
 /// If compression_enabled is true, enables gzip/brotli response compression.
-fn build_app(metrics: Option<Arc<Metrics>>, compression_enabled: bool) -> Router {
+/// If chaos mode is enabled, adds chaos middleware for resilience testing.
+fn build_app(
+    metrics: Option<Arc<Metrics>>,
+    compression_enabled: bool,
+    chaos: Arc<ChaosConfig>,
+) -> Router {
     let mut app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(rucho::routes::core_routes::router())
@@ -129,7 +141,17 @@ fn build_app(metrics: Option<Arc<Metrics>>, compression_enabled: bool) -> Router
     }
 
     // Middleware order (innermost to outermost):
-    // routes → timing → trace → compression → cors → normalize-path
+    // routes → chaos → timing → trace → compression → cors → normalize-path
+    // Chaos sits inside timing so duration_ms honestly reflects chaos delays.
+    let app = if chaos.is_enabled() {
+        app.layer(middleware::from_fn(move |req, next| {
+            let chaos = chaos.clone();
+            async move { chaos_middleware(req, next, chaos).await }
+        }))
+    } else {
+        app
+    };
+
     let app = app.layer(middleware::from_fn(timing_middleware)).layer(
         TraceLayer::new_for_http()
             .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
