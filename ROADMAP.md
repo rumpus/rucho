@@ -47,6 +47,9 @@
 - [x] Request tracing and logging
 - [x] Request/response timing in echo responses (`timing.duration_ms`)
 
+### Testing & Resilience
+- [x] Chaos engineering mode (failure injection, delay injection, response corruption)
+
 ---
 
 ## Tier 1: Performance & Speed (Next)

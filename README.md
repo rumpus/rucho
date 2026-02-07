@@ -13,6 +13,7 @@ Designed for testing, debugging, and simulating various HTTP behaviors.
 - TCP and UDP echo listeners for protocol testing
 - HTTPS support via Rustls with HTTP/2
 - Response compression (gzip, brotli) - optional, client-negotiated
+- Chaos engineering mode for resilience testing
 - Request timing in JSON responses (`timing.duration_ms`)
 - OpenAPI/Swagger documentation
 - CLI for server management (start, stop, status)
@@ -98,6 +99,7 @@ Rucho loads configuration in this order (later overrides earlier):
 | `ssl_key`                   | (none)               | `RUCHO_SSL_KEY`                | Path to SSL private key        |
 | `metrics_enabled`           | `false`              | `RUCHO_METRICS_ENABLED`        | Enable /metrics endpoint       |
 | `compression_enabled`       | `false`              | `RUCHO_COMPRESSION_ENABLED`    | Enable gzip/brotli compression |
+| `chaos_mode`                | (none)               | `RUCHO_CHAOS_MODE`             | Enable [chaos types](#chaos-engineering-mode) |
 
 ### HTTPS Configuration
 
@@ -140,11 +142,15 @@ src/
 │   ├── mod.rs
 │   ├── core_routes.rs   # Core echo endpoints
 │   ├── delay.rs         # /delay/:n endpoint
-│   └── healthz.rs       # /healthz endpoint
+│   ├── healthz.rs       # /healthz endpoint
+│   └── metrics.rs       # /metrics endpoint handler
 ├── server/              # Server setup and orchestration
 │   ├── mod.rs
+│   ├── chaos_layer.rs   # Chaos engineering middleware
 │   ├── http.rs          # HTTP/HTTPS listener setup
+│   ├── metrics_layer.rs # Metrics collection middleware
 │   ├── tcp.rs           # TCP echo listener
+│   ├── timing_layer.rs  # Request timing middleware
 │   ├── udp.rs           # UDP echo listener
 │   └── shutdown.rs      # Graceful shutdown handling
 ├── tcp_udp_handlers.rs  # TCP/UDP echo protocol handlers
@@ -154,8 +160,10 @@ src/
     ├── constants.rs     # Centralized constants
     ├── error_response.rs
     ├── json_response.rs
+    ├── metrics.rs       # Metrics data structures
     ├── pid.rs           # PID file management
-    └── server_config.rs # Listener and TLS configuration
+    ├── server_config.rs # Listener and TLS configuration
+    └── timing.rs        # Timing utilities
 ```
 
 ## Docker
@@ -214,6 +222,66 @@ Or via environment variable: `RUCHO_COMPRESSION_ENABLED=true`
 When enabled, responses are compressed based on the client's `Accept-Encoding` header:
 - `Accept-Encoding: gzip` → gzip compression
 - `Accept-Encoding: br` → brotli compression
+
+### Chaos Engineering Mode
+
+Enable chaos mode to randomly inject failures, delays, and response corruption for resilience testing. Each chaos type rolls independently against its configured probability per request. Disabled by default.
+
+#### Chaos Parameters
+
+| Parameter               | Default | Env Variable                  | Description                                          |
+|-------------------------|---------|-------------------------------|------------------------------------------------------|
+| `chaos_mode`            | (none)  | `RUCHO_CHAOS_MODE`            | Chaos types to enable (comma-separated: `failure`, `delay`, `corruption`) |
+| `chaos_failure_rate`    | `0.0`   | `RUCHO_CHAOS_FAILURE_RATE`    | Probability of failure injection (0.01-1.0)          |
+| `chaos_failure_codes`   | (none)  | `RUCHO_CHAOS_FAILURE_CODES`   | HTTP status codes to return (comma-separated, 400-599) |
+| `chaos_delay_rate`      | `0.0`   | `RUCHO_CHAOS_DELAY_RATE`      | Probability of delay injection (0.01-1.0)            |
+| `chaos_delay_ms`        | (none)  | `RUCHO_CHAOS_DELAY_MS`        | Delay in ms, or `random` for random delays           |
+| `chaos_delay_max_ms`    | `0`     | `RUCHO_CHAOS_DELAY_MAX_MS`    | Max delay in ms (required when `chaos_delay_ms=random`) |
+| `chaos_corruption_rate` | `0.0`   | `RUCHO_CHAOS_CORRUPTION_RATE` | Probability of response corruption (0.01-1.0)        |
+| `chaos_corruption_type` | (none)  | `RUCHO_CHAOS_CORRUPTION_TYPE` | Corruption type: `empty`, `truncate`, or `garbage`   |
+| `chaos_inform_header`   | `true`  | `RUCHO_CHAOS_INFORM_HEADER`   | Add `X-Chaos` header to affected responses           |
+
+#### Usage Examples
+
+**Failure injection** — randomly return 500/503 errors on 10% of requests:
+
+```ini
+chaos_mode = failure
+chaos_failure_rate = 0.1
+chaos_failure_codes = 500,503
+```
+
+**Delay injection** — add random delays (up to 5s) on 20% of requests:
+
+```ini
+chaos_mode = delay
+chaos_delay_rate = 0.2
+chaos_delay_ms = random
+chaos_delay_max_ms = 5000
+```
+
+**Response corruption** — truncate response bodies on 5% of requests:
+
+```ini
+chaos_mode = corruption
+chaos_corruption_rate = 0.05
+chaos_corruption_type = truncate
+```
+
+**Combined** — enable multiple chaos types simultaneously:
+
+```ini
+chaos_mode = failure,delay,corruption
+chaos_failure_rate = 0.1
+chaos_failure_codes = 500,502,503
+chaos_delay_rate = 0.2
+chaos_delay_ms = random
+chaos_delay_max_ms = 5000
+chaos_corruption_rate = 0.05
+chaos_corruption_type = empty
+```
+
+Affected responses include an `X-Chaos` header listing which chaos types were applied (e.g., `X-Chaos: delay,corruption`). Disable this with `chaos_inform_header = false`.
 
 ## Examples
 
