@@ -4,9 +4,6 @@
 # Ignore backup files
 **/*.rs.bk
 
-# Ignore lock file (optional, usually kept for binaries but in libraries sometimes ignored)
-/Cargo.lock
-
 # Miscellaneous
 **/*.log
 .DS_Store
