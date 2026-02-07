@@ -22,8 +22,8 @@ fn configure_tcp_socket(listener: &std::net::TcpListener, config: &Config) {
         .with_time(Duration::from_secs(config.tcp_keepalive_time))
         .with_interval(Duration::from_secs(config.tcp_keepalive_interval));
 
-    // with_retries is only available on Linux
-    #[cfg(target_os = "linux")]
+    // with_retries is not available on Windows
+    #[cfg(not(target_os = "windows"))]
     let keepalive = keepalive.with_retries(config.tcp_keepalive_retries);
 
     if let Err(e) = sock_ref.set_tcp_keepalive(&keepalive) {
