@@ -1,8 +1,11 @@
 [package]
 name = "rucho"
-version = "0.1.0"
+version = "1.0.0"
 description = "Rucho - An echo server and general HTTP request inspector."
 edition = "2021"
+repository = "https://github.com/rumpus/rucho"
+license = "MIT"
+homepage = "https://github.com/rumpus/rucho"
 
 [dependencies]
 axum = "0.7"

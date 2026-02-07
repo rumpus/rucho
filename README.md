@@ -1,6 +1,7 @@
 # Rucho - HTTP Echo Server
 
 [![CI](https://github.com/rumpus/rucho/actions/workflows/ci.yml/badge.svg)](https://github.com/rumpus/rucho/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/rumpus/rucho)](https://github.com/rumpus/rucho/releases/latest)
 
 Simple, fast, and scalable HTTP echo server built with Rust and Axum.
 Designed for testing, debugging, and simulating various HTTP behaviors.
