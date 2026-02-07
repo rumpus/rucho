@@ -3,8 +3,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::utils::constants::{
-    DEFAULT_LOG_LEVEL, DEFAULT_PREFIX, DEFAULT_SERVER_LISTEN_PRIMARY,
-    DEFAULT_SERVER_LISTEN_SECONDARY,
+    DEFAULT_HEADER_READ_TIMEOUT_SECS, DEFAULT_HTTP_KEEP_ALIVE_TIMEOUT_SECS, DEFAULT_LOG_LEVEL,
+    DEFAULT_PREFIX, DEFAULT_SERVER_LISTEN_PRIMARY, DEFAULT_SERVER_LISTEN_SECONDARY,
+    DEFAULT_TCP_KEEPALIVE_INTERVAL_SECS, DEFAULT_TCP_KEEPALIVE_RETRIES, DEFAULT_TCP_KEEPALIVE_SECS,
 };
 
 /// Configuration for chaos engineering mode.
@@ -89,6 +90,20 @@ macro_rules! load_env_var {
             $config.$field = value.eq_ignore_ascii_case("true") || value == "1";
         }
     };
+    ($config:expr, $field:ident, $env_var:expr, u64) => {
+        if let Ok(value) = env::var($env_var) {
+            if let Ok(v) = value.parse::<u64>() {
+                $config.$field = v;
+            }
+        }
+    };
+    ($config:expr, $field:ident, $env_var:expr, u32) => {
+        if let Ok(value) = env::var($env_var) {
+            if let Ok(v) = value.parse::<u32>() {
+                $config.$field = v;
+            }
+        }
+    };
 }
 
 /// Holds the application configuration.
@@ -124,6 +139,18 @@ pub struct Config {
     pub metrics_enabled: bool,
     /// Enable response compression (gzip, brotli) based on client Accept-Encoding.
     pub compression_enabled: bool,
+    /// HTTP keep-alive timeout in seconds. How long an idle connection stays open.
+    pub http_keep_alive_timeout: u64,
+    /// TCP keep-alive idle time in seconds. How long before probes start on idle connections.
+    pub tcp_keepalive_time: u64,
+    /// TCP keep-alive probe interval in seconds.
+    pub tcp_keepalive_interval: u64,
+    /// Number of TCP keep-alive probe retries before dropping the connection.
+    pub tcp_keepalive_retries: u32,
+    /// Disable Nagle's algorithm for lower latency on small responses.
+    pub tcp_nodelay: bool,
+    /// Maximum time in seconds to wait for request headers from a client.
+    pub header_read_timeout: u64,
     /// Chaos engineering configuration.
     pub chaos: ChaosConfig,
 }
@@ -143,6 +170,12 @@ impl Default for Config {
             ssl_key: None,
             metrics_enabled: false,
             compression_enabled: false,
+            http_keep_alive_timeout: DEFAULT_HTTP_KEEP_ALIVE_TIMEOUT_SECS,
+            tcp_keepalive_time: DEFAULT_TCP_KEEPALIVE_SECS,
+            tcp_keepalive_interval: DEFAULT_TCP_KEEPALIVE_INTERVAL_SECS,
+            tcp_keepalive_retries: DEFAULT_TCP_KEEPALIVE_RETRIES,
+            tcp_nodelay: true,
+            header_read_timeout: DEFAULT_HEADER_READ_TIMEOUT_SECS,
             chaos: ChaosConfig::default(),
         }
     }
@@ -155,6 +188,8 @@ pub enum ConfigValidationError {
     SslCertWithoutKey,
     /// SSL key specified without certificate
     SslKeyWithoutCert,
+    /// A connection tuning value is invalid
+    Connection(String),
     /// A chaos configuration requirement is not met
     Chaos(String),
 }
@@ -167,6 +202,9 @@ impl std::fmt::Display for ConfigValidationError {
             }
             ConfigValidationError::SslKeyWithoutCert => {
                 write!(f, "SSL key specified without certificate")
+            }
+            ConfigValidationError::Connection(msg) => {
+                write!(f, "Connection config error: {}", msg)
             }
             ConfigValidationError::Chaos(msg) => {
                 write!(f, "Chaos config error: {}", msg)
@@ -208,6 +246,34 @@ impl Config {
                     "compression_enabled" => {
                         config.compression_enabled =
                             value.eq_ignore_ascii_case("true") || value == "1"
+                    }
+                    "http_keep_alive_timeout" => {
+                        if let Ok(v) = value.parse::<u64>() {
+                            config.http_keep_alive_timeout = v;
+                        }
+                    }
+                    "tcp_keepalive_time" => {
+                        if let Ok(v) = value.parse::<u64>() {
+                            config.tcp_keepalive_time = v;
+                        }
+                    }
+                    "tcp_keepalive_interval" => {
+                        if let Ok(v) = value.parse::<u64>() {
+                            config.tcp_keepalive_interval = v;
+                        }
+                    }
+                    "tcp_keepalive_retries" => {
+                        if let Ok(v) = value.parse::<u32>() {
+                            config.tcp_keepalive_retries = v;
+                        }
+                    }
+                    "tcp_nodelay" => {
+                        config.tcp_nodelay = value.eq_ignore_ascii_case("true") || value == "1"
+                    }
+                    "header_read_timeout" => {
+                        if let Ok(v) = value.parse::<u64>() {
+                            config.header_read_timeout = v;
+                        }
                     }
                     "chaos_mode" => {
                         config.chaos.modes = value
@@ -330,6 +396,32 @@ impl Config {
             "RUCHO_COMPRESSION_ENABLED",
             bool
         );
+        load_env_var!(
+            config,
+            http_keep_alive_timeout,
+            "RUCHO_HTTP_KEEP_ALIVE_TIMEOUT",
+            u64
+        );
+        load_env_var!(config, tcp_keepalive_time, "RUCHO_TCP_KEEPALIVE_TIME", u64);
+        load_env_var!(
+            config,
+            tcp_keepalive_interval,
+            "RUCHO_TCP_KEEPALIVE_INTERVAL",
+            u64
+        );
+        load_env_var!(
+            config,
+            tcp_keepalive_retries,
+            "RUCHO_TCP_KEEPALIVE_RETRIES",
+            u32
+        );
+        load_env_var!(config, tcp_nodelay, "RUCHO_TCP_NODELAY", bool);
+        load_env_var!(
+            config,
+            header_read_timeout,
+            "RUCHO_HEADER_READ_TIMEOUT",
+            u64
+        );
 
         // Chaos mode env vars (manual parsing since macro doesn't support nested fields)
         if let Ok(value) = env::var("RUCHO_CHAOS_MODE") {
@@ -395,8 +487,39 @@ impl Config {
             _ => {}
         }
 
+        self.validate_connection()?;
         self.validate_chaos()?;
 
+        Ok(())
+    }
+
+    /// Validates connection keep-alive and timeout settings.
+    fn validate_connection(&self) -> Result<(), ConfigValidationError> {
+        if self.http_keep_alive_timeout == 0 {
+            return Err(ConfigValidationError::Connection(
+                "http_keep_alive_timeout must be greater than 0".to_string(),
+            ));
+        }
+        if self.tcp_keepalive_time == 0 {
+            return Err(ConfigValidationError::Connection(
+                "tcp_keepalive_time must be greater than 0".to_string(),
+            ));
+        }
+        if self.tcp_keepalive_interval == 0 {
+            return Err(ConfigValidationError::Connection(
+                "tcp_keepalive_interval must be greater than 0".to_string(),
+            ));
+        }
+        if self.tcp_keepalive_retries == 0 || self.tcp_keepalive_retries > 10 {
+            return Err(ConfigValidationError::Connection(
+                "tcp_keepalive_retries must be between 1 and 10".to_string(),
+            ));
+        }
+        if self.header_read_timeout == 0 {
+            return Err(ConfigValidationError::Connection(
+                "header_read_timeout must be greater than 0".to_string(),
+            ));
+        }
         Ok(())
     }
 
@@ -581,6 +704,12 @@ mod tests {
             env::remove_var("RUCHO_SSL_KEY");
             env::remove_var("RUCHO_METRICS_ENABLED");
             env::remove_var("RUCHO_COMPRESSION_ENABLED");
+            env::remove_var("RUCHO_HTTP_KEEP_ALIVE_TIMEOUT");
+            env::remove_var("RUCHO_TCP_KEEPALIVE_TIME");
+            env::remove_var("RUCHO_TCP_KEEPALIVE_INTERVAL");
+            env::remove_var("RUCHO_TCP_KEEPALIVE_RETRIES");
+            env::remove_var("RUCHO_TCP_NODELAY");
+            env::remove_var("RUCHO_HEADER_READ_TIMEOUT");
             env::remove_var("RUCHO_CHAOS_MODE");
             env::remove_var("RUCHO_CHAOS_FAILURE_RATE");
             env::remove_var("RUCHO_CHAOS_FAILURE_CODES");
@@ -1315,5 +1444,183 @@ mod tests {
         let config = Config::default();
         // chaos is disabled by default, should pass even without sub-configs
         assert!(config.validate().is_ok());
+    }
+
+    // --- Connection keep-alive config tests ---
+
+    #[test]
+    fn test_connection_defaults() {
+        let _env = TestEnv::new();
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_conn_default_etc.conf");
+        let non_existent_cwd = PathBuf::from("./non_existent_conn_default_cwd.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+
+        assert_eq!(config.http_keep_alive_timeout, 75);
+        assert_eq!(config.tcp_keepalive_time, 60);
+        assert_eq!(config.tcp_keepalive_interval, 15);
+        assert_eq!(config.tcp_keepalive_retries, 5);
+        assert!(config.tcp_nodelay);
+        assert_eq!(config.header_read_timeout, 30);
+    }
+
+    #[test]
+    fn test_connection_config_from_file() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(
+            &env_setup.cwd_rucho_conf_path,
+            "http_keep_alive_timeout = 120\n\
+             tcp_keepalive_time = 90\n\
+             tcp_keepalive_interval = 20\n\
+             tcp_keepalive_retries = 3\n\
+             tcp_nodelay = false\n\
+             header_read_timeout = 45",
+        );
+
+        let non_existent_etc = env_setup
+            .etc_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let config = Config::load_from_paths(
+            Some(non_existent_etc),
+            Some(env_setup.cwd_rucho_conf_path.clone()),
+        );
+
+        assert_eq!(config.http_keep_alive_timeout, 120);
+        assert_eq!(config.tcp_keepalive_time, 90);
+        assert_eq!(config.tcp_keepalive_interval, 20);
+        assert_eq!(config.tcp_keepalive_retries, 3);
+        assert!(!config.tcp_nodelay);
+        assert_eq!(config.header_read_timeout, 45);
+    }
+
+    #[test]
+    fn test_connection_config_from_env() {
+        let env_setup = TestEnv::new();
+        env::set_var("RUCHO_HTTP_KEEP_ALIVE_TIMEOUT", "100");
+        env::set_var("RUCHO_TCP_KEEPALIVE_TIME", "80");
+        env::set_var("RUCHO_TCP_KEEPALIVE_INTERVAL", "10");
+        env::set_var("RUCHO_TCP_KEEPALIVE_RETRIES", "8");
+        env::set_var("RUCHO_TCP_NODELAY", "false");
+        env::set_var("RUCHO_HEADER_READ_TIMEOUT", "60");
+
+        let non_existent_etc = env_setup
+            .etc_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let non_existent_cwd = env_setup
+            .cwd_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+
+        assert_eq!(config.http_keep_alive_timeout, 100);
+        assert_eq!(config.tcp_keepalive_time, 80);
+        assert_eq!(config.tcp_keepalive_interval, 10);
+        assert_eq!(config.tcp_keepalive_retries, 8);
+        assert!(!config.tcp_nodelay);
+        assert_eq!(config.header_read_timeout, 60);
+    }
+
+    #[test]
+    fn test_connection_env_overrides_file() {
+        let env_setup = TestEnv::new();
+        env_setup.create_config_file(
+            &env_setup.cwd_rucho_conf_path,
+            "http_keep_alive_timeout = 50\n\
+             tcp_keepalive_time = 40",
+        );
+        env::set_var("RUCHO_HTTP_KEEP_ALIVE_TIMEOUT", "200");
+
+        let non_existent_etc = env_setup
+            .etc_rucho_conf_path
+            .parent()
+            .unwrap()
+            .join("non_existent.conf");
+        let config = Config::load_from_paths(
+            Some(non_existent_etc),
+            Some(env_setup.cwd_rucho_conf_path.clone()),
+        );
+
+        assert_eq!(config.http_keep_alive_timeout, 200); // env wins
+        assert_eq!(config.tcp_keepalive_time, 40); // file value
+    }
+
+    #[test]
+    fn test_validate_connection_defaults_pass() {
+        let config = Config::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_http_keep_alive_timeout_zero() {
+        let mut config = Config::default();
+        config.http_keep_alive_timeout = 0;
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Connection(_))
+        ));
+    }
+
+    #[test]
+    fn test_validate_tcp_keepalive_time_zero() {
+        let mut config = Config::default();
+        config.tcp_keepalive_time = 0;
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Connection(_))
+        ));
+    }
+
+    #[test]
+    fn test_validate_tcp_keepalive_interval_zero() {
+        let mut config = Config::default();
+        config.tcp_keepalive_interval = 0;
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Connection(_))
+        ));
+    }
+
+    #[test]
+    fn test_validate_tcp_keepalive_retries_zero() {
+        let mut config = Config::default();
+        config.tcp_keepalive_retries = 0;
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Connection(_))
+        ));
+    }
+
+    #[test]
+    fn test_validate_tcp_keepalive_retries_too_high() {
+        let mut config = Config::default();
+        config.tcp_keepalive_retries = 11;
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Connection(_))
+        ));
+    }
+
+    #[test]
+    fn test_validate_tcp_keepalive_retries_boundary() {
+        let mut config = Config::default();
+        config.tcp_keepalive_retries = 1;
+        assert!(config.validate().is_ok());
+
+        config.tcp_keepalive_retries = 10;
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_header_read_timeout_zero() {
+        let mut config = Config::default();
+        config.header_read_timeout = 0;
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigValidationError::Connection(_))
+        ));
     }
 }

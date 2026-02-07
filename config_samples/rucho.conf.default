@@ -46,6 +46,35 @@ metrics_enabled = false
 # Example: compression_enabled = true
 compression_enabled = false
 
+# --- Connection Keep-Alive Tuning ---
+# These settings control TCP and HTTP connection behavior for performance
+# and resource management. Defaults are suitable for most deployments.
+#
+# HTTP keep-alive timeout (seconds). How long an idle HTTP connection stays open.
+# Default: 75
+# http_keep_alive_timeout = 75
+#
+# TCP keep-alive idle time (seconds). How long before probes start on idle connections.
+# Default: 60
+# tcp_keepalive_time = 60
+#
+# TCP keep-alive probe interval (seconds). Time between probe packets.
+# Default: 15
+# tcp_keepalive_interval = 15
+#
+# TCP keep-alive probe retries (1-10). Failed probes before dropping the connection.
+# Default: 5
+# tcp_keepalive_retries = 5
+#
+# Disable Nagle's algorithm for lower latency on small responses.
+# Default: true
+# tcp_nodelay = true
+#
+# Header read timeout (seconds). Max time to wait for complete request headers.
+# Protects against slowloris-style attacks.
+# Default: 30
+# header_read_timeout = 30
+
 # --- Chaos Engineering Mode ---
 # Chaos mode injects random failures, delays, and response corruption
 # to help test application resilience. Disabled by default.
