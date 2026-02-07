@@ -26,7 +26,7 @@ utoipa = { version = "4", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "7", features = ["axum"] }
 uuid = { version = "1", features = ["v4"] }
 rand = "0.8"
-socket2 = "0.5"
+socket2 = { version = "0.5", features = ["all"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 
 [dev-dependencies]
