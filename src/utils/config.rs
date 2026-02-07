@@ -1556,8 +1556,10 @@ mod tests {
 
     #[test]
     fn test_validate_http_keep_alive_timeout_zero() {
-        let mut config = Config::default();
-        config.http_keep_alive_timeout = 0;
+        let config = Config {
+            http_keep_alive_timeout: 0,
+            ..Config::default()
+        };
         assert!(matches!(
             config.validate(),
             Err(ConfigValidationError::Connection(_))
@@ -1566,8 +1568,10 @@ mod tests {
 
     #[test]
     fn test_validate_tcp_keepalive_time_zero() {
-        let mut config = Config::default();
-        config.tcp_keepalive_time = 0;
+        let config = Config {
+            tcp_keepalive_time: 0,
+            ..Config::default()
+        };
         assert!(matches!(
             config.validate(),
             Err(ConfigValidationError::Connection(_))
@@ -1576,8 +1580,10 @@ mod tests {
 
     #[test]
     fn test_validate_tcp_keepalive_interval_zero() {
-        let mut config = Config::default();
-        config.tcp_keepalive_interval = 0;
+        let config = Config {
+            tcp_keepalive_interval: 0,
+            ..Config::default()
+        };
         assert!(matches!(
             config.validate(),
             Err(ConfigValidationError::Connection(_))
@@ -1586,8 +1592,10 @@ mod tests {
 
     #[test]
     fn test_validate_tcp_keepalive_retries_zero() {
-        let mut config = Config::default();
-        config.tcp_keepalive_retries = 0;
+        let config = Config {
+            tcp_keepalive_retries: 0,
+            ..Config::default()
+        };
         assert!(matches!(
             config.validate(),
             Err(ConfigValidationError::Connection(_))
@@ -1596,8 +1604,10 @@ mod tests {
 
     #[test]
     fn test_validate_tcp_keepalive_retries_too_high() {
-        let mut config = Config::default();
-        config.tcp_keepalive_retries = 11;
+        let config = Config {
+            tcp_keepalive_retries: 11,
+            ..Config::default()
+        };
         assert!(matches!(
             config.validate(),
             Err(ConfigValidationError::Connection(_))
@@ -1606,18 +1616,25 @@ mod tests {
 
     #[test]
     fn test_validate_tcp_keepalive_retries_boundary() {
-        let mut config = Config::default();
-        config.tcp_keepalive_retries = 1;
+        let config = Config {
+            tcp_keepalive_retries: 1,
+            ..Config::default()
+        };
         assert!(config.validate().is_ok());
 
-        config.tcp_keepalive_retries = 10;
+        let config = Config {
+            tcp_keepalive_retries: 10,
+            ..Config::default()
+        };
         assert!(config.validate().is_ok());
     }
 
     #[test]
     fn test_validate_header_read_timeout_zero() {
-        let mut config = Config::default();
-        config.header_read_timeout = 0;
+        let config = Config {
+            header_read_timeout: 0,
+            ..Config::default()
+        };
         assert!(matches!(
             config.validate(),
             Err(ConfigValidationError::Connection(_))
