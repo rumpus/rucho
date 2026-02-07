@@ -139,11 +139,15 @@ src/
 │   ├── mod.rs
 │   ├── core_routes.rs   # Core echo endpoints
 │   ├── delay.rs         # /delay/:n endpoint
-│   └── healthz.rs       # /healthz endpoint
+│   ├── healthz.rs       # /healthz endpoint
+│   └── metrics.rs       # /metrics endpoint handler
 ├── server/              # Server setup and orchestration
 │   ├── mod.rs
+│   ├── chaos_layer.rs   # Chaos engineering middleware
 │   ├── http.rs          # HTTP/HTTPS listener setup
+│   ├── metrics_layer.rs # Metrics collection middleware
 │   ├── tcp.rs           # TCP echo listener
+│   ├── timing_layer.rs  # Request timing middleware
 │   ├── udp.rs           # UDP echo listener
 │   └── shutdown.rs      # Graceful shutdown handling
 ├── tcp_udp_handlers.rs  # TCP/UDP echo protocol handlers
@@ -153,8 +157,10 @@ src/
     ├── constants.rs     # Centralized constants
     ├── error_response.rs
     ├── json_response.rs
+    ├── metrics.rs       # Metrics data structures
     ├── pid.rs           # PID file management
-    └── server_config.rs # Listener and TLS configuration
+    ├── server_config.rs # Listener and TLS configuration
+    └── timing.rs        # Timing utilities
 ```
 
 ## Reporting Issues

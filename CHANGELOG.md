@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Chaos Engineering Mode**: Random failure, delay, and response corruption injection for resilience testing
+  - Enable via `chaos_mode` config or `RUCHO_CHAOS_MODE` env var (comma-separated: `failure`, `delay`, `corruption`)
+  - Failure injection: return configurable HTTP error codes at a set probability
+  - Delay injection: add fixed or random delays to requests
+  - Response corruption: `empty`, `truncate`, or `garbage` response body mutation
+  - `X-Chaos` inform header on affected responses (configurable)
+  - Startup validation ensures all required sub-configs are present for enabled types
 - **Response Compression**: Optional gzip/brotli compression based on client `Accept-Encoding`
   - Toggle via `compression_enabled` config or `RUCHO_COMPRESSION_ENABLED` env var
   - Off by default to preserve raw response inspection
