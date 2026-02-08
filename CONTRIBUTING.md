@@ -39,6 +39,9 @@ cargo clippy
 
 # Format code
 cargo fmt
+
+# Run benchmarks
+cargo bench
 ```
 
 ### Running Locally
@@ -129,6 +132,9 @@ Closes #42
 ## Project Structure
 
 ```
+benches/                         # Criterion benchmarks (cargo bench)
+├── response_benchmarks.rs       # Response building microbenchmarks
+└── endpoint_benchmarks.rs       # Full request cycle benchmarks
 src/
 ├── main.rs              # Application entrypoint
 ├── lib.rs               # Library exports
