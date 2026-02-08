@@ -6,10 +6,13 @@ WORKDIR /app
 # Copy manifests first for better layer caching
 COPY Cargo.toml Cargo.lock ./
 
-# Create dummy src to cache dependencies
+# Create dummy src and bench stubs to cache dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs \
+    && mkdir benches \
+    && echo "fn main() {}" > benches/response_benchmarks.rs \
+    && echo "fn main() {}" > benches/endpoint_benchmarks.rs \
     && cargo build --release \
-    && rm -rf src
+    && rm -rf src benches
 
 # Copy actual source and rebuild
 COPY src ./src
