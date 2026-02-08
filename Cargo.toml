@@ -36,15 +36,13 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 tempfile = "3.8.0"
 
 [package.metadata.deb]
-maintainer = "Rucho Project Contributors" # Or a more appropriate maintainer name
-copyright = "2023 Rucho Project Contributors" # Or appropriate year/name
-license-file = ["LICENSE.md", "0"] # Assuming you'll add a LICENSE.md, or adjust as needed
+maintainer = "Rucho Project Contributors"
+copyright = "2025 Rucho Project Contributors"
+license-file = ["LICENSE", "0"]
 depends = "$auto"
 maintainer-scripts = "debian/"
-systemd-units = { enable = true } # Reverted format
+systemd-units = { enable = true }
 assets = [
     ["target/release/rucho", "/usr/local/bin/rucho", "755"],
     ["config_samples/rucho.conf.default", "/etc/rucho/rucho.conf", "644"],
-    ["debian/rucho.service", "/lib/systemd/system/rucho.service", "644"] # Ensure this is present
-    # You might need to adjust the source path for rucho.conf if it's not default
 ]
