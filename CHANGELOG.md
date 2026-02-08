@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix `license-file` path (`LICENSE.md` → `LICENSE`) and copyright year in Debian package metadata
+- Remove redundant systemd service asset from Debian package config (already handled by `systemd-units`)
+
 ### Changed
+- Add `.deb` package build smoke test to CI pipeline
+- Attach `.deb` package to GitHub releases
 - Consolidate Dockerfile builder layers and use `COPY --chown` to eliminate standalone `RUN chown`
 - Harden docker-compose.yml with restart policy, resource limits, logging caps, and read-only config mount
 - Add OCI metadata labels to Docker image
