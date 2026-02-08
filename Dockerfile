@@ -16,6 +16,7 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs \
 
 # Copy actual source and rebuild
 COPY src ./src
+COPY benches ./benches
 RUN touch src/main.rs && cargo build --release
 
 # Runtime stage
