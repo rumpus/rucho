@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Criterion benchmark suite for response building and endpoint request cycles (`cargo bench`)
+
 ### Changed
 - Serialize JSON responses directly to byte buffers instead of intermediate Strings for reduced allocations
 
