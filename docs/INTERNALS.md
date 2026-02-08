@@ -59,6 +59,7 @@
 15. [Constants Reference](#15-constants-reference)
 16. [Dependency Map](#16-dependency-map)
 17. [Source File Index](#17-source-file-index)
+18. [Benchmark Suite](#18-benchmark-suite)
 
 ---
 
@@ -2126,6 +2127,7 @@ Key external crates and their role in the application:
 | `sysinfo` | 0.30 | Process inspection for PID management (`kill`, `process`) |
 | `http` | 1.0 | HTTP types (`StatusCode`, `HeaderMap`, etc.) |
 | `tempfile` | 3.8 | *(dev only)* Temporary directories for config tests |
+| `criterion` | 0.5 | *(dev only)* Benchmark framework with async tokio support and HTML reports |
 
 ---
 
@@ -2162,3 +2164,58 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/utils/pid.rs` | PID file operations, process management |
 | `src/utils/server_config.rs` | `try_load_rustls_config()`, `parse_listen_address()` |
 | `src/utils/timing.rs` | `RequestTiming` struct |
+| `benches/response_benchmarks.rs` | Criterion microbenchmarks for response building functions |
+| `benches/endpoint_benchmarks.rs` | Criterion async benchmarks for full endpoint request cycles via `tower::oneshot` |
+
+---
+
+## 18. Benchmark Suite
+
+Rucho includes a Criterion-based benchmark suite (`cargo bench`) that establishes
+performance baselines for the hot paths.
+
+### Response Building Microbenchmarks (`benches/response_benchmarks.rs`)
+
+Directly benchmarks the public response formatting functions with no router or
+middleware overhead:
+
+| Benchmark | Function Under Test | Payload |
+|-----------|-------------------|---------|
+| `format_json_response (small)` | `format_json_response()` | `{"message": "hello"}` |
+| `format_json_response (medium)` | `format_json_response()` | ~10 fields with nested headers object |
+| `format_json_response_with_timing (medium)` | `format_json_response_with_timing()` | Medium payload + timing injection |
+| `format_error_response` | `format_error_response()` | `404 Not Found` error |
+
+### Endpoint Request Cycle Benchmarks (`benches/endpoint_benchmarks.rs`)
+
+Sends `http::Request` objects through the full Axum router stack using
+`tower::ServiceExt::oneshot`. This measures handler + middleware + serialization
+without TCP/network overhead.
+
+The benchmark router is built from the library's public route builders with only
+the timing middleware layer (no chaos, metrics, tracing, or compression) to
+isolate handler performance.
+
+| Benchmark | Method | Path | Notes |
+|-----------|--------|------|-------|
+| `GET /healthz` | GET | `/healthz` | Minimal response — baseline for router overhead |
+| `GET /get` | GET | `/get` | Headers echo + JSON serialization |
+| `GET /uuid` | GET | `/uuid` | UUID generation + JSON serialization |
+| `POST /post` | POST | `/post` | JSON body parsing + echo + serialization |
+| `GET /endpoints` | GET | `/endpoints` | Static list serialization (larger payload) |
+
+### Running Benchmarks
+
+```bash
+# Run all benchmarks
+cargo bench
+
+# Run a specific benchmark file
+cargo bench --bench response_benchmarks
+cargo bench --bench endpoint_benchmarks
+
+# Quick mode (fewer iterations, faster feedback)
+cargo bench -- --quick
+```
+
+HTML reports are generated in `target/criterion/`.

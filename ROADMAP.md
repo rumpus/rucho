@@ -52,12 +52,12 @@
 
 ---
 
-## Tier 1: Performance & Speed (Next)
+## Tier 1: Performance & Speed ✅
 
 - [x] Response compression (gzip, brotli) — toggleable via config
 - [x] Connection keep-alive tuning
-- [ ] Zero-copy response optimizations
-- [ ] Benchmark suite with performance baselines
+- [x] Zero-copy response optimizations
+- [x] Benchmark suite with performance baselines
 
 ---
 
@@ -117,8 +117,8 @@ The following are explicitly out of scope to maintain focus on the core mission:
 | Phase 1 | Core echo functionality | ✅ Done |
 | Phase 2 | Protocol support (HTTP/2, TLS, TCP/UDP) | ✅ Done |
 | Phase 3 | Production infrastructure (Docker, systemd) | ✅ Done |
-| Phase 4 | Performance optimizations | 🔄 Next |
-| Phase 5 | Enterprise observability | Planned |
+| Phase 4 | Performance optimizations | ✅ Done |
+| Phase 5 | Enterprise observability | 🔄 Next |
 | Phase 6 | Advanced protocols (WebSocket, HTTP/3) | Future |
 
 ---
