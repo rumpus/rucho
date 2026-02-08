@@ -21,13 +21,14 @@ pub fn format_error_response(status: StatusCode, message: &str) -> Response {
         "error": message
     });
 
-    let body_string = serde_json::to_string(&error_body)
-        .unwrap_or_else(|_| format!(r#"{{"error":"{}"}}"#, message.replace('"', "\\\"")));
+    let body_bytes = serde_json::to_vec(&error_body).unwrap_or_else(|_| {
+        format!(r#"{{"error":"{}"}}"#, message.replace('"', "\\\"")).into_bytes()
+    });
 
     Response::builder()
         .status(status)
         .header("Content-Type", "application/json")
-        .body(axum::body::Body::from(body_string))
+        .body(axum::body::Body::from(body_bytes))
         .unwrap_or_else(|_| {
             Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)

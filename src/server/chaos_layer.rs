@@ -46,7 +46,7 @@ pub async fn chaos_middleware(
         let mut response = Response::builder()
             .status(StatusCode::from_u16(status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
             .header("content-type", "application/json")
-            .body(Body::from(serde_json::to_string_pretty(&body).unwrap()))
+            .body(Body::from(serde_json::to_vec_pretty(&body).unwrap()))
             .unwrap();
 
         if chaos.inform_header {
