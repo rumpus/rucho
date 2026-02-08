@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 /// Formats a `serde_json::Value` into an Axum `Response`.
 ///
-/// This function serializes the given JSON `Value` into a pretty-printed string.
+/// This function serializes the given JSON `Value` into a pretty-printed byte buffer.
 /// The response will have an HTTP 200 OK status and a "Content-Type: application/json" header.
 ///
 /// # Arguments
@@ -20,7 +20,7 @@ pub fn format_json_response(data: Value) -> Response {
 
 /// Formats a `serde_json::Value` into an Axum `Response` with optional timing information.
 ///
-/// This function serializes the given JSON `Value` into a pretty-printed string.
+/// This function serializes the given JSON `Value` into a pretty-printed byte buffer.
 /// If `duration_ms` is provided, a `timing` object is added to the response.
 /// The response will have an HTTP 200 OK status and a "Content-Type: application/json" header.
 ///
@@ -40,13 +40,13 @@ pub fn format_json_response_with_timing(mut data: Value, duration_ms: Option<f64
         }
     }
 
-    let body = serde_json::to_string_pretty(&data);
+    let body = serde_json::to_vec_pretty(&data);
 
     match body {
-        Ok(json_string) => Response::builder()
+        Ok(json_bytes) => Response::builder()
             .status(StatusCode::OK)
             .header("Content-Type", "application/json")
-            .body(axum::body::Body::from(json_string))
+            .body(axum::body::Body::from(json_bytes))
             .unwrap_or_else(|_| {
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)

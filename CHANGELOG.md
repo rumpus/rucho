@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Serialize JSON responses directly to byte buffers instead of intermediate Strings for reduced allocations
+
 ## [1.1.0] - 2026-02-07
 
 ### Fixed
