@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-07
+
 ### Fixed
 - Fix `license-file` path (`LICENSE.md` → `LICENSE`) and copyright year in Debian package metadata
 - Remove redundant systemd service asset from Debian package config (already handled by `systemd-units`)
