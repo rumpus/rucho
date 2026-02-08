@@ -34,6 +34,15 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 
 [dev-dependencies]
 tempfile = "3.8.0"
+criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+
+[[bench]]
+name = "response_benchmarks"
+harness = false
+
+[[bench]]
+name = "endpoint_benchmarks"
+harness = false
 
 [package.metadata.deb]
 maintainer = "Rucho Project Contributors"
