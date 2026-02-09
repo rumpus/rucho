@@ -66,20 +66,12 @@
 - [ ] JSON structured server logs
 - [ ] Request/response size metrics
 - [ ] OpenTelemetry tracing support
-- [ ] Latency percentile tracking (p50, p95, p99)
-
----
-
-## Tier 3: Production Deployment
-
-- [ ] Helm Chart for Kubernetes
 
 ---
 
 ## Tier 4: Advanced Protocol Support
 
 - [ ] WebSocket echo support
-- [ ] HTTP/3 (QUIC) support
 - [ ] `/redirect/:n` — chained redirects
 - [ ] `/stream/:n` — streaming JSON responses
 
@@ -87,7 +79,6 @@
 
 ## Tier 5: Security & Resilience
 
-- [ ] Connection limits per IP
 - [ ] Slow client timeout handling
 
 ---
