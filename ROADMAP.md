@@ -64,7 +64,6 @@
 ## Tier 2: Enterprise Observability
 
 - [ ] JSON structured server logs
-- [ ] Prometheus metrics format (`/metrics`)
 - [ ] Request/response size metrics
 - [ ] OpenTelemetry tracing support
 - [ ] Latency percentile tracking (p50, p95, p99)
@@ -74,7 +73,6 @@
 ## Tier 3: Production Deployment
 
 - [ ] Helm Chart for Kubernetes
-- [ ] Horizontal scaling documentation
 - [ ] Resource limit recommendations
 - [ ] High-availability configuration guide
 
