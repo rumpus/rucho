@@ -73,8 +73,6 @@
 ## Tier 3: Production Deployment
 
 - [ ] Helm Chart for Kubernetes
-- [ ] Resource limit recommendations
-- [ ] High-availability configuration guide
 
 ---
 
@@ -89,8 +87,6 @@
 
 ## Tier 5: Security & Resilience
 
-- [ ] Rate limiting middleware
-- [ ] Request size limits (configurable)
 - [ ] Connection limits per IP
 - [ ] Slow client timeout handling
 
