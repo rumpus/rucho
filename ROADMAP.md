@@ -65,7 +65,6 @@
 
 - [ ] JSON structured server logs
 - [ ] Request/response size metrics
-- [ ] OpenTelemetry tracing support
 
 ---
 
@@ -74,12 +73,6 @@
 - [ ] WebSocket echo support
 - [ ] `/redirect/:n` — chained redirects
 - [ ] `/stream/:n` — streaming JSON responses
-
----
-
-## Tier 5: Security & Resilience
-
-- [ ] Slow client timeout handling
 
 ---
 
