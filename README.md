@@ -11,6 +11,7 @@ Designed for testing, debugging, and simulating various HTTP behaviors.
 - HTTP echo endpoints for all major methods (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
 - Dynamic HTTP status simulation (`/status/:code`)
 - Configurable response delay (`/delay/:n`, max 300s)
+- Chained HTTP redirects (`/redirect/:n`, max 20 hops)
 - TCP and UDP echo listeners for protocol testing
 - HTTPS support via Rustls with HTTP/2
 - Response compression (gzip, brotli) - optional, client-negotiated
