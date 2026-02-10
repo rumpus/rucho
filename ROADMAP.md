@@ -97,7 +97,7 @@ The following are explicitly out of scope to maintain focus on the core mission:
 | Phase 3 | Production infrastructure (Docker, systemd) | ✅ Done |
 | Phase 4 | Performance optimizations | ✅ Done |
 | Phase 5 | Enterprise observability | 🔄 Next |
-| Phase 6 | Advanced protocols (WebSocket, HTTP/3) | Future |
+| Phase 6 | Advanced protocols (WebSocket, streaming) | Future |
 
 ---
 
