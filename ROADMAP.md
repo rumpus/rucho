@@ -63,7 +63,6 @@
 
 ## Tier 2: Advanced Protocol Support
 
-- [ ] WebSocket echo support
 - [x] `/redirect/:n` — chained redirects
 - [ ] `/stream/:n` — streaming JSON responses
 
