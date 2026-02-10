@@ -86,6 +86,7 @@ rucho (crate root)
   |   +-- delay.rs           # /delay/:n handler + router()
   |   +-- healthz.rs         # /healthz handler + router()
   |   +-- metrics.rs         # /metrics handler (stateful)
+  |   +-- redirect.rs       # /redirect/:n handler + router()
   |
   +-- server/                # Server setup and orchestration
   |   +-- mod.rs             # run_server() — top-level orchestrator
@@ -118,6 +119,7 @@ src/main.rs
   |
   +-- rucho::cli::commands  (Args, CliCommand, handle_*_command)
   +-- rucho::routes::core_routes  (router, EndpointInfo)
+  +-- rucho::routes::redirect  (router, redirect_handler)
   +-- rucho::server::chaos_layer  (chaos_middleware)
   +-- rucho::server::metrics_layer  (metrics_middleware)
   +-- rucho::server::timing_layer  (timing_middleware)
@@ -257,9 +259,10 @@ async fn main() {
 // src/main.rs:131-136
 let mut app = Router::new()
     .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-    .merge(rucho::routes::core_routes::router())  // 16 routes
+    .merge(rucho::routes::core_routes::router())  // 16 core routes
     .merge(rucho::routes::healthz::router())       // /healthz
-    .merge(rucho::routes::delay::router());        // /delay/:n
+    .merge(rucho::routes::delay::router())         // /delay/:n
+    .merge(rucho::routes::redirect::router());     // /redirect/:n
 ```
 
 The core routes router (`src/routes/core_routes.rs:187-218`) registers:
@@ -606,8 +609,9 @@ The response travels back up through each middleware layer:
 | 16 | `/endpoints` | GET | `endpoints_handler` | `core_routes.rs:431` |
 | 17 | `/healthz` | GET | `healthz_handler` | `healthz.rs:21` |
 | 18 | `/delay/:n` | ANY | `delay_handler` | `delay.rs:26` |
-| 19 | `/metrics` | GET | `get_metrics` | `metrics.rs:43` |
-| 20 | `/swagger-ui` | GET | *(utoipa-swagger-ui)* | `main.rs:133` |
+| 19 | `/redirect/:n` | ANY | `redirect_handler` | `redirect.rs:33` |
+| 20 | `/metrics` | GET | `get_metrics` | `metrics.rs:43` |
+| 21 | `/swagger-ui` | GET | *(utoipa-swagger-ui)* | `main.rs:133` |
 
 ### 5.2 Echo Handlers
 
@@ -722,7 +726,7 @@ for HEAD requests, but this handler explicitly returns an empty body.)
 
 **`endpoints_handler`** (`src/routes/core_routes.rs:431-442`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs:69-181` and lists all 19 endpoints with their
+at `src/routes/core_routes.rs:69-188` and lists all 20 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
@@ -757,6 +761,35 @@ pub async fn delay_handler(
 ```
 
 Caps at `MAX_DELAY_SECONDS` (300) to prevent DoS.
+
+**`redirect_handler`** (`src/routes/redirect.rs:33-56`):
+
+```rust
+pub async fn redirect_handler(axum::extract::Path(n): axum::extract::Path<u32>) -> Response {
+    if n > MAX_REDIRECT_HOPS {
+        return (StatusCode::BAD_REQUEST, format!(
+            "Redirect count of {} exceeds maximum allowed value of {}",
+            n, MAX_REDIRECT_HOPS
+        )).into_response();
+    }
+
+    if n == 0 {
+        return (StatusCode::OK, "Redirect complete".to_string()).into_response();
+    }
+
+    let location = if n == 1 {
+        "/get".to_string()
+    } else {
+        format!("/redirect/{}", n - 1)
+    };
+
+    (StatusCode::FOUND, [(header::LOCATION, location)]).into_response()
+}
+```
+
+Returns a chain of HTTP 302 redirects that decrement `n` on each hop. When `n`
+reaches 1, redirects to `/get` as the final destination. When `n` is 0, returns
+200 OK directly. Caps at `MAX_REDIRECT_HOPS` (20) to prevent abuse.
 
 **`get_metrics`** (`src/routes/metrics.rs:43-46`):
 
@@ -849,6 +882,7 @@ fn normalize_path(path: &str) -> String {
         match segments.get(1) {
             Some(&"status") if segments.len() >= 3 => "/status/:code".to_string(),
             Some(&"delay") if segments.len() >= 3  => "/delay/:n".to_string(),
+            Some(&"redirect") if segments.len() >= 3 => "/redirect/:n".to_string(),
             Some(&"anything") if segments.len() >= 3 => "/anything/*path".to_string(),
             _ => path.to_string(),
         }
@@ -865,6 +899,7 @@ Normalization rules:
 | `/status/404` | `/status/:code` | Collapse path parameter |
 | `/status/500` | `/status/:code` | Same rule |
 | `/delay/5` | `/delay/:n` | Collapse path parameter |
+| `/redirect/3` | `/redirect/:n` | Collapse path parameter |
 | `/anything/foo/bar` | `/anything/*path` | Collapse wildcard |
 | `/get` | `/get` | No change |
 | `/anything` | `/anything` | Only 2 segments, no collapse |
@@ -2037,6 +2072,7 @@ down. Since they're stateless echo handlers, this is acceptable.
         rucho::routes::core_routes::endpoints_handler,
         rucho::routes::delay::delay_handler,
         rucho::routes::healthz::healthz_handler,
+        rucho::routes::redirect::redirect_handler,
     ),
     components(
         schemas(EndpointInfo, rucho::routes::core_routes::Payload)
@@ -2087,6 +2123,7 @@ documentation. The actual `/anything/*path` requests are handled by
 | `DEFAULT_SERVER_LISTEN_SECONDARY` | `&str` | `"0.0.0.0:9090"` | `Config::default()` |
 | `PID_FILE_PATH` | `&str` | `"/var/run/rucho/rucho.pid"` | `pid.rs` |
 | `MAX_DELAY_SECONDS` | `u64` | `300` | `delay_handler` |
+| `MAX_REDIRECT_HOPS` | `u32` | `20` | `redirect_handler` |
 | `MAX_BUFFER_SIZE` | `usize` | `65536` | `tcp_udp_handlers.rs` |
 | `UDP_ERROR_BACKOFF_BASE_MS` | `u64` | `100` | `handle_udp_socket` |
 | `UDP_ERROR_BACKOFF_MAX_MS` | `u64` | `5000` | `handle_udp_socket` |
@@ -2146,6 +2183,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/routes/delay.rs` | `/delay/:n` handler and router |
 | `src/routes/healthz.rs` | `/healthz` handler and router |
 | `src/routes/metrics.rs` | `/metrics` handler (stateful, `State<Arc<Metrics>>`) |
+| `src/routes/redirect.rs` | `/redirect/:n` handler and router |
 | `src/server/mod.rs` | `run_server()` — top-level orchestrator |
 | `src/server/http.rs` | HTTP/HTTPS listener setup, TCP socket config, HTTP builder config |
 | `src/server/tcp.rs` | TCP echo listener setup (accept loop) |
@@ -2157,7 +2195,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/tcp_udp_handlers.rs` | TCP echo loop, UDP echo with exponential backoff |
 | `src/utils/mod.rs` | Utils module re-exports |
 | `src/utils/config.rs` | `Config`, `ChaosConfig`, loading, validation, `load_env_var!` |
-| `src/utils/constants.rs` | All hardcoded constants (14 values) |
+| `src/utils/constants.rs` | All hardcoded constants (15 values) |
 | `src/utils/error_response.rs` | `format_error_response()` |
 | `src/utils/json_response.rs` | `format_json_response()`, `format_json_response_with_timing()` |
 | `src/utils/metrics.rs` | `Metrics`, `TimeBucket`, rolling window, snapshot structs |

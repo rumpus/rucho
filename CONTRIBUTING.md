@@ -146,7 +146,8 @@ src/
 │   ├── core_routes.rs   # Core echo endpoints
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── healthz.rs       # /healthz endpoint
-│   └── metrics.rs       # /metrics endpoint handler
+│   ├── metrics.rs       # /metrics endpoint handler
+│   └── redirect.rs      # /redirect/:n endpoint
 ├── server/              # Server setup and orchestration
 │   ├── mod.rs
 │   ├── chaos_layer.rs   # Chaos engineering middleware
