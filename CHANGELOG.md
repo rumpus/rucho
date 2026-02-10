@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-02-09
+
+### Changed
+- Remove WebSocket and streaming from roadmap; mark Tier 2 complete
+
 ## [1.3.0] - 2026-02-09
 
 ### Added
