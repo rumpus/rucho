@@ -62,7 +62,7 @@ cargo run -- stop
 ### Branch Naming
 
 Use descriptive branch names:
-- `feature/add-websocket-support`
+- `feature/add-cookie-endpoint`
 - `fix/delay-endpoint-timeout`
 - `docs/update-readme`
 - `refactor/cli-module`
@@ -77,9 +77,9 @@ Write clear, concise commit messages:
 
 Examples:
 ```
-Add WebSocket echo endpoint
+Add cookie inspection endpoint
 
-Implement /ws endpoint for WebSocket connections with echo functionality.
+Implement /cookies endpoint for inspecting and setting HTTP cookies.
 Includes tests and documentation updates.
 
 Closes #42
