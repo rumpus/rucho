@@ -46,6 +46,7 @@ fn normalize_path(path: &str) -> String {
         match segments.get(1) {
             Some(&"status") if segments.len() >= 3 => "/status/:code".to_string(),
             Some(&"delay") if segments.len() >= 3 => "/delay/:n".to_string(),
+            Some(&"redirect") if segments.len() >= 3 => "/redirect/:n".to_string(),
             Some(&"anything") if segments.len() >= 3 => "/anything/*path".to_string(),
             _ => path.to_string(),
         }
@@ -69,6 +70,13 @@ mod tests {
     fn test_normalize_delay_path() {
         assert_eq!(normalize_path("/delay/5"), "/delay/:n");
         assert_eq!(normalize_path("/delay/300"), "/delay/:n");
+    }
+
+    #[test]
+    fn test_normalize_redirect_path() {
+        assert_eq!(normalize_path("/redirect/3"), "/redirect/:n");
+        assert_eq!(normalize_path("/redirect/1"), "/redirect/:n");
+        assert_eq!(normalize_path("/redirect/20"), "/redirect/:n");
     }
 
     #[test]

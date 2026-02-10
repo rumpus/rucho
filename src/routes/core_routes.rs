@@ -142,6 +142,13 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         method: "ANY",
         description: "Delays the response by 'n' seconds. Replace :n with a number.",
     },
+    // Redirect endpoint
+    EndpointInfo {
+        path: "/redirect/:n",
+        method: "ANY",
+        description:
+            "Returns a chain of HTTP 302 redirects. Replace :n with the number of hops (max 20).",
+    },
     // Swagger UI endpoint
     EndpointInfo {
         path: "/swagger-ui",

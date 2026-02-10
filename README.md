@@ -67,6 +67,7 @@ rucho version  # Display version
 | ANY     | `/anything`       | Echo any request                                     |
 | ANY     | `/anything/*path` | Echo any request with path                           |
 | ANY     | `/delay/:n`       | Delay response by n seconds (max 300)                |
+| ANY     | `/redirect/:n`    | Chain of n HTTP 302 redirects (max 20)               |
 | GET     | `/healthz`        | Health check                                         |
 | GET     | `/metrics`        | Request statistics (when enabled)                    |
 | GET     | `/endpoints`      | List all endpoints                                   |
@@ -154,7 +155,8 @@ src/
 │   ├── core_routes.rs   # Core echo endpoints
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── healthz.rs       # /healthz endpoint
-│   └── metrics.rs       # /metrics endpoint handler
+│   ├── metrics.rs       # /metrics endpoint handler
+│   └── redirect.rs      # /redirect/:n endpoint
 ├── server/              # Server setup and orchestration
 │   ├── mod.rs
 │   ├── chaos_layer.rs   # Chaos engineering middleware

@@ -22,6 +22,10 @@ pub const PID_FILE_PATH: &str = "/var/run/rucho/rucho.pid";
 /// This prevents denial-of-service attacks by limiting how long a request can be held.
 pub const MAX_DELAY_SECONDS: u64 = 300;
 
+/// Maximum number of redirect hops allowed for the `/redirect/:n` endpoint.
+/// This prevents abuse through excessively long redirect chains.
+pub const MAX_REDIRECT_HOPS: u32 = 20;
+
 /// Maximum buffer size in bytes for TCP/UDP connections.
 /// This prevents memory exhaustion from malicious large payloads.
 pub const MAX_BUFFER_SIZE: usize = 65536;

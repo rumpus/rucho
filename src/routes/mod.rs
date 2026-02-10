@@ -14,3 +14,5 @@ pub mod delay;
 pub mod healthz;
 /// Module for the metrics endpoint (`/metrics`).
 pub mod metrics;
+/// Module for the redirect endpoint (`/redirect/:n`).
+pub mod redirect;

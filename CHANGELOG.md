@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `/redirect/:n` endpoint — chained HTTP 302 redirects for testing client redirect handling (max 20 hops)
+
 ## [1.2.0] - 2026-02-07
 
 ### Added
