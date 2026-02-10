@@ -61,14 +61,7 @@
 
 ---
 
-## Tier 2: Enterprise Observability
-
-- [ ] JSON structured server logs
-- [ ] Request/response size metrics
-
----
-
-## Tier 4: Advanced Protocol Support
+## Tier 2: Advanced Protocol Support
 
 - [ ] WebSocket echo support
 - [ ] `/redirect/:n` — chained redirects
@@ -96,8 +89,7 @@ The following are explicitly out of scope to maintain focus on the core mission:
 | Phase 2 | Protocol support (HTTP/2, TLS, TCP/UDP) | ✅ Done |
 | Phase 3 | Production infrastructure (Docker, systemd) | ✅ Done |
 | Phase 4 | Performance optimizations | ✅ Done |
-| Phase 5 | Enterprise observability | 🔄 Next |
-| Phase 6 | Advanced protocols (WebSocket, streaming) | Future |
+| Phase 5 | Advanced protocols (WebSocket, streaming) | 🔄 Next |
 
 ---
 
