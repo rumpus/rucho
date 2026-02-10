@@ -61,10 +61,9 @@
 
 ---
 
-## Tier 2: Advanced Protocol Support
+## Tier 2: Advanced Protocol Support ✅
 
 - [x] `/redirect/:n` — chained redirects
-- [ ] `/stream/:n` — streaming JSON responses
 
 ---
 
@@ -88,7 +87,7 @@ The following are explicitly out of scope to maintain focus on the core mission:
 | Phase 2 | Protocol support (HTTP/2, TLS, TCP/UDP) | ✅ Done |
 | Phase 3 | Production infrastructure (Docker, systemd) | ✅ Done |
 | Phase 4 | Performance optimizations | ✅ Done |
-| Phase 5 | Advanced protocols (WebSocket, streaming) | 🔄 Next |
+| Phase 5 | Advanced protocols (redirects) | ✅ Done |
 
 ---
 
