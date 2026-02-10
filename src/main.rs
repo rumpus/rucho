@@ -47,6 +47,7 @@ use rucho::utils::metrics::Metrics;
         rucho::routes::core_routes::endpoints_handler,
         rucho::routes::delay::delay_handler,
         rucho::routes::healthz::healthz_handler,
+        rucho::routes::redirect::redirect_handler,
     ),
     components(
         schemas(EndpointInfo, rucho::routes::core_routes::Payload)
@@ -133,7 +134,8 @@ fn build_app(
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(rucho::routes::core_routes::router())
         .merge(rucho::routes::healthz::router())
-        .merge(rucho::routes::delay::router());
+        .merge(rucho::routes::delay::router())
+        .merge(rucho::routes::redirect::router());
 
     // Add metrics endpoint and middleware if enabled
     if let Some(metrics) = metrics {
