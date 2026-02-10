@@ -67,11 +67,69 @@
 
 ---
 
+## Tier 3: New Endpoints
+
+### Cookies & Auth
+- [ ] `/cookies` + `/cookies/set` — inspect and set cookies
+- [ ] `/basic-auth/:user/:pass` — test HTTP Basic auth (401 if wrong, 200 if correct)
+- [ ] `/bearer` — test Bearer token auth (check `Authorization` header)
+
+### Data Formats & Content Types
+- [ ] `/base64/:encoded` — decode base64 in the URL and return the result
+- [ ] `/bytes/:n` — return `n` random bytes (binary download testing)
+- [ ] `/xml`, `/html` — return non-JSON content types
+- [ ] `/image/:format` — return a small test image (png, jpeg, svg, webp)
+
+### Response Control
+- [ ] `/response-headers?key=value` — return arbitrary response headers via query params
+- [ ] `/cache` + `/cache/:seconds` — return cache headers (`ETag`, `Last-Modified`, `Cache-Control`)
+- [ ] `/gzip`, `/brotli`, `/deflate` — force a specific encoding regardless of `Accept-Encoding`
+- [ ] `/deny` — return a 403 forbidden page
+
+### Streaming & Range
+- [ ] `/drip?duration=5&numbytes=10` — slowly drip data over time
+- [ ] `/range/:n` — return `n` bytes with `Accept-Ranges` support
+- [ ] `/links/:n` — return an HTML page with `n` links (crawler testing)
+
+---
+
+## Tier 4: Testing & Quality
+
+- [ ] Fix the 12 failing config tests (environment variable isolation)
+- [ ] Integration tests (spin up server, hit endpoints with reqwest, assert responses)
+- [ ] Benchmark the redirect endpoint
+
+---
+
+## Tier 5: Refactoring
+
+- [ ] Extract echo handler boilerplate (macro or generic handler to DRY up patterns)
+- [ ] Config test isolation (save/restore env vars fixture)
+
+---
+
+## Tier 6: Infrastructure & Ops
+
+- [ ] `/healthz/ready` + `/healthz/live` — Kubernetes readiness vs liveness probes
+- [ ] Request ID middleware — generate and return `X-Request-Id` on every response
+- [ ] Configurable response size limit
+- [ ] Alpine Docker image variant (smaller image)
+
+---
+
+## Tier 7: Documentation
+
+- [ ] Usage examples doc — real-world testing scenarios (retries, redirects, timeouts)
+- [ ] Man page — ship with .deb package
+- [ ] API reference — auto-generated from OpenAPI spec
+
+---
+
 ## Non-Goals
 
 The following are explicitly out of scope to maintain focus on the core mission:
 
-- Authentication/authorization middleware
+- Full authentication/authorization middleware (testing auth endpoints above are mock-only)
 - gRPC support
 - Plugin/extension systems
 - Infrastructure provisioning (Terraform, etc.)
@@ -88,6 +146,8 @@ The following are explicitly out of scope to maintain focus on the core mission:
 | Phase 3 | Production infrastructure (Docker, systemd) | ✅ Done |
 | Phase 4 | Performance optimizations | ✅ Done |
 | Phase 5 | Advanced protocols (redirects) | ✅ Done |
+| Phase 6 | New endpoints (cookies, auth, data formats) | 🔄 Next |
+| Phase 7 | Testing, refactoring, docs | Planned |
 
 ---
 
