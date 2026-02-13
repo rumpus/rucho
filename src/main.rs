@@ -48,6 +48,9 @@ use rucho::utils::metrics::Metrics;
         rucho::routes::delay::delay_handler,
         rucho::routes::healthz::healthz_handler,
         rucho::routes::redirect::redirect_handler,
+        rucho::routes::cookies::cookies_handler,
+        rucho::routes::cookies::set_cookies_handler,
+        rucho::routes::cookies::delete_cookies_handler,
     ),
     components(
         schemas(EndpointInfo, rucho::routes::core_routes::Payload)
@@ -135,7 +138,8 @@ fn build_app(
         .merge(rucho::routes::core_routes::router())
         .merge(rucho::routes::healthz::router())
         .merge(rucho::routes::delay::router())
-        .merge(rucho::routes::redirect::router());
+        .merge(rucho::routes::redirect::router())
+        .merge(rucho::routes::cookies::router());
 
     // Add metrics endpoint and middleware if enabled
     if let Some(metrics) = metrics {

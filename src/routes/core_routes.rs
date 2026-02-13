@@ -149,6 +149,22 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         description:
             "Returns a chain of HTTP 302 redirects. Replace :n with the number of hops (max 20).",
     },
+    // Cookie endpoints
+    EndpointInfo {
+        path: "/cookies",
+        method: "GET",
+        description: "Returns all cookies from the request as JSON.",
+    },
+    EndpointInfo {
+        path: "/cookies/set",
+        method: "GET",
+        description: "Sets cookies from query parameters and redirects to /cookies.",
+    },
+    EndpointInfo {
+        path: "/cookies/delete",
+        method: "GET",
+        description: "Deletes cookies by expiring them and redirects to /cookies.",
+    },
     // Swagger UI endpoint
     EndpointInfo {
         path: "/swagger-ui",
