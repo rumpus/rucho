@@ -12,6 +12,7 @@ Designed for testing, debugging, and simulating various HTTP behaviors.
 - Dynamic HTTP status simulation (`/status/:code`)
 - Configurable response delay (`/delay/:n`, max 300s)
 - Chained HTTP redirects (`/redirect/:n`, max 20 hops)
+- Cookie inspection, setting, and deletion (`/cookies`, `/cookies/set`, `/cookies/delete`)
 - TCP and UDP echo listeners for protocol testing
 - HTTPS support via Rustls with HTTP/2
 - Response compression (gzip, brotli) - optional, client-negotiated
@@ -69,6 +70,9 @@ rucho version  # Display version
 | ANY     | `/anything/*path` | Echo any request with path                           |
 | ANY     | `/delay/:n`       | Delay response by n seconds (max 300)                |
 | ANY     | `/redirect/:n`    | Chain of n HTTP 302 redirects (max 20)               |
+| GET     | `/cookies`        | Inspect request cookies                              |
+| GET     | `/cookies/set`    | Set cookies via query params and redirect            |
+| GET     | `/cookies/delete` | Delete cookies via query params and redirect         |
 | GET     | `/healthz`        | Health check                                         |
 | GET     | `/metrics`        | Request statistics (when enabled)                    |
 | GET     | `/endpoints`      | List all endpoints                                   |
@@ -153,6 +157,7 @@ src/
 │   └── commands.rs      # start, stop, status, version handlers
 ├── routes/              # HTTP route handlers
 │   ├── mod.rs
+│   ├── cookies.rs       # /cookies endpoints
 │   ├── core_routes.rs   # Core echo endpoints
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── healthz.rs       # /healthz endpoint
@@ -331,6 +336,15 @@ curl -i http://localhost:8080/status/503
 
 # Delayed response (5 seconds)
 curl http://localhost:8080/delay/5
+
+# Inspect cookies
+curl -b "session=abc123; theme=dark" http://localhost:8080/cookies
+
+# Set cookies
+curl -c - http://localhost:8080/cookies/set?name=rucho&lang=rust
+
+# Delete cookies
+curl -b "name=rucho" -c - http://localhost:8080/cookies/delete?name
 
 # Health check
 curl http://localhost:8080/healthz
