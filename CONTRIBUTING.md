@@ -143,6 +143,7 @@ src/
 │   └── commands.rs      # start, stop, status, version handlers
 ├── routes/              # HTTP route handlers
 │   ├── mod.rs
+│   ├── cookies.rs       # /cookies endpoints
 │   ├── core_routes.rs   # Core echo endpoints
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── healthz.rs       # /healthz endpoint

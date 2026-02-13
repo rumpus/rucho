@@ -70,7 +70,7 @@
 ## Tier 3: New Endpoints
 
 ### Cookies & Auth
-- [ ] `/cookies` + `/cookies/set` — inspect and set cookies
+- [x] `/cookies` + `/cookies/set` + `/cookies/delete` — inspect, set, and delete cookies
 - [ ] `/basic-auth/:user/:pass` — test HTTP Basic auth (401 if wrong, 200 if correct)
 - [ ] `/bearer` — test Bearer token auth (check `Authorization` header)
 

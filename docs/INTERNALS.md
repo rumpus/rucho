@@ -82,6 +82,7 @@ rucho (crate root)
   |
   +-- routes/                # HTTP route handlers
   |   +-- mod.rs             # Re-exports submodules
+  |   +-- cookies.rs         # /cookies, /cookies/set, /cookies/delete handlers + router()
   |   +-- core_routes.rs     # 16 route handlers + router()
   |   +-- delay.rs           # /delay/:n handler + router()
   |   +-- healthz.rs         # /healthz handler + router()
@@ -119,6 +120,7 @@ src/main.rs
   |
   +-- rucho::cli::commands  (Args, CliCommand, handle_*_command)
   +-- rucho::routes::core_routes  (router, EndpointInfo)
+  +-- rucho::routes::cookies  (router, cookies_handler, set_cookies_handler, delete_cookies_handler)
   +-- rucho::routes::redirect  (router, redirect_handler)
   +-- rucho::server::chaos_layer  (chaos_middleware)
   +-- rucho::server::metrics_layer  (metrics_middleware)
@@ -262,7 +264,8 @@ let mut app = Router::new()
     .merge(rucho::routes::core_routes::router())  // 16 core routes
     .merge(rucho::routes::healthz::router())       // /healthz
     .merge(rucho::routes::delay::router())         // /delay/:n
-    .merge(rucho::routes::redirect::router());     // /redirect/:n
+    .merge(rucho::routes::redirect::router())      // /redirect/:n
+    .merge(rucho::routes::cookies::router());      // /cookies, /cookies/set, /cookies/delete
 ```
 
 The core routes router (`src/routes/core_routes.rs:187-218`) registers:
@@ -612,6 +615,9 @@ The response travels back up through each middleware layer:
 | 19 | `/redirect/:n` | ANY | `redirect_handler` | `redirect.rs:33` |
 | 20 | `/metrics` | GET | `get_metrics` | `metrics.rs:43` |
 | 21 | `/swagger-ui` | GET | *(utoipa-swagger-ui)* | `main.rs:133` |
+| 22 | `/cookies` | GET | `cookies_handler` | `cookies.rs:60` |
+| 23 | `/cookies/set` | GET | `set_cookies_handler` | `cookies.rs:88` |
+| 24 | `/cookies/delete` | GET | `delete_cookies_handler` | `cookies.rs:121` |
 
 ### 5.2 Echo Handlers
 
@@ -791,6 +797,65 @@ Returns a chain of HTTP 302 redirects that decrement `n` on each hop. When `n`
 reaches 1, redirects to `/get` as the final destination. When `n` is 0, returns
 200 OK directly. Caps at `MAX_REDIRECT_HOPS` (20) to prevent abuse.
 
+**`cookies_handler`** (`src/routes/cookies.rs:60-67`):
+
+```rust
+pub async fn cookies_handler(
+    headers: HeaderMap,
+    timing: Option<Extension<RequestTiming>>,
+) -> Response {
+    let cookies = parse_cookies(&headers);
+    let duration_ms = timing.map(|t| t.elapsed_ms());
+    format_json_response_with_timing(json!({"cookies": cookies}), duration_ms)
+}
+```
+
+Parses the `Cookie` header into a `HashMap<String, String>` using the helper
+`parse_cookies()`, which splits on `; ` then on `=`. Returns a JSON object with
+a `cookies` key containing all cookie name-value pairs. Supports timing.
+
+**`set_cookies_handler`** (`src/routes/cookies.rs:88-101`):
+
+```rust
+pub async fn set_cookies_handler(
+    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+) -> Response {
+    let mut response = (StatusCode::FOUND, [(header::LOCATION, "/cookies")]).into_response();
+    let response_headers = response.headers_mut();
+    for (name, value) in &params {
+        if let Ok(cookie_val) = header::HeaderValue::from_str(&format!("{name}={value}; Path=/")) {
+            response_headers.append(header::SET_COOKIE, cookie_val);
+        }
+    }
+    response
+}
+```
+
+Each query parameter becomes a `Set-Cookie` response header with `Path=/`.
+Responds with a 302 redirect to `/cookies` so the client can see the result.
+
+**`delete_cookies_handler`** (`src/routes/cookies.rs:121-136`):
+
+```rust
+pub async fn delete_cookies_handler(
+    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+) -> Response {
+    let mut response = (StatusCode::FOUND, [(header::LOCATION, "/cookies")]).into_response();
+    let response_headers = response.headers_mut();
+    for name in params.keys() {
+        if let Ok(cookie_val) =
+            header::HeaderValue::from_str(&format!("{name}=; Max-Age=0; Path=/"))
+        {
+            response_headers.append(header::SET_COOKIE, cookie_val);
+        }
+    }
+    response
+}
+```
+
+Each query parameter name generates a `Set-Cookie` header with `Max-Age=0` to
+expire the cookie. Like `set_cookies_handler`, redirects to `/cookies`.
+
 **`get_metrics`** (`src/routes/metrics.rs:43-46`):
 
 ```rust
@@ -883,6 +948,10 @@ fn normalize_path(path: &str) -> String {
             Some(&"status") if segments.len() >= 3 => "/status/:code".to_string(),
             Some(&"delay") if segments.len() >= 3  => "/delay/:n".to_string(),
             Some(&"redirect") if segments.len() >= 3 => "/redirect/:n".to_string(),
+            Some(&"cookies") if segments.len() >= 3 => {
+                let action = segments.get(2).unwrap_or(&"");
+                format!("/cookies/{action}")
+            }
             Some(&"anything") if segments.len() >= 3 => "/anything/*path".to_string(),
             _ => path.to_string(),
         }
@@ -900,6 +969,8 @@ Normalization rules:
 | `/status/500` | `/status/:code` | Same rule |
 | `/delay/5` | `/delay/:n` | Collapse path parameter |
 | `/redirect/3` | `/redirect/:n` | Collapse path parameter |
+| `/cookies/set` | `/cookies/set` | Preserve action segment |
+| `/cookies/delete` | `/cookies/delete` | Preserve action segment |
 | `/anything/foo/bar` | `/anything/*path` | Collapse wildcard |
 | `/get` | `/get` | No change |
 | `/anything` | `/anything` | Only 2 segments, no collapse |
@@ -2073,6 +2144,9 @@ down. Since they're stateless echo handlers, this is acceptable.
         rucho::routes::delay::delay_handler,
         rucho::routes::healthz::healthz_handler,
         rucho::routes::redirect::redirect_handler,
+        rucho::routes::cookies::cookies_handler,
+        rucho::routes::cookies::set_cookies_handler,
+        rucho::routes::cookies::delete_cookies_handler,
     ),
     components(
         schemas(EndpointInfo, rucho::routes::core_routes::Payload)
@@ -2179,6 +2253,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/cli/mod.rs` | CLI module re-exports |
 | `src/cli/commands.rs` | `Args`, `CliCommand`, start/stop/status/version handlers |
 | `src/routes/mod.rs` | Routes module re-exports |
+| `src/routes/cookies.rs` | `/cookies`, `/cookies/set`, `/cookies/delete` handlers and router |
 | `src/routes/core_routes.rs` | 16 route handlers, `router()`, `EndpointInfo`, `API_ENDPOINTS` |
 | `src/routes/delay.rs` | `/delay/:n` handler and router |
 | `src/routes/healthz.rs` | `/healthz` handler and router |
