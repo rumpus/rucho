@@ -16,7 +16,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 sysinfo = "0.30"
-# reqwest = { version = "0.11", features = ["blocking", "rustls-tls"] } # Temporarily removed
 tower = "0.5"        
 tower-http = { version = "0.5", features = ["trace", "cors", "normalize-path", "compression-gzip", "compression-br"] }  
 tokio-rustls = "0.25"
@@ -35,6 +34,7 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 [dev-dependencies]
 tempfile = "3.8.0"
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+reqwest = { version = "0.12", features = ["cookies", "json"] }
 
 [[bench]]
 name = "response_benchmarks"
