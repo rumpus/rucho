@@ -96,7 +96,7 @@
 ## Tier 4: Testing & Quality
 
 - [x] Fix config test isolation (injectable env reader — v1.4.1)
-- [ ] Integration tests (spin up server, hit endpoints with reqwest, assert responses)
+- [x] Integration tests (spin up server, hit endpoints with reqwest, assert responses)
 - [ ] Benchmark the redirect endpoint
 
 ---

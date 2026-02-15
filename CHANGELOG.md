@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Integration test suite using reqwest — 12 tests covering all major endpoints over real HTTP
+
 ## [1.4.1] - 2026-02-14
 
 ### Fixed
