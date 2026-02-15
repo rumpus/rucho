@@ -97,7 +97,7 @@ Closes #42
 
 - Add tests for new functionality
 - Ensure all existing tests pass: `cargo test`
-- For tests involving environment variables, use `--test-threads=1`
+- Config tests use an injectable env reader — no need for `--test-threads=1`
 
 ## Pull Request Process
 
