@@ -95,7 +95,7 @@
 
 ## Tier 4: Testing & Quality
 
-- [ ] Fix the 12 failing config tests (environment variable isolation)
+- [x] Fix config test isolation (injectable env reader — v1.4.1)
 - [ ] Integration tests (spin up server, hit endpoints with reqwest, assert responses)
 - [ ] Benchmark the redirect endpoint
 
@@ -104,7 +104,6 @@
 ## Tier 5: Refactoring
 
 - [ ] Extract echo handler boilerplate (macro or generic handler to DRY up patterns)
-- [ ] Config test isolation (save/restore env vars fixture)
 
 ---
 
