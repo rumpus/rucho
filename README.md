@@ -149,6 +149,8 @@ echo "hello" | nc -u localhost 7778
 benches/                         # Criterion benchmarks (cargo bench)
 ├── response_benchmarks.rs       # Response building microbenchmarks
 └── endpoint_benchmarks.rs       # Full request cycle benchmarks
+tests/                           # Integration tests (cargo test)
+└── integration.rs               # HTTP integration tests (reqwest)
 src/
 ├── main.rs              # Application entrypoint
 ├── lib.rs               # Library exports

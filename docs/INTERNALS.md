@@ -5,8 +5,8 @@
 > path in the codebase. It is intended as a developer reference — not user-facing
 > API docs.
 >
-> **Version:** 1.3.1
-> **Last updated:** 2026-02-09
+> **Version:** 1.4.2
+> **Last updated:** 2026-02-15
 
 ---
 
@@ -2249,6 +2249,7 @@ Key external crates and their role in the application:
 | `http` | 1.0 | HTTP types (`StatusCode`, `HeaderMap`, etc.) |
 | `tempfile` | 3.8 | *(dev only)* Temporary directories for config tests |
 | `criterion` | 0.5 | *(dev only)* Benchmark framework with async tokio support and HTML reports |
+| `reqwest` | 0.12 | *(dev only)* HTTP client for integration tests (cookie jar, JSON support) |
 
 ---
 
@@ -2289,6 +2290,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/utils/timing.rs` | `RequestTiming` struct |
 | `benches/response_benchmarks.rs` | Criterion microbenchmarks for response building functions |
 | `benches/endpoint_benchmarks.rs` | Criterion async benchmarks for full endpoint request cycles via `tower::oneshot` |
+| `tests/integration.rs` | Integration tests — real HTTP server per test via `reqwest` (12 tests) |
 
 ---
 
