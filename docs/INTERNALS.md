@@ -165,14 +165,15 @@ When you run `cargo run -- start`, the following sequence executes:
 main()                              src/main.rs:66
   |
   +-- Args::parse()                 clap derives from CliCommand enum
-  +-- Config::load()                src/utils/config.rs:639
+  +-- Config::load()                src/utils/config.rs:684
   |     +-- Config::load_from_paths(None, None)
-  |           +-- Config::default()           hardcoded defaults
-  |           +-- read /etc/rucho/rucho.conf  (if exists)
-  |           +-- read ./rucho.conf           (if exists)
-  |           +-- apply RUCHO_* env vars
+  |           +-- Config::load_from_paths_with_env(..., &env::var)
+  |                 +-- Config::default()           hardcoded defaults
+  |                 +-- read /etc/rucho/rucho.conf  (if exists)
+  |                 +-- read ./rucho.conf           (if exists)
+  |                 +-- apply RUCHO_* env vars via env_reader
   |
-  +-- config.validate()             src/utils/config.rs:483
+  +-- config.validate()             src/utils/config.rs:528
   |     +-- validate SSL pairs
   |     +-- validate_connection()   keep-alive bounds
   |     +-- validate_chaos()        chaos sub-config requirements
@@ -1120,7 +1121,7 @@ random source.
 
 ### 7.1 Config and ChaosConfig Structs
 
-**`Config`** (`src/utils/config.rs:121-156`):
+**`Config`** (`src/utils/config.rs:125-160`):
 
 ```rust
 pub struct Config {
@@ -1207,43 +1208,52 @@ Configuration is loaded in layers, with each layer overriding the previous:
 4. RUCHO_* env vars         environment variables (highest priority)
 ```
 
-Implementation: `Config::load_from_paths()` at `src/utils/config.rs:342-471`.
+Implementation: `Config::load_from_paths_with_env()` at `src/utils/config.rs:344-510`.
 
-`Config::load()` at `src/utils/config.rs:639-641` simply calls
-`load_from_paths(None, None)` which uses the default paths.
+This method accepts an injectable `env_reader: &dyn Fn(&str) -> Result<String, VarError>`
+parameter. Production code passes `env::var`; tests pass a mock HashMap-backed
+closure for parallel-safe isolation.
+
+`Config::load_from_paths()` at `src/utils/config.rs:511-515` delegates to
+`load_from_paths_with_env()` with `&|key| env::var(key)`.
+
+`Config::load()` at `src/utils/config.rs:684-686` simply calls
+`load_from_paths(None, None)` which uses the default paths and real env vars.
 
 ### 7.4 The `load_env_var!` Macro
 
-**File:** `src/utils/config.rs:77-107`
+**File:** `src/utils/config.rs:81-111`
 
-The macro has five variants for different type conversions:
+The macro accepts an `$env_reader` callable (e.g. `env::var` or a test mock)
+so that tests can supply a pure HashMap-backed reader instead of mutating the
+process environment. It has five variants for different type conversions:
 
 ```rust
 macro_rules! load_env_var {
     // Variant 1: String field — direct assignment
-    ($config:expr, $field:ident, $env_var:expr) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr) => {
+        if let Ok(value) = $env_reader($env_var) {
             $config.$field = value;
         }
     };
 
     // Variant 2: Option<String> field — wrap in Some
-    ($config:expr, $field:ident, $env_var:expr, option) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr, option) => {
+        if let Ok(value) = $env_reader($env_var) {
             $config.$field = Some(value);
         }
     };
 
     // Variant 3: bool field — "true"/"1" = true, anything else = false
-    ($config:expr, $field:ident, $env_var:expr, bool) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr, bool) => {
+        if let Ok(value) = $env_reader($env_var) {
             $config.$field = value.eq_ignore_ascii_case("true") || value == "1";
         }
     };
 
     // Variant 4: u64 field — parse, silently ignore invalid values
-    ($config:expr, $field:ident, $env_var:expr, u64) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr, u64) => {
+        if let Ok(value) = $env_reader($env_var) {
             if let Ok(v) = value.parse::<u64>() {
                 $config.$field = v;
             }
@@ -1251,8 +1261,8 @@ macro_rules! load_env_var {
     };
 
     // Variant 5: u32 field — parse, silently ignore invalid values
-    ($config:expr, $field:ident, $env_var:expr, u32) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr, u32) => {
+        if let Ok(value) = $env_reader($env_var) {
             if let Ok(v) = value.parse::<u32>() {
                 $config.$field = v;
             }
@@ -1261,23 +1271,23 @@ macro_rules! load_env_var {
 }
 ```
 
-**Usage examples from `load_from_paths()`:**
+**Usage examples from `load_from_paths_with_env()`:**
 
 ```rust
-load_env_var!(config, prefix, "RUCHO_PREFIX");                             // String
-load_env_var!(config, server_listen_tcp, "RUCHO_SERVER_LISTEN_TCP", option); // Option<String>
-load_env_var!(config, metrics_enabled, "RUCHO_METRICS_ENABLED", bool);      // bool
-load_env_var!(config, http_keep_alive_timeout, "RUCHO_HTTP_KEEP_ALIVE_TIMEOUT", u64); // u64
-load_env_var!(config, tcp_keepalive_retries, "RUCHO_TCP_KEEPALIVE_RETRIES", u32);     // u32
+load_env_var!(config, prefix, "RUCHO_PREFIX", env_reader);                             // String
+load_env_var!(config, server_listen_tcp, "RUCHO_SERVER_LISTEN_TCP", env_reader, option); // Option<String>
+load_env_var!(config, metrics_enabled, "RUCHO_METRICS_ENABLED", env_reader, bool);      // bool
+load_env_var!(config, http_keep_alive_timeout, "RUCHO_HTTP_KEEP_ALIVE_TIMEOUT", env_reader, u64); // u64
+load_env_var!(config, tcp_keepalive_retries, "RUCHO_TCP_KEEPALIVE_RETRIES", env_reader, u32);     // u32
 ```
 
 **Note:** Chaos config fields are loaded manually (not via the macro) because
 they are nested under `config.chaos.*` and the macro only supports top-level
-fields.
+fields. They also use `env_reader` directly.
 
 ### 7.5 File Parsing
 
-`Config::parse_file_contents()` at `src/utils/config.rs:224-327`:
+`Config::parse_file_contents()` at `src/utils/config.rs:228-331`:
 
 - Iterates over each line of the file contents.
 - Skips lines starting with `#` (comments) and empty lines.
@@ -1312,7 +1322,7 @@ and split at parse time:
 
 ### 7.6 Validation Pipeline
 
-`Config::validate()` at `src/utils/config.rs:483-494` runs three checks in
+`Config::validate()` at `src/utils/config.rs:528-539` runs three checks in
 sequence:
 
 ```
@@ -1346,7 +1356,7 @@ validate()
           corruption_type must be "empty", "truncate", or "garbage"
 ```
 
-**Error types** (`src/utils/config.rs:185-216`):
+**Error types** (`src/utils/config.rs:190-221`):
 
 ```rust
 pub enum ConfigValidationError {
