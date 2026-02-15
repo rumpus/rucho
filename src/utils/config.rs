@@ -74,31 +74,35 @@ impl ChaosConfig {
 }
 
 /// Macro to load an environment variable into a config field.
+///
+/// Accepts an `$env_reader` callable (e.g. `env::var` or a test mock) so that
+/// tests can supply a pure HashMap-backed reader instead of mutating the process
+/// environment.
 macro_rules! load_env_var {
-    ($config:expr, $field:ident, $env_var:expr) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr) => {
+        if let Ok(value) = $env_reader($env_var) {
             $config.$field = value;
         }
     };
-    ($config:expr, $field:ident, $env_var:expr, option) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr, option) => {
+        if let Ok(value) = $env_reader($env_var) {
             $config.$field = Some(value);
         }
     };
-    ($config:expr, $field:ident, $env_var:expr, bool) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr, bool) => {
+        if let Ok(value) = $env_reader($env_var) {
             $config.$field = value.eq_ignore_ascii_case("true") || value == "1";
         }
     };
-    ($config:expr, $field:ident, $env_var:expr, u64) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr, u64) => {
+        if let Ok(value) = $env_reader($env_var) {
             if let Ok(v) = value.parse::<u64>() {
                 $config.$field = v;
             }
         }
     };
-    ($config:expr, $field:ident, $env_var:expr, u32) => {
-        if let Ok(value) = env::var($env_var) {
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr, u32) => {
+        if let Ok(value) = $env_reader($env_var) {
             if let Ok(v) = value.parse::<u32>() {
                 $config.$field = v;
             }
@@ -326,22 +330,21 @@ impl Config {
         }
     }
 
-    /// Loads configuration by attempting to read from specified file paths and then
-    /// applying environment variable overrides. This function is primarily intended for
-    /// testing purposes, allowing explicit control over which configuration files are loaded.
+    /// Loads configuration from file paths with an injectable environment reader.
     ///
-    /// If `etc_path_override` is `None`, it defaults to `/etc/rucho/rucho.conf`.
-    /// If `local_path_override` is `None`, it defaults to `./rucho.conf` (relative to current CWD).
+    /// This is the core loading method. Tests inject a mock `env_reader` to avoid
+    /// mutating process-global environment variables; production code passes `env::var`.
     ///
-    /// The loading order within this function is:
+    /// Loading order (later stages override earlier ones):
     /// 1. Defaults from `Config::default()`.
-    /// 2. Values from the ETC path override (or default ETC path).
-    /// 3. Values from the local path override (or default local path), potentially overriding ETC values.
-    /// 4. Environment variables, overriding any values set by files.
-    #[cfg_attr(not(test), allow(dead_code))] // Allow dead code for this helper when not in test builds
-    fn load_from_paths(
+    /// 2. Values from the ETC path (or `/etc/rucho/rucho.conf`).
+    /// 3. Values from the local path (or `./rucho.conf`).
+    /// 4. Environment variables via `env_reader`.
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn load_from_paths_with_env(
         etc_path_override: Option<PathBuf>,
         local_path_override: Option<PathBuf>,
+        env_reader: &dyn Fn(&str) -> Result<String, env::VarError>,
     ) -> Self {
         let mut config = Config::default();
 
@@ -355,7 +358,6 @@ impl Config {
             if let Ok(contents) = fs::read_to_string(&etc_config_path) {
                 Self::parse_file_contents(&mut config, contents);
             } else {
-                // Log a warning if the file exists but cannot be read
                 eprintln!(
                     "Warning: Could not read system config file at {:?}, though it exists.",
                     etc_config_path
@@ -368,7 +370,6 @@ impl Config {
             if let Ok(contents) = fs::read_to_string(&local_config_path) {
                 Self::parse_file_contents(&mut config, contents);
             } else {
-                // Log a warning if the file exists but cannot be read
                 eprintln!(
                     "Warning: Could not read local config file at {:?}, though it exists.",
                     local_config_path
@@ -377,97 +378,141 @@ impl Config {
         }
 
         // 4. Override with environment variables
-        load_env_var!(config, prefix, "RUCHO_PREFIX");
-        load_env_var!(config, log_level, "RUCHO_LOG_LEVEL");
-        load_env_var!(config, server_listen_primary, "RUCHO_SERVER_LISTEN_PRIMARY");
+        load_env_var!(config, prefix, "RUCHO_PREFIX", env_reader);
+        load_env_var!(config, log_level, "RUCHO_LOG_LEVEL", env_reader);
+        load_env_var!(
+            config,
+            server_listen_primary,
+            "RUCHO_SERVER_LISTEN_PRIMARY",
+            env_reader
+        );
         load_env_var!(
             config,
             server_listen_secondary,
-            "RUCHO_SERVER_LISTEN_SECONDARY"
+            "RUCHO_SERVER_LISTEN_SECONDARY",
+            env_reader
         );
-        load_env_var!(config, server_listen_tcp, "RUCHO_SERVER_LISTEN_TCP", option);
-        load_env_var!(config, server_listen_udp, "RUCHO_SERVER_LISTEN_UDP", option);
-        load_env_var!(config, ssl_cert, "RUCHO_SSL_CERT", option);
-        load_env_var!(config, ssl_key, "RUCHO_SSL_KEY", option);
-        load_env_var!(config, metrics_enabled, "RUCHO_METRICS_ENABLED", bool);
+        load_env_var!(
+            config,
+            server_listen_tcp,
+            "RUCHO_SERVER_LISTEN_TCP",
+            env_reader,
+            option
+        );
+        load_env_var!(
+            config,
+            server_listen_udp,
+            "RUCHO_SERVER_LISTEN_UDP",
+            env_reader,
+            option
+        );
+        load_env_var!(config, ssl_cert, "RUCHO_SSL_CERT", env_reader, option);
+        load_env_var!(config, ssl_key, "RUCHO_SSL_KEY", env_reader, option);
+        load_env_var!(
+            config,
+            metrics_enabled,
+            "RUCHO_METRICS_ENABLED",
+            env_reader,
+            bool
+        );
         load_env_var!(
             config,
             compression_enabled,
             "RUCHO_COMPRESSION_ENABLED",
+            env_reader,
             bool
         );
         load_env_var!(
             config,
             http_keep_alive_timeout,
             "RUCHO_HTTP_KEEP_ALIVE_TIMEOUT",
+            env_reader,
             u64
         );
-        load_env_var!(config, tcp_keepalive_time, "RUCHO_TCP_KEEPALIVE_TIME", u64);
+        load_env_var!(
+            config,
+            tcp_keepalive_time,
+            "RUCHO_TCP_KEEPALIVE_TIME",
+            env_reader,
+            u64
+        );
         load_env_var!(
             config,
             tcp_keepalive_interval,
             "RUCHO_TCP_KEEPALIVE_INTERVAL",
+            env_reader,
             u64
         );
         load_env_var!(
             config,
             tcp_keepalive_retries,
             "RUCHO_TCP_KEEPALIVE_RETRIES",
+            env_reader,
             u32
         );
-        load_env_var!(config, tcp_nodelay, "RUCHO_TCP_NODELAY", bool);
+        load_env_var!(config, tcp_nodelay, "RUCHO_TCP_NODELAY", env_reader, bool);
         load_env_var!(
             config,
             header_read_timeout,
             "RUCHO_HEADER_READ_TIMEOUT",
+            env_reader,
             u64
         );
 
         // Chaos mode env vars (manual parsing since macro doesn't support nested fields)
-        if let Ok(value) = env::var("RUCHO_CHAOS_MODE") {
+        if let Ok(value) = env_reader("RUCHO_CHAOS_MODE") {
             config.chaos.modes = value
                 .split(',')
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect();
         }
-        if let Ok(value) = env::var("RUCHO_CHAOS_FAILURE_RATE") {
+        if let Ok(value) = env_reader("RUCHO_CHAOS_FAILURE_RATE") {
             if let Ok(v) = value.parse::<f64>() {
                 config.chaos.failure_rate = v;
             }
         }
-        if let Ok(value) = env::var("RUCHO_CHAOS_FAILURE_CODES") {
+        if let Ok(value) = env_reader("RUCHO_CHAOS_FAILURE_CODES") {
             config.chaos.failure_codes = value
                 .split(',')
                 .filter_map(|s| s.trim().parse::<u16>().ok())
                 .collect();
         }
-        if let Ok(value) = env::var("RUCHO_CHAOS_DELAY_RATE") {
+        if let Ok(value) = env_reader("RUCHO_CHAOS_DELAY_RATE") {
             if let Ok(v) = value.parse::<f64>() {
                 config.chaos.delay_rate = v;
             }
         }
-        if let Ok(value) = env::var("RUCHO_CHAOS_DELAY_MS") {
+        if let Ok(value) = env_reader("RUCHO_CHAOS_DELAY_MS") {
             config.chaos.delay_ms = value;
         }
-        if let Ok(value) = env::var("RUCHO_CHAOS_DELAY_MAX_MS") {
+        if let Ok(value) = env_reader("RUCHO_CHAOS_DELAY_MAX_MS") {
             if let Ok(v) = value.parse::<u64>() {
                 config.chaos.delay_max_ms = v;
             }
         }
-        if let Ok(value) = env::var("RUCHO_CHAOS_CORRUPTION_RATE") {
+        if let Ok(value) = env_reader("RUCHO_CHAOS_CORRUPTION_RATE") {
             if let Ok(v) = value.parse::<f64>() {
                 config.chaos.corruption_rate = v;
             }
         }
-        if let Ok(value) = env::var("RUCHO_CHAOS_CORRUPTION_TYPE") {
+        if let Ok(value) = env_reader("RUCHO_CHAOS_CORRUPTION_TYPE") {
             config.chaos.corruption_type = value;
         }
-        if let Ok(value) = env::var("RUCHO_CHAOS_INFORM_HEADER") {
+        if let Ok(value) = env_reader("RUCHO_CHAOS_INFORM_HEADER") {
             config.chaos.inform_header = value.eq_ignore_ascii_case("true") || value == "1";
         }
 
         config
+    }
+
+    /// Loads configuration from file paths using real environment variables.
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn load_from_paths(
+        etc_path_override: Option<PathBuf>,
+        local_path_override: Option<PathBuf>,
+    ) -> Self {
+        Self::load_from_paths_with_env(etc_path_override, local_path_override, &|key| env::var(key))
     }
 
     /// Validates the configuration for consistency.
@@ -644,81 +689,39 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
     use std::env;
     use std::fs::{self, File};
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::TempDir;
 
-    // Module for configuration loading tests.
-    // TestEnv struct helps manage temporary directories and files for testing config loading.
-    /// Sets up a controlled environment for testing configuration loading.
+    /// Manages temporary directories for config file tests.
     ///
-    /// This involves creating temporary directories to simulate `/etc/rucho/` and a
-    /// temporary current working directory (CWD). It also handles cleaning up
-    /// environment variables and restoring the original CWD when dropped.
+    /// Unlike the previous version, this does NOT mutate process-global state
+    /// (no `env::set_var`, no `env::set_current_dir`). Tests pass explicit file
+    /// paths and a mock env reader instead.
     struct TestEnv {
-        _etc_dir: TempDir,            // Temporary directory for simulating /etc
-        etc_rucho_conf_path: PathBuf, // Path to the simulated /etc/rucho/rucho.conf
-        _cwd_dir: TempDir,            // Temporary directory for simulating the CWD
-        cwd_rucho_conf_path: PathBuf, // Path to the simulated ./rucho.conf in the temp CWD
-        original_cwd: PathBuf,        // Stores the original CWD to restore it later
+        _etc_dir: TempDir,
+        etc_rucho_conf_path: PathBuf,
+        _cwd_dir: TempDir,
+        cwd_rucho_conf_path: PathBuf,
     }
 
     impl TestEnv {
-        /// Creates a new `TestEnv` instance.
-        ///
-        /// This sets up temporary directories for `/etc/rucho` and a test-specific CWD.
-        /// It also changes the current directory to the temporary CWD.
         fn new() -> Self {
-            // Clear all RUCHO env vars at the START to ensure test isolation
-            // (tests may run in parallel, so we can't rely only on Drop cleanup)
-            Self::clear_env_vars();
-
             let etc_dir = TempDir::new().expect("Failed to create temp etc dir");
-            let etc_rucho_dir = etc_dir.path().join("rucho"); // Simulate /etc/rucho
+            let etc_rucho_dir = etc_dir.path().join("rucho");
             fs::create_dir_all(&etc_rucho_dir).expect("Failed to create fake /etc/rucho");
 
             let cwd_dir = TempDir::new().expect("Failed to create temp cwd dir");
 
-            let original_cwd = env::current_dir().unwrap();
-            env::set_current_dir(cwd_dir.path()).unwrap();
-
             TestEnv {
                 etc_rucho_conf_path: etc_rucho_dir.join("rucho.conf"),
-                _etc_dir: etc_dir, // Keep TempDir to ensure it's cleaned up on drop
-                cwd_rucho_conf_path: cwd_dir.path().join("rucho.conf"), // Path to ./rucho.conf in temp CWD
-                _cwd_dir: cwd_dir,                                      // Keep TempDir for CWD
-                original_cwd,
+                _etc_dir: etc_dir,
+                cwd_rucho_conf_path: cwd_dir.path().join("rucho.conf"),
+                _cwd_dir: cwd_dir,
             }
-        }
-
-        fn clear_env_vars() {
-            env::remove_var("RUCHO_PREFIX");
-            env::remove_var("RUCHO_LOG_LEVEL");
-            env::remove_var("RUCHO_SERVER_LISTEN_PRIMARY");
-            env::remove_var("RUCHO_SERVER_LISTEN_SECONDARY");
-            env::remove_var("RUCHO_SERVER_LISTEN_TCP");
-            env::remove_var("RUCHO_SERVER_LISTEN_UDP");
-            env::remove_var("RUCHO_SSL_CERT");
-            env::remove_var("RUCHO_SSL_KEY");
-            env::remove_var("RUCHO_METRICS_ENABLED");
-            env::remove_var("RUCHO_COMPRESSION_ENABLED");
-            env::remove_var("RUCHO_HTTP_KEEP_ALIVE_TIMEOUT");
-            env::remove_var("RUCHO_TCP_KEEPALIVE_TIME");
-            env::remove_var("RUCHO_TCP_KEEPALIVE_INTERVAL");
-            env::remove_var("RUCHO_TCP_KEEPALIVE_RETRIES");
-            env::remove_var("RUCHO_TCP_NODELAY");
-            env::remove_var("RUCHO_HEADER_READ_TIMEOUT");
-            env::remove_var("RUCHO_CHAOS_MODE");
-            env::remove_var("RUCHO_CHAOS_FAILURE_RATE");
-            env::remove_var("RUCHO_CHAOS_FAILURE_CODES");
-            env::remove_var("RUCHO_CHAOS_DELAY_RATE");
-            env::remove_var("RUCHO_CHAOS_DELAY_MS");
-            env::remove_var("RUCHO_CHAOS_DELAY_MAX_MS");
-            env::remove_var("RUCHO_CHAOS_CORRUPTION_RATE");
-            env::remove_var("RUCHO_CHAOS_CORRUPTION_TYPE");
-            env::remove_var("RUCHO_CHAOS_INFORM_HEADER");
         }
 
         fn create_config_file(&self, path: &std::path::Path, content: &str) {
@@ -726,30 +729,44 @@ mod tests {
                 .unwrap_or_else(|e| panic!("Failed to create config file at {:?}: {}", path, e));
             writeln!(file, "{}", content).unwrap();
         }
+
+        fn non_existent_etc(&self) -> PathBuf {
+            self.etc_rucho_conf_path
+                .parent()
+                .unwrap()
+                .join("non_existent.conf")
+        }
+
+        fn non_existent_cwd(&self) -> PathBuf {
+            self.cwd_rucho_conf_path
+                .parent()
+                .unwrap()
+                .join("non_existent.conf")
+        }
     }
 
-    /// Restores the original CWD and cleans up environment variables set during tests.
-    impl Drop for TestEnv {
-        fn drop(&mut self) {
-            // Attempt to restore CWD but don't panic if it fails (e.g., if directory was deleted)
-            let _ = env::set_current_dir(&self.original_cwd);
-            // TempDirs will be automatically removed when they go out of scope.
-            Self::clear_env_vars();
-        }
+    /// Returns an env reader backed by the given HashMap.
+    fn mock_env(vars: HashMap<&str, &str>) -> impl Fn(&str) -> Result<String, env::VarError> {
+        let owned: HashMap<String, String> = vars
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        move |key: &str| owned.get(key).cloned().ok_or(env::VarError::NotPresent)
+    }
+
+    /// Returns an env reader that always returns `NotPresent`.
+    fn empty_env() -> impl Fn(&str) -> Result<String, env::VarError> {
+        |_: &str| Err(env::VarError::NotPresent)
     }
 
     #[test]
     fn test_default_config() {
-        let _env = TestEnv::new(); // Sets up CWD, cleans up vars.
-                                   // To test defaults, we call load_from_paths with paths that are guaranteed not to exist.
-                                   // This ensures that only the hardcoded defaults are loaded.
-        let non_existent_etc =
-            PathBuf::from("/tmp/non_existent_rucho_config_for_default_test_etc.conf");
-        let non_existent_cwd =
-            PathBuf::from("./non_existent_rucho_config_for_default_test_cwd.conf");
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+        let env = empty_env();
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_default_test_etc.conf");
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_default_test_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
 
-        // Assert that all configuration values match the hardcoded defaults.
         assert_eq!(config.prefix, "/usr/local/rucho");
         assert_eq!(config.log_level, "info");
         assert_eq!(config.server_listen_primary, "0.0.0.0:8080");
@@ -760,172 +777,139 @@ mod tests {
 
     #[test]
     fn test_load_from_etc_only() {
-        let env_setup = TestEnv::new();
-        // Create a config file only in the simulated /etc/rucho directory.
-        env_setup.create_config_file(
-            &env_setup.etc_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.etc_rucho_conf_path,
             "prefix = /etc/path\nlog_level = etc_level",
         );
 
-        // Specify a non-existent path for the CWD config to ensure it's not loaded.
-        let non_existent_cwd_conf = env_setup
-            .cwd_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-
-        let config = Config::load_from_paths(
-            Some(env_setup.etc_rucho_conf_path.clone()),
-            Some(non_existent_cwd_conf),
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.etc_rucho_conf_path.clone()),
+            Some(t.non_existent_cwd()),
+            &env,
         );
 
-        // Assert that values from /etc/rucho/rucho.conf are loaded.
         assert_eq!(config.prefix, "/etc/path");
         assert_eq!(config.log_level, "etc_level");
-        // Assert that other values remain default.
         assert_eq!(config.server_listen_primary, "0.0.0.0:8080");
     }
 
     #[test]
     fn test_load_from_cwd_only() {
-        let env_setup = TestEnv::new();
-        // Create a config file only in the simulated CWD.
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "prefix = /cwd/path\nlog_level = cwd_level",
         );
 
-        // Specify a non-existent path for the /etc config.
-        let non_existent_etc_conf = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-
-        let config = Config::load_from_paths(
-            Some(non_existent_etc_conf),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
-        // Assert that values from ./rucho.conf are loaded.
         assert_eq!(config.prefix, "/cwd/path");
         assert_eq!(config.log_level, "cwd_level");
-        // Assert that other values remain default.
         assert_eq!(config.server_listen_secondary, "0.0.0.0:9090");
     }
 
     #[test]
     fn test_cwd_overrides_etc() {
-        let env_setup = TestEnv::new();
-        // Create config files in both /etc and CWD with some overlapping keys.
-        env_setup.create_config_file(
-            &env_setup.etc_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.etc_rucho_conf_path,
             "prefix = /etc/path\nlog_level = etc_level",
         );
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "prefix = /cwd/path\nserver_listen_primary = 1.1.1.1:1111",
         );
 
-        let config = Config::load_from_paths(
-            Some(env_setup.etc_rucho_conf_path.clone()),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.etc_rucho_conf_path.clone()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
-        // Assert that CWD values override /etc values for overlapping keys.
-        assert_eq!(config.prefix, "/cwd/path"); // CWD prefix wins.
-                                                // Assert that non-overlapping keys are merged.
-        assert_eq!(config.log_level, "etc_level"); // From /etc, as not in CWD file.
-        assert_eq!(config.server_listen_primary, "1.1.1.1:1111"); // From CWD.
-                                                                  // Assert that other values remain default.
+        assert_eq!(config.prefix, "/cwd/path");
+        assert_eq!(config.log_level, "etc_level");
+        assert_eq!(config.server_listen_primary, "1.1.1.1:1111");
         assert_eq!(config.server_listen_secondary, "0.0.0.0:9090");
     }
 
     #[test]
     fn test_env_overrides_all_files() {
-        let env_setup = TestEnv::new();
-        // Create config files in both /etc and CWD.
-        env_setup.create_config_file(
-            &env_setup.etc_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.etc_rucho_conf_path,
             "prefix = /etc/path\nlog_level = etc_level",
         );
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "prefix = /cwd/path\nlog_level = cwd_level",
         );
 
-        // Set environment variables that should override file configurations.
-        env::set_var("RUCHO_PREFIX", "/env/path");
-        env::set_var("RUCHO_LOG_LEVEL", "env_level");
-        env::set_var("RUCHO_SERVER_LISTEN_PRIMARY", "env_primary");
-
-        let config = Config::load_from_paths(
-            Some(env_setup.etc_rucho_conf_path.clone()),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = mock_env(HashMap::from([
+            ("RUCHO_PREFIX", "/env/path"),
+            ("RUCHO_LOG_LEVEL", "env_level"),
+            ("RUCHO_SERVER_LISTEN_PRIMARY", "env_primary"),
+        ]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.etc_rucho_conf_path.clone()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
-        // Assert that environment variable values override all file-based values.
         assert_eq!(config.prefix, "/env/path");
         assert_eq!(config.log_level, "env_level");
         assert_eq!(config.server_listen_primary, "env_primary");
-        // Assert that other values remain default.
         assert_eq!(config.server_listen_secondary, "0.0.0.0:9090");
     }
 
     #[test]
     fn test_partial_configs_layering() {
-        let env_setup = TestEnv::new();
-        // /etc/rucho/rucho.conf sets prefix and an initial log_level.
-        env_setup.create_config_file(
-            &env_setup.etc_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.etc_rucho_conf_path,
             "prefix = /etc/path\nlog_level = etc_level_original",
         );
-        // ./rucho.conf overrides log_level and sets server_listen_secondary.
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "log_level = cwd_level\nserver_listen_secondary = 2.2.2.2:2222",
         );
 
-        // Environment variable sets server_listen_primary.
-        env::set_var("RUCHO_SERVER_LISTEN_PRIMARY", "env_primary");
-        // Ensure other relevant env vars are not set from previous tests for this specific test,
-        // so we only test the intended layering.
-        env::remove_var("RUCHO_PREFIX");
-        env::remove_var("RUCHO_LOG_LEVEL");
-
-        let config = Config::load_from_paths(
-            Some(env_setup.etc_rucho_conf_path.clone()),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = mock_env(HashMap::from([(
+            "RUCHO_SERVER_LISTEN_PRIMARY",
+            "env_primary",
+        )]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.etc_rucho_conf_path.clone()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
-        // prefix should come from /etc/rucho/rucho.conf
         assert_eq!(config.prefix, "/etc/path");
-        // log_level should be from ./rucho.conf (overriding /etc)
         assert_eq!(config.log_level, "cwd_level");
-        // server_listen_primary should be from environment variable
         assert_eq!(config.server_listen_primary, "env_primary");
-        // server_listen_secondary should be from ./rucho.conf
         assert_eq!(config.server_listen_secondary, "2.2.2.2:2222");
     }
 
     #[test]
     fn test_load_ssl_from_file() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "ssl_cert = /test/cert.pem\nssl_key = /test/key.pem",
         );
 
-        // For etc, pass a path that won't exist
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert_eq!(config.ssl_cert, Some("/test/cert.pem".to_string()));
@@ -934,23 +918,14 @@ mod tests {
 
     #[test]
     fn test_load_ssl_from_env() {
-        let env_setup = TestEnv::new();
-        env::set_var("RUCHO_SSL_CERT", "/env/cert.pem");
-        env::set_var("RUCHO_SSL_KEY", "/env/key.pem");
-
-        // Pass non-existent paths for files to ensure only env vars are loaded
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent_env_only_etc.conf");
-        let non_existent_cwd = env_setup
-            .cwd_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent_env_only_cwd.conf");
-
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+        let env = mock_env(HashMap::from([
+            ("RUCHO_SSL_CERT", "/env/cert.pem"),
+            ("RUCHO_SSL_KEY", "/env/key.pem"),
+        ]));
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_ssl_env_etc.conf");
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_ssl_env_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
 
         assert_eq!(config.ssl_cert, Some("/env/cert.pem".to_string()));
         assert_eq!(config.ssl_key, Some("/env/key.pem".to_string()));
@@ -958,24 +933,20 @@ mod tests {
 
     #[test]
     fn test_env_overrides_file_for_ssl() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "ssl_cert = /file/cert.pem\nssl_key = /file/key.pem",
         );
-        env::set_var("RUCHO_SSL_CERT", "/env/cert.pem");
-        env::set_var("RUCHO_SSL_KEY", "/env/key.pem");
 
-        // For etc, pass a path that won't exist
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = mock_env(HashMap::from([
+            ("RUCHO_SSL_CERT", "/env/cert.pem"),
+            ("RUCHO_SSL_KEY", "/env/key.pem"),
+        ]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert_eq!(config.ssl_cert, Some("/env/cert.pem".to_string()));
@@ -984,22 +955,14 @@ mod tests {
 
     #[test]
     fn test_partial_ssl_config_layering() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "ssl_cert = /file/cert.pem");
-        env::set_var("RUCHO_SSL_KEY", "/env/key.pem");
-        // Ensure RUCHO_SSL_CERT is not set from other tests for this specific test case
-        env::remove_var("RUCHO_SSL_CERT");
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "ssl_cert = /file/cert.pem");
 
-        // For etc, pass a path that won't exist
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = mock_env(HashMap::from([("RUCHO_SSL_KEY", "/env/key.pem")]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert_eq!(config.ssl_cert, Some("/file/cert.pem".to_string()));
@@ -1008,20 +971,17 @@ mod tests {
 
     #[test]
     fn test_load_tcp_udp_from_file() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "server_listen_tcp = 127.0.0.1:1234\nserver_listen_udp = 127.0.0.1:5678",
         );
 
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert_eq!(config.server_listen_tcp, Some("127.0.0.1:1234".to_string()));
@@ -1030,21 +990,14 @@ mod tests {
 
     #[test]
     fn test_load_tcp_udp_from_env() {
-        let env_setup = TestEnv::new();
-        env::set_var("RUCHO_SERVER_LISTEN_TCP", "127.0.0.1:1234");
-        env::set_var("RUCHO_SERVER_LISTEN_UDP", "127.0.0.1:5678");
-
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent_env_only_etc.conf");
-        let non_existent_cwd = env_setup
-            .cwd_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent_env_only_cwd.conf");
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+        let env = mock_env(HashMap::from([
+            ("RUCHO_SERVER_LISTEN_TCP", "127.0.0.1:1234"),
+            ("RUCHO_SERVER_LISTEN_UDP", "127.0.0.1:5678"),
+        ]));
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_tcp_udp_env_etc.conf");
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_tcp_udp_env_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
 
         assert_eq!(config.server_listen_tcp, Some("127.0.0.1:1234".to_string()));
         assert_eq!(config.server_listen_udp, Some("127.0.0.1:5678".to_string()));
@@ -1052,22 +1005,20 @@ mod tests {
 
     #[test]
     fn test_env_overrides_file_for_tcp_udp() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "server_listen_tcp = /file/tcp\nserver_listen_udp = /file/udp",
         );
-        env::set_var("RUCHO_SERVER_LISTEN_TCP", "/env/tcp");
-        env::set_var("RUCHO_SERVER_LISTEN_UDP", "/env/udp");
 
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = mock_env(HashMap::from([
+            ("RUCHO_SERVER_LISTEN_TCP", "/env/tcp"),
+            ("RUCHO_SERVER_LISTEN_UDP", "/env/udp"),
+        ]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert_eq!(config.server_listen_tcp, Some("/env/tcp".to_string()));
@@ -1076,22 +1027,14 @@ mod tests {
 
     #[test]
     fn test_partial_tcp_udp_config_layering() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
-            "server_listen_tcp = /file/tcp",
-        );
-        env::set_var("RUCHO_SERVER_LISTEN_UDP", "/env/udp");
-        env::remove_var("RUCHO_SERVER_LISTEN_TCP");
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "server_listen_tcp = /file/tcp");
 
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = mock_env(HashMap::from([("RUCHO_SERVER_LISTEN_UDP", "/env/udp")]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert_eq!(config.server_listen_tcp, Some("/file/tcp".to_string()));
@@ -1142,27 +1085,25 @@ mod tests {
 
     #[test]
     fn test_compression_enabled_default_false() {
-        let _env = TestEnv::new();
+        let env = empty_env();
         let non_existent_etc = PathBuf::from("/tmp/non_existent_compression_test_etc.conf");
-        let non_existent_cwd = PathBuf::from("./non_existent_compression_test_cwd.conf");
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_compression_test_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
 
         assert!(!config.compression_enabled);
     }
 
     #[test]
     fn test_load_compression_enabled_from_file() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(&env_setup.cwd_rucho_conf_path, "compression_enabled = true");
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "compression_enabled = true");
 
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert!(config.compression_enabled);
@@ -1170,41 +1111,25 @@ mod tests {
 
     #[test]
     fn test_load_compression_enabled_from_env() {
-        let env_setup = TestEnv::new();
-        env::set_var("RUCHO_COMPRESSION_ENABLED", "true");
-
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let non_existent_cwd = env_setup
-            .cwd_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+        let env = mock_env(HashMap::from([("RUCHO_COMPRESSION_ENABLED", "true")]));
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_compression_env_etc.conf");
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_compression_env_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
 
         assert!(config.compression_enabled);
     }
 
     #[test]
     fn test_env_overrides_file_for_compression() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
-            "compression_enabled = false",
-        );
-        env::set_var("RUCHO_COMPRESSION_ENABLED", "true");
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "compression_enabled = false");
 
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = mock_env(HashMap::from([("RUCHO_COMPRESSION_ENABLED", "true")]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert!(config.compression_enabled);
@@ -1214,10 +1139,11 @@ mod tests {
 
     #[test]
     fn test_chaos_disabled_by_default() {
-        let _env = TestEnv::new();
+        let env = empty_env();
         let non_existent_etc = PathBuf::from("/tmp/non_existent_chaos_default_etc.conf");
-        let non_existent_cwd = PathBuf::from("./non_existent_chaos_default_cwd.conf");
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_chaos_default_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
 
         assert!(!config.chaos.is_enabled());
         assert!(config.chaos.modes.is_empty());
@@ -1226,9 +1152,9 @@ mod tests {
 
     #[test]
     fn test_chaos_config_from_file() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "chaos_mode = failure,delay\n\
              chaos_failure_rate = 0.5\n\
              chaos_failure_codes = 500,503\n\
@@ -1237,14 +1163,11 @@ mod tests {
              chaos_inform_header = false",
         );
 
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert!(config.chaos.is_enabled());
@@ -1258,22 +1181,15 @@ mod tests {
 
     #[test]
     fn test_chaos_config_from_env() {
-        let env_setup = TestEnv::new();
-        env::set_var("RUCHO_CHAOS_MODE", "corruption");
-        env::set_var("RUCHO_CHAOS_CORRUPTION_RATE", "0.1");
-        env::set_var("RUCHO_CHAOS_CORRUPTION_TYPE", "empty");
-
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let non_existent_cwd = env_setup
-            .cwd_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+        let env = mock_env(HashMap::from([
+            ("RUCHO_CHAOS_MODE", "corruption"),
+            ("RUCHO_CHAOS_CORRUPTION_RATE", "0.1"),
+            ("RUCHO_CHAOS_CORRUPTION_TYPE", "empty"),
+        ]));
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_chaos_env_etc.conf");
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_chaos_env_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
 
         assert!(config.chaos.is_enabled());
         assert!(config.chaos.has_corruption());
@@ -1283,23 +1199,19 @@ mod tests {
 
     #[test]
     fn test_chaos_env_overrides_file() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "chaos_mode = failure\n\
              chaos_failure_rate = 0.5\n\
              chaos_failure_codes = 500",
         );
-        env::set_var("RUCHO_CHAOS_FAILURE_RATE", "0.9");
 
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = mock_env(HashMap::from([("RUCHO_CHAOS_FAILURE_RATE", "0.9")]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert!((config.chaos.failure_rate - 0.9).abs() < f64::EPSILON);
@@ -1450,10 +1362,11 @@ mod tests {
 
     #[test]
     fn test_connection_defaults() {
-        let _env = TestEnv::new();
+        let env = empty_env();
         let non_existent_etc = PathBuf::from("/tmp/non_existent_conn_default_etc.conf");
-        let non_existent_cwd = PathBuf::from("./non_existent_conn_default_cwd.conf");
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_conn_default_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
 
         assert_eq!(config.http_keep_alive_timeout, 75);
         assert_eq!(config.tcp_keepalive_time, 60);
@@ -1465,9 +1378,9 @@ mod tests {
 
     #[test]
     fn test_connection_config_from_file() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "http_keep_alive_timeout = 120\n\
              tcp_keepalive_time = 90\n\
              tcp_keepalive_interval = 20\n\
@@ -1476,14 +1389,11 @@ mod tests {
              header_read_timeout = 45",
         );
 
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert_eq!(config.http_keep_alive_timeout, 120);
@@ -1496,25 +1406,18 @@ mod tests {
 
     #[test]
     fn test_connection_config_from_env() {
-        let env_setup = TestEnv::new();
-        env::set_var("RUCHO_HTTP_KEEP_ALIVE_TIMEOUT", "100");
-        env::set_var("RUCHO_TCP_KEEPALIVE_TIME", "80");
-        env::set_var("RUCHO_TCP_KEEPALIVE_INTERVAL", "10");
-        env::set_var("RUCHO_TCP_KEEPALIVE_RETRIES", "8");
-        env::set_var("RUCHO_TCP_NODELAY", "false");
-        env::set_var("RUCHO_HEADER_READ_TIMEOUT", "60");
-
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let non_existent_cwd = env_setup
-            .cwd_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(Some(non_existent_etc), Some(non_existent_cwd));
+        let env = mock_env(HashMap::from([
+            ("RUCHO_HTTP_KEEP_ALIVE_TIMEOUT", "100"),
+            ("RUCHO_TCP_KEEPALIVE_TIME", "80"),
+            ("RUCHO_TCP_KEEPALIVE_INTERVAL", "10"),
+            ("RUCHO_TCP_KEEPALIVE_RETRIES", "8"),
+            ("RUCHO_TCP_NODELAY", "false"),
+            ("RUCHO_HEADER_READ_TIMEOUT", "60"),
+        ]));
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_conn_env_etc.conf");
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_conn_env_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
 
         assert_eq!(config.http_keep_alive_timeout, 100);
         assert_eq!(config.tcp_keepalive_time, 80);
@@ -1526,22 +1429,18 @@ mod tests {
 
     #[test]
     fn test_connection_env_overrides_file() {
-        let env_setup = TestEnv::new();
-        env_setup.create_config_file(
-            &env_setup.cwd_rucho_conf_path,
+        let t = TestEnv::new();
+        t.create_config_file(
+            &t.cwd_rucho_conf_path,
             "http_keep_alive_timeout = 50\n\
              tcp_keepalive_time = 40",
         );
-        env::set_var("RUCHO_HTTP_KEEP_ALIVE_TIMEOUT", "200");
 
-        let non_existent_etc = env_setup
-            .etc_rucho_conf_path
-            .parent()
-            .unwrap()
-            .join("non_existent.conf");
-        let config = Config::load_from_paths(
-            Some(non_existent_etc),
-            Some(env_setup.cwd_rucho_conf_path.clone()),
+        let env = mock_env(HashMap::from([("RUCHO_HTTP_KEEP_ALIVE_TIMEOUT", "200")]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
         );
 
         assert_eq!(config.http_keep_alive_timeout, 200); // env wins
