@@ -324,6 +324,8 @@ Affected responses include an `X-Chaos` header listing which chaos types were ap
 
 ## Examples
 
+For comprehensive examples with curl, Python, and JavaScript, see [docs/USAGE_EXAMPLES.md](docs/USAGE_EXAMPLES.md).
+
 ```bash
 # Simple GET
 curl http://localhost:8080/get
