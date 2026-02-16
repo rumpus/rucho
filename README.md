@@ -73,6 +73,10 @@ rucho version  # Display version
 | GET     | `/cookies`        | Inspect request cookies                              |
 | GET     | `/cookies/set`    | Set cookies via query params and redirect            |
 | GET     | `/cookies/delete` | Delete cookies via query params and redirect         |
+| GET     | `/uuid`           | Random UUID v4                                       |
+| GET     | `/ip`             | Client IP address                                    |
+| GET     | `/user-agent`     | User-Agent header echo                               |
+| GET     | `/headers`        | All request headers                                  |
 | GET     | `/healthz`        | Health check                                         |
 | GET     | `/metrics`        | Request statistics (when enabled)                    |
 | GET     | `/endpoints`      | List all endpoints                                   |
@@ -324,7 +328,7 @@ Affected responses include an `X-Chaos` header listing which chaos types were ap
 
 ## Examples
 
-For comprehensive examples with curl, Python, and JavaScript, see [docs/USAGE_EXAMPLES.md](docs/USAGE_EXAMPLES.md).
+For comprehensive examples with curl, Python, and JavaScript, see [docs/USAGE_EXAMPLES.md](docs/USAGE_EXAMPLES.md). For detailed endpoint documentation, see the [API Reference](docs/API_REFERENCE.md).
 
 ```bash
 # Simple GET

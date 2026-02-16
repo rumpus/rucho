@@ -120,7 +120,7 @@
 
 - [x] Usage examples doc — real-world testing scenarios (retries, redirects, timeouts)
 - [ ] Man page — ship with .deb package
-- [ ] API reference — auto-generated from OpenAPI spec
+- [x] API reference — auto-generated from OpenAPI spec
 
 ---
 
