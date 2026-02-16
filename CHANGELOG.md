@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Add 4 missing utility endpoints (`/uuid`, `/ip`, `/user-agent`, `/headers`) to OpenAPI spec registration
+
+### Added
+- Comprehensive API reference documentation (`docs/API_REFERENCE.md`)
+
 ## [1.4.3] - 2026-02-16
 
 ### Added

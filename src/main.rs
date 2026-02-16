@@ -51,6 +51,10 @@ use rucho::utils::metrics::Metrics;
         rucho::routes::cookies::cookies_handler,
         rucho::routes::cookies::set_cookies_handler,
         rucho::routes::cookies::delete_cookies_handler,
+        rucho::routes::core_routes::uuid_handler,
+        rucho::routes::core_routes::ip_handler,
+        rucho::routes::core_routes::user_agent_handler,
+        rucho::routes::core_routes::headers_handler,
     ),
     components(
         schemas(EndpointInfo, rucho::routes::core_routes::Payload)
