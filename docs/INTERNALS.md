@@ -5,8 +5,8 @@
 > path in the codebase. It is intended as a developer reference — not user-facing
 > API docs.
 >
-> **Version:** 1.4.4
-> **Last updated:** 2026-02-16
+> **Version:** 1.4.5
+> **Last updated:** 2026-02-17
 
 ---
 
@@ -453,14 +453,13 @@ and returns the response unmodified.
 
 ### Step 8: metrics_middleware (if enabled)
 
-`src/server/metrics_layer.rs:15-34`:
+`src/server/metrics_layer.rs:16-34`:
 
 ```rust
 pub async fn metrics_middleware(
     request: Request, next: Next, metrics: Arc<Metrics>,
 ) -> Response<Body> {
-    let path = request.uri().path().to_string();
-    let normalized_path = normalize_path(&path);
+    let normalized_path = normalize_path(request.uri().path());
     let response = next.run(request).await;
     let status = response.status().as_u16();
     metrics.record_request(&normalized_path, status);
@@ -468,9 +467,12 @@ pub async fn metrics_middleware(
 }
 ```
 
-Captures the path *before* calling the handler, then records the status code
-*after*. The path `/get` passes through `normalize_path()` unchanged (only
-`/status/*`, `/delay/*`, and `/anything/*` get normalized).
+Normalizes the path directly from the request URI (no intermediate `String`
+allocation). `normalize_path()` returns `Cow<'static, str>` — parameterized
+routes like `/status/*`, `/delay/*`, `/redirect/*`, and `/anything/*` resolve
+to static `Cow::Borrowed` strings (zero heap allocation). Passthrough paths
+like `/get` produce a `Cow::Owned`. The status code is recorded *after* the
+handler returns.
 
 ### Step 9: Route Handler — `get_handler()`
 
@@ -923,15 +925,14 @@ This is passed to `format_json_response_with_timing()` which injects
 
 ### 6.2 Metrics Middleware
 
-**File:** `src/server/metrics_layer.rs` (55 lines including tests)
+**File:** `src/server/metrics_layer.rs` (113 lines including tests)
 
 ```rust
-// src/server/metrics_layer.rs:15-34
+// src/server/metrics_layer.rs:16-34
 pub async fn metrics_middleware(
     request: Request, next: Next, metrics: Arc<Metrics>,
 ) -> Response<Body> {
-    let path = request.uri().path().to_string();
-    let normalized_path = normalize_path(&path);
+    let normalized_path = normalize_path(request.uri().path());
     let response = next.run(request).await;
     let status = response.status().as_u16();
     metrics.record_request(&normalized_path, status);
@@ -939,25 +940,29 @@ pub async fn metrics_middleware(
 }
 ```
 
-**Path normalization** (`src/server/metrics_layer.rs:42-55`):
+**Path normalization** (`src/server/metrics_layer.rs:42-60`):
+
+Returns `Cow<'static, str>` — parameterized routes resolve to zero-allocation
+`Cow::Borrowed` static strings, while passthrough paths and `/cookies/{action}`
+produce `Cow::Owned`.
 
 ```rust
-fn normalize_path(path: &str) -> String {
+fn normalize_path(path: &str) -> Cow<'static, str> {
     let segments: Vec<&str> = path.split('/').collect();
     if segments.len() >= 2 {
         match segments.get(1) {
-            Some(&"status") if segments.len() >= 3 => "/status/:code".to_string(),
-            Some(&"delay") if segments.len() >= 3  => "/delay/:n".to_string(),
-            Some(&"redirect") if segments.len() >= 3 => "/redirect/:n".to_string(),
+            Some(&"status") if segments.len() >= 3 => Cow::Borrowed("/status/:code"),
+            Some(&"delay") if segments.len() >= 3  => Cow::Borrowed("/delay/:n"),
+            Some(&"redirect") if segments.len() >= 3 => Cow::Borrowed("/redirect/:n"),
             Some(&"cookies") if segments.len() >= 3 => {
                 let action = segments.get(2).unwrap_or(&"");
-                format!("/cookies/{action}")
+                Cow::Owned(format!("/cookies/{action}"))
             }
-            Some(&"anything") if segments.len() >= 3 => "/anything/*path".to_string(),
-            _ => path.to_string(),
+            Some(&"anything") if segments.len() >= 3 => Cow::Borrowed("/anything/*path"),
+            _ => Cow::Owned(path.to_owned()),
         }
     } else {
-        path.to_string()
+        Cow::Owned(path.to_owned())
     }
 }
 ```
@@ -983,7 +988,7 @@ groups them under canonical route names.
 
 ### 6.3 Chaos Middleware
 
-**File:** `src/server/chaos_layer.rs` (124 lines)
+**File:** `src/server/chaos_layer.rs` (123 lines)
 
 The most complex middleware. Implements a three-stage chaos injection pipeline.
 
@@ -1112,8 +1117,9 @@ short-circuits so it never stacks with anything else.
 **X-Chaos header:** When `inform_header` is true (default), an `X-Chaos` header
 is added listing which chaos types were applied, e.g., `x-chaos: delay,corruption`.
 
-**RNG:** Uses `StdRng::from_entropy()` per request for a fresh, independent
-random source.
+**RNG:** Seeds `StdRng` from `rand::thread_rng()` per request. This avoids a
+direct OS `getrandom()` syscall by reusing the thread-local cached CSPRNG for
+seeding, while keeping the resulting `StdRng` `Send`-safe across `.await` points.
 
 ---
 
