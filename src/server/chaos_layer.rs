@@ -26,7 +26,7 @@ pub async fn chaos_middleware(
     next: Next,
     chaos: Arc<ChaosConfig>,
 ) -> Response<Body> {
-    let mut rng = StdRng::from_entropy();
+    let mut rng = StdRng::from_rng(rand::thread_rng()).expect("thread_rng seeding");
     let mut applied: Vec<&str> = Vec::new();
 
     // 1. Roll for failure — short-circuit with error response

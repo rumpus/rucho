@@ -4,6 +4,7 @@
 //! to record metrics such as request counts, endpoint hits, and status codes.
 
 use axum::{body::Body, extract::Request, middleware::Next, response::Response};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::utils::metrics::Metrics;
@@ -17,11 +18,10 @@ pub async fn metrics_middleware(
     next: Next,
     metrics: Arc<Metrics>,
 ) -> Response<Body> {
-    // Extract the path before passing the request
-    let path = request.uri().path().to_string();
-
-    // Normalize the path for metrics (remove path parameters)
-    let normalized_path = normalize_path(&path);
+    // Normalize the path for metrics (remove path parameters).
+    // Returns Cow::Borrowed for static patterns (zero alloc) or Cow::Owned for
+    // passthrough/cookie paths (one alloc — down from two).
+    let normalized_path = normalize_path(request.uri().path());
 
     // Call the inner handler
     let response = next.run(request).await;
@@ -39,23 +39,23 @@ pub async fn metrics_middleware(
 /// - `/status/404` -> `/status/:code`
 /// - `/delay/5` -> `/delay/:n`
 /// - `/anything/foo/bar` -> `/anything/*path`
-fn normalize_path(path: &str) -> String {
+fn normalize_path(path: &str) -> Cow<'static, str> {
     let segments: Vec<&str> = path.split('/').collect();
 
     if segments.len() >= 2 {
         match segments.get(1) {
-            Some(&"status") if segments.len() >= 3 => "/status/:code".to_string(),
-            Some(&"delay") if segments.len() >= 3 => "/delay/:n".to_string(),
-            Some(&"redirect") if segments.len() >= 3 => "/redirect/:n".to_string(),
+            Some(&"status") if segments.len() >= 3 => Cow::Borrowed("/status/:code"),
+            Some(&"delay") if segments.len() >= 3 => Cow::Borrowed("/delay/:n"),
+            Some(&"redirect") if segments.len() >= 3 => Cow::Borrowed("/redirect/:n"),
             Some(&"cookies") if segments.len() >= 3 => {
                 let action = segments.get(2).unwrap_or(&"");
-                format!("/cookies/{action}")
+                Cow::Owned(format!("/cookies/{action}"))
             }
-            Some(&"anything") if segments.len() >= 3 => "/anything/*path".to_string(),
-            _ => path.to_string(),
+            Some(&"anything") if segments.len() >= 3 => Cow::Borrowed("/anything/*path"),
+            _ => Cow::Owned(path.to_owned()),
         }
     } else {
-        path.to_string()
+        Cow::Owned(path.to_owned())
     }
 }
 
