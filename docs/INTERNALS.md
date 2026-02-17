@@ -5,7 +5,7 @@
 > path in the codebase. It is intended as a developer reference — not user-facing
 > API docs.
 >
-> **Version:** 1.4.3
+> **Version:** 1.4.4
 > **Last updated:** 2026-02-16
 
 ---
@@ -157,12 +157,12 @@ rucho::cli::commands
 
 ## 2. Application Startup Sequence
 
-Entry point: `src/main.rs:66`
+Entry point: `src/main.rs:74`
 
 When you run `cargo run -- start`, the following sequence executes:
 
 ```
-main()                              src/main.rs:66
+main()                              src/main.rs:74
   |
   +-- Args::parse()                 clap derives from CliCommand enum
   +-- Config::load()                src/utils/config.rs:684
@@ -187,14 +187,14 @@ main()                              src/main.rs:66
           |     +-- write_pid_file(pid)
           |
           +-- Metrics::new() (if metrics_enabled)
-          +-- build_app(metrics, compression_enabled, chaos)  src/main.rs:127
+          +-- build_app(metrics, compression_enabled, chaos)  src/main.rs:135
           +-- run_server(&config, app)  src/server/mod.rs:24
 ```
 
 ### `main()` — Verbatim Source
 
 ```rust
-// src/main.rs:65-120
+// src/main.rs:73-128
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
@@ -256,10 +256,10 @@ async fn main() {
 
 ### 3.1 Route Registration
 
-`build_app()` at `src/main.rs:127-180` constructs the Axum `Router`:
+`build_app()` at `src/main.rs:135-191` constructs the Axum `Router`:
 
 ```rust
-// src/main.rs:131-136
+// src/main.rs:140-146
 let mut app = Router::new()
     .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
     .merge(rucho::routes::core_routes::router())  // 16 core routes
@@ -269,7 +269,7 @@ let mut app = Router::new()
     .merge(rucho::routes::cookies::router());      // /cookies, /cookies/set, /cookies/delete
 ```
 
-The core routes router (`src/routes/core_routes.rs:187-218`) registers:
+The core routes router (`src/routes/core_routes.rs:210-241`) registers:
 
 ```rust
 Router::new()
@@ -293,9 +293,9 @@ Router::new()
 
 Conditional routes added in `build_app()`:
 
-- **`/metrics`** (GET) — only if `config.metrics_enabled` is true (`src/main.rs:139-148`)
+- **`/metrics`** (GET) — only if `config.metrics_enabled` is true (`src/main.rs:149-159`)
 - **Metrics middleware** — wraps all routes when metrics is enabled
-- **Chaos middleware** — wraps routes when `chaos.is_enabled()` (`src/main.rs:154-161`)
+- **Chaos middleware** — wraps routes when `chaos.is_enabled()` (`src/main.rs:164-171`)
 
 ### 3.2 Middleware Layer Order
 
@@ -360,7 +360,7 @@ an inbound request is:
 - Compression wraps everything so the final response body gets compressed.
 - NormalizePath is outermost so `/get/` becomes `/get` before any routing.
 
-The relevant code from `build_app()` (`src/main.rs:150-180`):
+The relevant code from `build_app()` (`src/main.rs:160-191`):
 
 ```rust
 // Middleware order (innermost to outermost):
@@ -474,7 +474,7 @@ Captures the path *before* calling the handler, then records the status code
 
 ### Step 9: Route Handler — `get_handler()`
 
-`src/routes/core_routes.rs:377-384`:
+`src/routes/core_routes.rs:400-407`:
 
 ```rust
 pub async fn get_handler(
@@ -595,27 +595,27 @@ The response travels back up through each middleware layer:
 
 | # | Path | Method(s) | Handler | Module |
 |---|------|-----------|---------|--------|
-| 1 | `/` | GET | `root_handler` | `core_routes.rs:356` |
-| 2 | `/get` | GET | `get_handler` | `core_routes.rs:377` |
-| 3 | `/get` | HEAD | `head_handler` | `core_routes.rs:404` |
-| 4 | `/post` | POST | `post_handler` | `core_routes.rs:588` |
-| 5 | `/put` | PUT | `put_handler` | `core_routes.rs:631` |
-| 6 | `/patch` | PATCH | `patch_handler` | `core_routes.rs:674` |
-| 7 | `/delete` | DELETE | `delete_handler` | `core_routes.rs:715` |
-| 8 | `/options` | OPTIONS | `options_handler` | `core_routes.rs:764` |
-| 9 | `/status/:code` | ANY | `status_handler` | `core_routes.rs:247` |
-| 10 | `/anything` | ANY | `anything_handler` | `core_routes.rs:275` |
-| 11 | `/anything/*path` | ANY | `anything_handler` | `core_routes.rs:275` |
-| 12 | `/uuid` | GET | `uuid_handler` | `core_routes.rs:462` |
-| 13 | `/ip` | GET | `ip_handler` | `core_routes.rs:486` |
-| 14 | `/user-agent` | GET | `user_agent_handler` | `core_routes.rs:524` |
-| 15 | `/headers` | GET | `headers_handler` | `core_routes.rs:556` |
-| 16 | `/endpoints` | GET | `endpoints_handler` | `core_routes.rs:431` |
+| 1 | `/` | GET | `root_handler` | `core_routes.rs:379` |
+| 2 | `/get` | GET | `get_handler` | `core_routes.rs:400` |
+| 3 | `/get` | HEAD | `head_handler` | `core_routes.rs:427` |
+| 4 | `/post` | POST | `post_handler` | `core_routes.rs:611` |
+| 5 | `/put` | PUT | `put_handler` | `core_routes.rs:654` |
+| 6 | `/patch` | PATCH | `patch_handler` | `core_routes.rs:697` |
+| 7 | `/delete` | DELETE | `delete_handler` | `core_routes.rs:738` |
+| 8 | `/options` | OPTIONS | `options_handler` | `core_routes.rs:787` |
+| 9 | `/status/:code` | ANY | `status_handler` | `core_routes.rs:270` |
+| 10 | `/anything` | ANY | `anything_handler` | `core_routes.rs:298` |
+| 11 | `/anything/*path` | ANY | `anything_handler` | `core_routes.rs:298` |
+| 12 | `/uuid` | GET | `uuid_handler` | `core_routes.rs:485` |
+| 13 | `/ip` | GET | `ip_handler` | `core_routes.rs:509` |
+| 14 | `/user-agent` | GET | `user_agent_handler` | `core_routes.rs:547` |
+| 15 | `/headers` | GET | `headers_handler` | `core_routes.rs:579` |
+| 16 | `/endpoints` | GET | `endpoints_handler` | `core_routes.rs:454` |
 | 17 | `/healthz` | GET | `healthz_handler` | `healthz.rs:21` |
 | 18 | `/delay/:n` | ANY | `delay_handler` | `delay.rs:26` |
 | 19 | `/redirect/:n` | ANY | `redirect_handler` | `redirect.rs:33` |
 | 20 | `/metrics` | GET | `get_metrics` | `metrics.rs:43` |
-| 21 | `/swagger-ui` | GET | *(utoipa-swagger-ui)* | `main.rs:133` |
+| 21 | `/swagger-ui` | GET | *(utoipa-swagger-ui)* | `main.rs:141` |
 | 22 | `/cookies` | GET | `cookies_handler` | `cookies.rs:60` |
 | 23 | `/cookies/set` | GET | `set_cookies_handler` | `cookies.rs:88` |
 | 24 | `/cookies/delete` | GET | `delete_cookies_handler` | `cookies.rs:121` |
@@ -630,7 +630,7 @@ All echo handlers share a common pattern:
 3. Build a JSON payload with `method`, `headers`, and optionally `body`.
 4. Call `format_json_response_with_timing(payload, duration_ms)`.
 
-**`post_handler`** (`src/routes/core_routes.rs:588-605`):
+**`post_handler`** (`src/routes/core_routes.rs:611-628`):
 
 ```rust
 pub async fn post_handler(
@@ -666,16 +666,16 @@ pub async fn post_handler(
 Note: `delete_handler` does *not* return a 400 on missing/invalid body. Instead
 it echoes `"body": null` — this is intentional since DELETE bodies are optional.
 
-**`anything_handler`** (`src/routes/core_routes.rs:275-297`) is unique: it reads
+**`anything_handler`** (`src/routes/core_routes.rs:298-320`) is unique: it reads
 the raw body bytes via `axum::body::Body` and converts with
 `String::from_utf8_lossy`, and also captures the full URI path + query.
 
 ### 5.3 Utility Handlers
 
-**`uuid_handler`** (`src/routes/core_routes.rs:462-466`):
+**`uuid_handler`** (`src/routes/core_routes.rs:485-489`):
 Returns `{ "uuid": "<v4 uuid>" }`. Uses `uuid::Uuid::new_v4()`.
 
-**`ip_handler`** (`src/routes/core_routes.rs:486-504`):
+**`ip_handler`** (`src/routes/core_routes.rs:509-527`):
 IP extraction logic (priority order):
 1. `X-Forwarded-For` header — takes the *first* IP from the comma-separated
    list (leftmost = original client).
@@ -696,16 +696,16 @@ let origin = headers
     .unwrap_or_else(|| "unknown".to_string());
 ```
 
-**`user_agent_handler`** (`src/routes/core_routes.rs:524-536`):
+**`user_agent_handler`** (`src/routes/core_routes.rs:547-559`):
 Returns `{ "user-agent": "<value>" }`. Falls back to empty string if header
 is missing.
 
-**`headers_handler`** (`src/routes/core_routes.rs:556-562`):
+**`headers_handler`** (`src/routes/core_routes.rs:579-585`):
 Returns `{ "headers": { ... } }` with all request headers serialized.
 
 ### 5.4 Special Handlers
 
-**`status_handler`** (`src/routes/core_routes.rs:247-254`):
+**`status_handler`** (`src/routes/core_routes.rs:270-277`):
 
 ```rust
 pub async fn status_handler(
@@ -721,19 +721,19 @@ pub async fn status_handler(
 Accepts any HTTP method. Returns the status code from the path parameter. If the
 code is not a valid HTTP status (e.g., 999), defaults to 400 Bad Request.
 
-**`options_handler`** (`src/routes/core_routes.rs:764-773`):
+**`options_handler`** (`src/routes/core_routes.rs:787-796`):
 Returns 204 No Content with an `Allow` header listing all supported methods.
 
-**`root_handler`** (`src/routes/core_routes.rs:356-358`):
+**`root_handler`** (`src/routes/core_routes.rs:379-381`):
 Returns plain text `"Welcome to Echo Server!\n"`.
 
-**`head_handler`** (`src/routes/core_routes.rs:404-409`):
+**`head_handler`** (`src/routes/core_routes.rs:427-432`):
 Returns an empty body with 200 OK status. (Axum automatically strips the body
 for HEAD requests, but this handler explicitly returns an empty body.)
 
-**`endpoints_handler`** (`src/routes/core_routes.rs:431-442`):
+**`endpoints_handler`** (`src/routes/core_routes.rs:454-465`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs:69-188` and lists all 20 endpoints with their
+at `src/routes/core_routes.rs:69-204` and lists all 20 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
@@ -2133,7 +2133,7 @@ down. Since they're stateless echo handlers, this is acceptable.
 
 ## 14. OpenAPI / Swagger Integration
 
-**File:** `src/main.rs:33-63`
+**File:** `src/main.rs:33-71`
 
 ```rust
 #[derive(OpenApi)]
@@ -2157,6 +2157,10 @@ down. Since they're stateless echo handlers, this is acceptable.
         rucho::routes::cookies::cookies_handler,
         rucho::routes::cookies::set_cookies_handler,
         rucho::routes::cookies::delete_cookies_handler,
+        rucho::routes::core_routes::uuid_handler,
+        rucho::routes::core_routes::ip_handler,
+        rucho::routes::core_routes::user_agent_handler,
+        rucho::routes::core_routes::headers_handler,
     ),
     components(
         schemas(EndpointInfo, rucho::routes::core_routes::Payload)
@@ -2178,7 +2182,7 @@ struct ApiDoc;
 3. The `components(schemas(...))` section registers reusable schema types.
 4. The `tags(...)` section defines API grouping for the Swagger UI.
 
-**Router mount** (`src/main.rs:133`):
+**Router mount** (`src/main.rs:141`):
 
 ```rust
 .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
@@ -2191,7 +2195,7 @@ This serves:
 **`anything_path_handler` note:** This handler exists *solely* for OpenAPI
 documentation. The actual `/anything/*path` requests are handled by
 `anything_handler`. The path handler returns 501 if ever called directly
-(`src/routes/core_routes.rs:325-339`).
+(`src/routes/core_routes.rs:348-362`).
 
 ---
 

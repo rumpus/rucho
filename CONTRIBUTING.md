@@ -127,7 +127,7 @@ Closes #42
 - Tests pass (`cargo test`)
 - No clippy warnings (`cargo clippy`)
 - Code is formatted (`cargo fmt`)
-- Documentation updated if needed
+- Documentation updated if needed (see [API Reference](docs/API_REFERENCE.md) and [INTERNALS](docs/INTERNALS.md))
 
 ## Project Structure
 
@@ -146,7 +146,7 @@ src/
 ├── routes/              # HTTP route handlers
 │   ├── mod.rs
 │   ├── cookies.rs       # /cookies endpoints
-│   ├── core_routes.rs   # Core echo endpoints
+│   ├── core_routes.rs   # Core echo + utility endpoints
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── healthz.rs       # /healthz endpoint
 │   ├── metrics.rs       # /metrics endpoint handler
