@@ -58,6 +58,8 @@
 - [x] Connection keep-alive tuning
 - [x] Zero-copy response optimizations
 - [x] Benchmark suite with performance baselines
+- [x] Zero-alloc metrics path normalization (`Cow<'static, str>`)
+- [x] Thread-local RNG seeding for chaos middleware
 
 ---
 
@@ -116,11 +118,12 @@
 
 ---
 
-## Tier 7: Documentation
+## Tier 7: Documentation ✅
 
 - [x] Usage examples doc — real-world testing scenarios (retries, redirects, timeouts)
 - [x] Man page — ship with .deb package
 - [x] API reference — auto-generated from OpenAPI spec
+- [x] Internals deep-dive (`docs/INTERNALS.md`)
 
 ---
 
@@ -146,7 +149,7 @@ The following are explicitly out of scope to maintain focus on the core mission:
 | Phase 4 | Performance optimizations | ✅ Done |
 | Phase 5 | Advanced protocols (redirects) | ✅ Done |
 | Phase 6 | New endpoints (cookies, auth, data formats) | 🔄 Next |
-| Phase 7 | Testing, refactoring, docs | Planned |
+| Phase 7 | Testing, refactoring, docs | 🔄 In progress |
 
 ---
 
