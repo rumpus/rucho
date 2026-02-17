@@ -2295,6 +2295,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `benches/response_benchmarks.rs` | Criterion microbenchmarks for response building functions |
 | `benches/endpoint_benchmarks.rs` | Criterion async benchmarks for full endpoint request cycles via `tower::oneshot` |
 | `tests/integration.rs` | Integration tests — real HTTP server per test via `reqwest` (12 tests) |
+| `debian/man/rucho.1` | Man page (roff format) — installed to `/usr/share/man/man1/` via `.deb` |
 
 ---
 

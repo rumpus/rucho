@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Man page (`debian/man/rucho.1`) — installed to `/usr/share/man/man1/rucho.1` via `.deb` package
+
 ## [1.4.4] - 2026-02-16
 
 ### Fixed
