@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.6] - 2026-02-17
+
 ### Changed
 - Metrics middleware uses `Cow<str>` path normalization — zero heap allocations for all paths except `/cookies/{action}`
 - Chaos middleware uses thread-local RNG instead of re-seeding from OS entropy per request
