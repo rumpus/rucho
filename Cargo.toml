@@ -54,4 +54,5 @@ systemd-units = { enable = true }
 assets = [
     ["target/release/rucho", "/usr/local/bin/rucho", "755"],
     ["config_samples/rucho.conf.default", "/etc/rucho/rucho.conf", "644"],
+    ["debian/man/rucho.1", "/usr/share/man/man1/rucho.1", "644"],
 ]

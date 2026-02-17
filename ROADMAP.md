@@ -119,7 +119,7 @@
 ## Tier 7: Documentation
 
 - [x] Usage examples doc — real-world testing scenarios (retries, redirects, timeouts)
-- [ ] Man page — ship with .deb package
+- [x] Man page — ship with .deb package
 - [x] API reference — auto-generated from OpenAPI spec
 
 ---

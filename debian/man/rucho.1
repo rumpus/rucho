@@ -1,0 +1,188 @@
+.\" Man page for rucho(1)
+.TH RUCHO 1 "2026-02-16" "rucho 1.4.4" "Rucho Manual"
+.SH NAME
+rucho \- HTTP echo server and request inspector
+.SH SYNOPSIS
+.B rucho
+.I command
+.SH DESCRIPTION
+.B rucho
+is a fast, lightweight HTTP echo server built with Rust and Axum.
+It echoes back request details (headers, body, method, URL, query parameters)
+as JSON, making it useful for testing and debugging HTTP clients, proxies,
+load balancers, and API integrations.
+.PP
+Features include HTTP/1.1 and HTTP/2 support, HTTPS via Rustls, TCP and UDP
+echo listeners, response compression, connection keep-alive tuning, chaos
+engineering mode, request timing, and OpenAPI/Swagger documentation.
+.SH COMMANDS
+.TP
+.B start
+Start the rucho server. Writes a PID file and begins listening on the
+configured addresses.
+.TP
+.B stop
+Stop a running rucho server by sending a termination signal to the
+process identified in the PID file.
+.TP
+.B status
+Check whether the rucho server is currently running.
+.TP
+.B version
+Display the rucho version.
+.SH ENDPOINTS
+.TS
+l l.
+Path	Description
+_
+/	Welcome message
+/get	Echo GET request details
+/post	Echo POST request with body
+/put	Echo PUT request with body
+/patch	Echo PATCH request with body
+/delete	Echo DELETE request details
+/options	Return allowed methods
+/anything	Echo any request method
+/anything/*path	Echo any request with subpath
+/status/:code	Return specified HTTP status code
+/delay/:n	Delay response by n seconds (max 300)
+/redirect/:n	Chain of n HTTP 302 redirects (max 20)
+/cookies	Inspect request cookies
+/cookies/set	Set cookies via query params
+/cookies/delete	Delete cookies via query params
+/uuid	Random UUID v4
+/ip	Client IP address
+/user\-agent	User-Agent header echo
+/headers	All request headers
+/healthz	Health check
+/metrics	Request statistics (when enabled)
+/endpoints	List all endpoints
+/swagger\-ui	OpenAPI documentation
+.TE
+.SH CONFIGURATION
+Configuration is loaded in the following order (later sources override earlier):
+.IP 1. 4
+Hardcoded defaults
+.IP 2. 4
+.I /etc/rucho/rucho.conf
+(system-wide)
+.IP 3. 4
+.I ./rucho.conf
+(local directory)
+.IP 4. 4
+Environment variables
+.RB ( RUCHO_* )
+.PP
+.SS Key Parameters
+.TS
+l l l.
+Parameter	Default	Description
+_
+server_listen_primary	0.0.0.0:8080	Primary HTTP listener
+server_listen_secondary	0.0.0.0:9090	Secondary HTTP listener
+server_listen_tcp	(none)	TCP echo listener address
+server_listen_udp	(none)	UDP echo listener address
+ssl_cert	(none)	Path to SSL certificate
+ssl_key	(none)	Path to SSL private key
+log_level	info	Log level (trace/debug/info/warn/error)
+metrics_enabled	false	Enable /metrics endpoint
+compression_enabled	false	Enable gzip/brotli compression
+http_keep_alive_timeout	75	HTTP idle timeout (seconds)
+tcp_keepalive_time	60	TCP keepalive idle time (seconds)
+tcp_nodelay	true	Disable Nagle's algorithm
+header_read_timeout	30	Max time to read headers (seconds)
+chaos_mode	(none)	Chaos types: failure,delay,corruption
+.TE
+.SH ENVIRONMENT
+All configuration parameters can be set via environment variables prefixed with
+.BR RUCHO_ .
+The variable name is the uppercase form of the parameter name.
+For example:
+.TP
+.B RUCHO_SERVER_LISTEN_PRIMARY
+Primary HTTP listen address (default: 0.0.0.0:8080)
+.TP
+.B RUCHO_LOG_LEVEL
+Log level (default: info)
+.TP
+.B RUCHO_METRICS_ENABLED
+Enable the /metrics endpoint (default: false)
+.TP
+.B RUCHO_COMPRESSION_ENABLED
+Enable response compression (default: false)
+.TP
+.B RUCHO_SSL_CERT
+Path to SSL certificate file
+.TP
+.B RUCHO_SSL_KEY
+Path to SSL private key file
+.TP
+.B RUCHO_CHAOS_MODE
+Enable chaos engineering (comma-separated: failure,delay,corruption)
+.SH FILES
+.TP
+.I /usr/local/bin/rucho
+Server binary (when installed via .deb package)
+.TP
+.I /etc/rucho/rucho.conf
+System-wide configuration file
+.TP
+.I ./rucho.conf
+Local configuration file (overrides system-wide)
+.TP
+.I /var/run/rucho/rucho.pid
+PID file for the running server process
+.SH EXAMPLES
+Start the server with default settings:
+.PP
+.RS
+.nf
+rucho start
+.fi
+.RE
+.PP
+Test with curl:
+.PP
+.RS
+.nf
+curl http://localhost:8080/get
+curl -X POST http://localhost:8080/post -H "Content-Type: application/json" -d '{"key": "value"}'
+curl -i http://localhost:8080/status/503
+curl http://localhost:8080/delay/2
+.fi
+.RE
+.PP
+Configuration file example (/etc/rucho/rucho.conf):
+.PP
+.RS
+.nf
+server_listen_primary = 0.0.0.0:8080
+log_level = info
+metrics_enabled = true
+compression_enabled = true
+.fi
+.RE
+.PP
+Run with Docker:
+.PP
+.RS
+.nf
+docker run -p 8080:8080 -p 9090:9090 rumpus/rucho:latest
+.fi
+.RE
+.SH SEE ALSO
+Project repository:
+.UR https://github.com/rumpus/rucho
+.UE
+.PP
+OpenAPI documentation is available at
+.B /swagger\-ui
+when the server is running.
+.PP
+For detailed API documentation, see the API Reference in the project repository
+at
+.IR docs/API_REFERENCE.md .
+.SH AUTHORS
+Rucho Project Contributors
+.SH LICENSE
+MIT License
