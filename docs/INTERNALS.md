@@ -5,7 +5,7 @@
 > path in the codebase. It is intended as a developer reference — not user-facing
 > API docs.
 >
-> **Version:** 1.4.5
+> **Version:** 1.4.6
 > **Last updated:** 2026-02-17
 
 ---
