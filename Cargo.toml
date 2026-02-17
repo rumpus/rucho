@@ -1,6 +1,6 @@
 [package]
 name = "rucho"
-version = "1.4.4"
+version = "1.4.5"
 description = "Rucho - An echo server and general HTTP request inspector."
 edition = "2021"
 repository = "https://github.com/rumpus/rucho"
