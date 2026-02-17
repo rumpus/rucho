@@ -164,7 +164,7 @@ src/
 ├── routes/              # HTTP route handlers
 │   ├── mod.rs
 │   ├── cookies.rs       # /cookies endpoints
-│   ├── core_routes.rs   # Core echo endpoints
+│   ├── core_routes.rs   # Core echo + utility endpoints
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── healthz.rs       # /healthz endpoint
 │   ├── metrics.rs       # /metrics endpoint handler
