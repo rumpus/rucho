@@ -115,6 +115,8 @@
 - [ ] Request ID middleware — generate and return `X-Request-Id` on every response
 - [ ] Configurable response size limit
 - [ ] Alpine Docker image variant (smaller image)
+- [ ] Auto-generated self-signed TLS certs (`ssl_auto_cert = true`) — ephemeral in-memory certs via `rcgen` for zero-setup HTTPS dev/testing
+- [ ] Mutual TLS (mTLS) — `ssl_ca_cert` config for client certificate verification
 
 ---
 
