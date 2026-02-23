@@ -103,13 +103,7 @@
 
 ---
 
-## Tier 5: Refactoring
-
-- [ ] Extract echo handler boilerplate (macro or generic handler to DRY up patterns)
-
----
-
-## Tier 6: Infrastructure & Ops
+## Tier 5: Infrastructure & Ops
 
 - [ ] `/healthz/ready` + `/healthz/live` — Kubernetes readiness vs liveness probes
 - [ ] Request ID middleware — generate and return `X-Request-Id` on every response
@@ -126,6 +120,14 @@
 - [x] Man page — ship with .deb package
 - [x] API reference — auto-generated from OpenAPI spec
 - [x] Internals deep-dive (`docs/INTERNALS.md`)
+
+---
+
+## Backlog
+
+Low-priority ideas — not worth the effort right now, but kept for reference.
+
+- [ ] Extract echo handler boilerplate (macro or generic handler to DRY up POST/PUT/PATCH/DELETE patterns). Deferred: repetition is obvious not dangerous, and upcoming endpoints have unique logic that wouldn't fit a macro.
 
 ---
 
@@ -151,7 +153,7 @@ The following are explicitly out of scope to maintain focus on the core mission:
 | Phase 4 | Performance optimizations | ✅ Done |
 | Phase 5 | Advanced protocols (redirects) | ✅ Done |
 | Phase 6 | New endpoints (cookies, auth, data formats) | 🔄 Next |
-| Phase 7 | Testing, refactoring, docs | 🔄 In progress |
+| Phase 7 | Testing & docs | 🔄 In progress |
 
 ---
 
