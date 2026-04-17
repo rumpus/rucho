@@ -3,7 +3,7 @@
 //! This is the main entry point for the Rucho application. It handles CLI argument
 //! parsing and dispatches to the appropriate command handlers.
 
-use axum::{middleware, routing::get, Router};
+use axum::{extract::DefaultBodyLimit, middleware, routing::get, Router};
 use clap::Parser;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -118,7 +118,12 @@ async fn main() {
                 }
 
                 let chaos = Arc::new(config.chaos.clone());
-                let app = build_app(metrics, config.compression_enabled, chaos);
+                let app = build_app(
+                    metrics,
+                    config.compression_enabled,
+                    chaos,
+                    config.max_body_size_bytes,
+                );
                 rucho::server::run_server(&config, app).await;
             }
         }
@@ -133,10 +138,13 @@ async fn main() {
 /// If metrics is Some, enables the /metrics endpoint and metrics collection middleware.
 /// If compression_enabled is true, enables gzip/brotli response compression.
 /// If chaos mode is enabled, adds chaos middleware for resilience testing.
+/// `max_body_size_bytes` caps request body size via `DefaultBodyLimit`; requests
+/// with larger bodies receive 413 Payload Too Large.
 fn build_app(
     metrics: Option<Arc<Metrics>>,
     compression_enabled: bool,
     chaos: Arc<ChaosConfig>,
+    max_body_size_bytes: usize,
 ) -> Router {
     let mut app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
@@ -145,7 +153,8 @@ fn build_app(
         .merge(rucho::routes::delay::router())
         .merge(rucho::routes::redirect::router())
         .merge(rucho::routes::cookies::router())
-        .merge(rucho::routes::base64::router());
+        .merge(rucho::routes::base64::router())
+        .layer(DefaultBodyLimit::max(max_body_size_bytes));
 
     // Add metrics endpoint and middleware if enabled
     if let Some(metrics) = metrics {

@@ -30,6 +30,11 @@ pub const MAX_REDIRECT_HOPS: u32 = 20;
 /// This prevents DoS from oversized decode operations on the path segment.
 pub const MAX_BASE64_INPUT_BYTES: usize = 4096;
 
+/// Default maximum request body size in bytes (2 MiB).
+/// Enforced globally via `DefaultBodyLimit` and applies to all extractor-based
+/// handlers, including `anything_handler`. Protects against OOM from unbounded bodies.
+pub const DEFAULT_MAX_BODY_SIZE_BYTES: usize = 2 * 1024 * 1024;
+
 /// Maximum buffer size in bytes for TCP/UDP connections.
 /// This prevents memory exhaustion from malicious large payloads.
 pub const MAX_BUFFER_SIZE: usize = 65536;

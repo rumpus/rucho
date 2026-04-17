@@ -1,6 +1,5 @@
 use crate::utils::{
-    error_response::format_error_response,
-    json_response::{format_json_response, format_json_response_with_timing},
+    error_response::format_error_response, json_response::format_json_response_with_timing,
     timing::RequestTiming,
 };
 use axum::{
@@ -300,19 +299,14 @@ pub async fn anything_handler(
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     headers: HeaderMap,
     timing: Option<Extension<RequestTiming>>,
-    body: axum::body::Body,
+    body: axum::body::Bytes,
 ) -> impl IntoResponse {
-    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
-        Ok(bytes) => bytes,
-        Err(_) => return format_json_response(json!({"error": "Failed to read body"})),
-    };
-
     let resp = json!({
         "method": method.to_string(),
         "path": uri.path(),
         "query": uri.query().unwrap_or(""),
         "headers": serialize_headers(&headers),
-        "body": String::from_utf8_lossy(&body_bytes),
+        "body": String::from_utf8_lossy(&body),
     });
 
     let duration_ms = timing.map(|t| t.elapsed_ms());

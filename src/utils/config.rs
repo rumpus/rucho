@@ -4,8 +4,9 @@ use std::path::PathBuf;
 
 use crate::utils::constants::{
     DEFAULT_HEADER_READ_TIMEOUT_SECS, DEFAULT_HTTP_KEEP_ALIVE_TIMEOUT_SECS, DEFAULT_LOG_LEVEL,
-    DEFAULT_PREFIX, DEFAULT_SERVER_LISTEN_PRIMARY, DEFAULT_SERVER_LISTEN_SECONDARY,
-    DEFAULT_TCP_KEEPALIVE_INTERVAL_SECS, DEFAULT_TCP_KEEPALIVE_RETRIES, DEFAULT_TCP_KEEPALIVE_SECS,
+    DEFAULT_MAX_BODY_SIZE_BYTES, DEFAULT_PREFIX, DEFAULT_SERVER_LISTEN_PRIMARY,
+    DEFAULT_SERVER_LISTEN_SECONDARY, DEFAULT_TCP_KEEPALIVE_INTERVAL_SECS,
+    DEFAULT_TCP_KEEPALIVE_RETRIES, DEFAULT_TCP_KEEPALIVE_SECS,
 };
 
 /// Configuration for chaos engineering mode.
@@ -108,6 +109,13 @@ macro_rules! load_env_var {
             }
         }
     };
+    ($config:expr, $field:ident, $env_var:expr, $env_reader:expr, usize) => {
+        if let Ok(value) = $env_reader($env_var) {
+            if let Ok(v) = value.parse::<usize>() {
+                $config.$field = v;
+            }
+        }
+    };
 }
 
 /// Holds the application configuration.
@@ -155,6 +163,9 @@ pub struct Config {
     pub tcp_nodelay: bool,
     /// Maximum time in seconds to wait for request headers from a client.
     pub header_read_timeout: u64,
+    /// Maximum request body size in bytes. Enforced globally via `DefaultBodyLimit`.
+    /// Requests with bodies larger than this receive a 413 Payload Too Large response.
+    pub max_body_size_bytes: usize,
     /// Chaos engineering configuration.
     pub chaos: ChaosConfig,
 }
@@ -180,6 +191,7 @@ impl Default for Config {
             tcp_keepalive_retries: DEFAULT_TCP_KEEPALIVE_RETRIES,
             tcp_nodelay: true,
             header_read_timeout: DEFAULT_HEADER_READ_TIMEOUT_SECS,
+            max_body_size_bytes: DEFAULT_MAX_BODY_SIZE_BYTES,
             chaos: ChaosConfig::default(),
         }
     }
@@ -277,6 +289,11 @@ impl Config {
                     "header_read_timeout" => {
                         if let Ok(v) = value.parse::<u64>() {
                             config.header_read_timeout = v;
+                        }
+                    }
+                    "max_body_size_bytes" => {
+                        if let Ok(v) = value.parse::<usize>() {
+                            config.max_body_size_bytes = v;
                         }
                     }
                     "chaos_mode" => {
@@ -458,6 +475,13 @@ impl Config {
             env_reader,
             u64
         );
+        load_env_var!(
+            config,
+            max_body_size_bytes,
+            "RUCHO_MAX_BODY_SIZE_BYTES",
+            env_reader,
+            usize
+        );
 
         // Chaos mode env vars (manual parsing since macro doesn't support nested fields)
         if let Ok(value) = env_reader("RUCHO_CHAOS_MODE") {
@@ -563,6 +587,11 @@ impl Config {
         if self.header_read_timeout == 0 {
             return Err(ConfigValidationError::Connection(
                 "header_read_timeout must be greater than 0".to_string(),
+            ));
+        }
+        if self.max_body_size_bytes == 0 {
+            return Err(ConfigValidationError::Connection(
+                "max_body_size_bytes must be greater than 0".to_string(),
             ));
         }
         Ok(())
