@@ -187,7 +187,7 @@
 - [x] Internals deep-dive (`docs/INTERNALS.md`)
 
 ### INTERNALS.md Maintenance (2,357 lines — memory flags line-ref staleness as recurring pain)
-- [ ] Strip specific `file:line` citations from INTERNALS.md — keep file paths only. Immediate maintenance-cost reduction; highest-ROI doc change
+- [x] Strip specific `file:line` citations from INTERNALS.md — keep file paths only. Immediate maintenance-cost reduction; highest-ROI doc change
 - [ ] Evaluate auto-generating internals from `///` doc comments (`cargo doc` + wrapper) — ~60% of INTERNALS duplicates existing doc comments
 - [ ] Add a CI check validating any `file:line` citations in docs actually exist (file has ≥N lines)
 - [ ] Split INTERNALS.md by concern: `ARCHITECTURE.md`, `MIDDLEWARE.md`, `CONFIG.md` — scoped updates, less drift
@@ -252,16 +252,15 @@
 
 Ranked by payoff-per-hour from the review:
 
-1. **INTERNALS.md: strip line numbers** — immediate maintenance-cost reduction; memory flags this as recurring pain
-2. **Body-size cap on `/anything`** — security, 5-line fix
-3. **`/ip` peer-address fallback** — fixes a real correctness surprise, ~15 lines
-4. **Prometheus metrics format** — unlocks Grafana dashboards, pairs naturally with Kong's Prom plugin
-5. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
-6. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
-7. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
-8. **Multi-arch Docker image** — small CI change, big UX win for Mac users
-9. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
-10. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
+1. **Body-size cap on `/anything`** — security, 5-line fix
+2. **`/ip` peer-address fallback** — fixes a real correctness surprise, ~15 lines
+3. **Prometheus metrics format** — unlocks Grafana dashboards, pairs naturally with Kong's Prom plugin
+4. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
+5. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
+6. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
+7. **Multi-arch Docker image** — small CI change, big UX win for Mac users
+8. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
+9. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
 
 ---
 

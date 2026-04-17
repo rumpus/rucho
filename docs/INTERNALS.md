@@ -71,7 +71,7 @@ for testing and debugging API clients.
 
 ### Module Hierarchy
 
-The crate root (`src/lib.rs:24-44`) exports five top-level modules:
+The crate root (`src/lib.rs`) exports five top-level modules:
 
 ```
 rucho (crate root)
@@ -158,15 +158,15 @@ rucho::cli::commands
 
 ## 2. Application Startup Sequence
 
-Entry point: `src/main.rs:74`
+Entry point: `src/main.rs`
 
 When you run `cargo run -- start`, the following sequence executes:
 
 ```
-main()                              src/main.rs:74
+main()                              src/main.rs
   |
   +-- Args::parse()                 clap derives from CliCommand enum
-  +-- Config::load()                src/utils/config.rs:684
+  +-- Config::load()                src/utils/config.rs
   |     +-- Config::load_from_paths(None, None)
   |           +-- Config::load_from_paths_with_env(..., &env::var)
   |                 +-- Config::default()           hardcoded defaults
@@ -174,7 +174,7 @@ main()                              src/main.rs:74
   |                 +-- read ./rucho.conf           (if exists)
   |                 +-- apply RUCHO_* env vars via env_reader
   |
-  +-- config.validate()             src/utils/config.rs:528
+  +-- config.validate()             src/utils/config.rs
   |     +-- validate SSL pairs
   |     +-- validate_connection()   keep-alive bounds
   |     +-- validate_chaos()        chaos sub-config requirements
@@ -184,18 +184,18 @@ main()                              src/main.rs:74
   +-- match args.command
         |
         CliCommand::Start =>
-          +-- handle_start_command()  src/cli/commands.rs:38
+          +-- handle_start_command()  src/cli/commands.rs
           |     +-- write_pid_file(pid)
           |
           +-- Metrics::new() (if metrics_enabled)
-          +-- build_app(metrics, compression_enabled, chaos)  src/main.rs:135
-          +-- run_server(&config, app)  src/server/mod.rs:24
+          +-- build_app(metrics, compression_enabled, chaos)  src/main.rs
+          +-- run_server(&config, app)  src/server/mod.rs
 ```
 
 ### `main()` — Verbatim Source
 
 ```rust
-// src/main.rs:73-128
+// src/main.rs
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
@@ -257,10 +257,10 @@ async fn main() {
 
 ### 3.1 Route Registration
 
-`build_app()` at `src/main.rs:135-191` constructs the Axum `Router`:
+`build_app()` at `src/main.rs` constructs the Axum `Router`:
 
 ```rust
-// src/main.rs:140-146
+// src/main.rs
 let mut app = Router::new()
     .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
     .merge(rucho::routes::core_routes::router())  // 16 core routes
@@ -270,7 +270,7 @@ let mut app = Router::new()
     .merge(rucho::routes::cookies::router());      // /cookies, /cookies/set, /cookies/delete
 ```
 
-The core routes router (`src/routes/core_routes.rs:210-241`) registers:
+The core routes router (`src/routes/core_routes.rs`) registers:
 
 ```rust
 Router::new()
@@ -294,9 +294,9 @@ Router::new()
 
 Conditional routes added in `build_app()`:
 
-- **`/metrics`** (GET) — only if `config.metrics_enabled` is true (`src/main.rs:149-159`)
+- **`/metrics`** (GET) — only if `config.metrics_enabled` is true (`src/main.rs`)
 - **Metrics middleware** — wraps all routes when metrics is enabled
-- **Chaos middleware** — wraps routes when `chaos.is_enabled()` (`src/main.rs:164-171`)
+- **Chaos middleware** — wraps routes when `chaos.is_enabled()` (`src/main.rs`)
 
 ### 3.2 Middleware Layer Order
 
@@ -361,7 +361,7 @@ an inbound request is:
 - Compression wraps everything so the final response body gets compressed.
 - NormalizePath is outermost so `/get/` becomes `/get` before any routing.
 
-The relevant code from `build_app()` (`src/main.rs:160-191`):
+The relevant code from `build_app()` (`src/main.rs`):
 
 ```rust
 // Middleware order (innermost to outermost):
@@ -404,7 +404,7 @@ compression, chaos).
 
 The `axum_server` crate (built on `hyper`) accepts the TCP connection. The
 socket has been configured with keep-alive and nodelay via
-`configure_tcp_socket()` (`src/server/http.rs:18-36`). Hyper's HTTP/1.1 parser
+`configure_tcp_socket()` (`src/server/http.rs`). Hyper's HTTP/1.1 parser
 reads the request line and headers, subject to `header_read_timeout`.
 
 ### Step 2: NormalizePathLayer
@@ -431,7 +431,7 @@ compressed stream on the way out.
 
 ### Step 6: timing_middleware
 
-`src/server/timing_layer.rs:15-21`:
+`src/server/timing_layer.rs`:
 
 ```rust
 pub async fn timing_middleware(mut request: Request, next: Next) -> Response<Body> {
@@ -454,7 +454,7 @@ and returns the response unmodified.
 
 ### Step 8: metrics_middleware (if enabled)
 
-`src/server/metrics_layer.rs:16-34`:
+`src/server/metrics_layer.rs`:
 
 ```rust
 pub async fn metrics_middleware(
@@ -477,7 +477,7 @@ handler returns.
 
 ### Step 9: Route Handler — `get_handler()`
 
-`src/routes/core_routes.rs:400-407`:
+`src/routes/core_routes.rs`:
 
 ```rust
 pub async fn get_handler(
@@ -501,7 +501,7 @@ pub async fn get_handler(
 
 ### Step 10: serialize_headers()
 
-`src/routes/core_routes.rs:38-49`:
+`src/routes/core_routes.rs`:
 
 ```rust
 fn serialize_headers(headers: &HeaderMap) -> serde_json::Value {
@@ -525,7 +525,7 @@ JSON key-value entry. Non-UTF-8 values are replaced with `"<invalid utf8>"`.
 
 ### Step 11: format_json_response_with_timing()
 
-`src/utils/json_response.rs:35-66`:
+`src/utils/json_response.rs`:
 
 ```rust
 pub fn format_json_response_with_timing(
@@ -598,31 +598,31 @@ The response travels back up through each middleware layer:
 
 | # | Path | Method(s) | Handler | Module |
 |---|------|-----------|---------|--------|
-| 1 | `/` | GET | `root_handler` | `core_routes.rs:379` |
-| 2 | `/get` | GET | `get_handler` | `core_routes.rs:400` |
-| 3 | `/get` | HEAD | `head_handler` | `core_routes.rs:427` |
-| 4 | `/post` | POST | `post_handler` | `core_routes.rs:611` |
-| 5 | `/put` | PUT | `put_handler` | `core_routes.rs:654` |
-| 6 | `/patch` | PATCH | `patch_handler` | `core_routes.rs:697` |
-| 7 | `/delete` | DELETE | `delete_handler` | `core_routes.rs:738` |
-| 8 | `/options` | OPTIONS | `options_handler` | `core_routes.rs:787` |
-| 9 | `/status/:code` | ANY | `status_handler` | `core_routes.rs:270` |
-| 10 | `/anything` | ANY | `anything_handler` | `core_routes.rs:298` |
-| 11 | `/anything/*path` | ANY | `anything_handler` | `core_routes.rs:298` |
-| 12 | `/uuid` | GET | `uuid_handler` | `core_routes.rs:485` |
-| 13 | `/ip` | GET | `ip_handler` | `core_routes.rs:509` |
-| 14 | `/user-agent` | GET | `user_agent_handler` | `core_routes.rs:547` |
-| 15 | `/headers` | GET | `headers_handler` | `core_routes.rs:579` |
-| 16 | `/endpoints` | GET | `endpoints_handler` | `core_routes.rs:454` |
-| 17 | `/healthz` | GET | `healthz_handler` | `healthz.rs:21` |
-| 18 | `/delay/:n` | ANY | `delay_handler` | `delay.rs:26` |
-| 19 | `/redirect/:n` | ANY | `redirect_handler` | `redirect.rs:33` |
-| 20 | `/metrics` | GET | `get_metrics` | `metrics.rs:43` |
-| 21 | `/swagger-ui` | GET | *(utoipa-swagger-ui)* | `main.rs:141` |
-| 22 | `/cookies` | GET | `cookies_handler` | `cookies.rs:60` |
-| 23 | `/cookies/set` | GET | `set_cookies_handler` | `cookies.rs:88` |
-| 24 | `/cookies/delete` | GET | `delete_cookies_handler` | `cookies.rs:121` |
-| 25 | `/base64/:encoded` | GET | `base64_handler` | `base64.rs:48` |
+| 1 | `/` | GET | `root_handler` | `core_routes.rs` |
+| 2 | `/get` | GET | `get_handler` | `core_routes.rs` |
+| 3 | `/get` | HEAD | `head_handler` | `core_routes.rs` |
+| 4 | `/post` | POST | `post_handler` | `core_routes.rs` |
+| 5 | `/put` | PUT | `put_handler` | `core_routes.rs` |
+| 6 | `/patch` | PATCH | `patch_handler` | `core_routes.rs` |
+| 7 | `/delete` | DELETE | `delete_handler` | `core_routes.rs` |
+| 8 | `/options` | OPTIONS | `options_handler` | `core_routes.rs` |
+| 9 | `/status/:code` | ANY | `status_handler` | `core_routes.rs` |
+| 10 | `/anything` | ANY | `anything_handler` | `core_routes.rs` |
+| 11 | `/anything/*path` | ANY | `anything_handler` | `core_routes.rs` |
+| 12 | `/uuid` | GET | `uuid_handler` | `core_routes.rs` |
+| 13 | `/ip` | GET | `ip_handler` | `core_routes.rs` |
+| 14 | `/user-agent` | GET | `user_agent_handler` | `core_routes.rs` |
+| 15 | `/headers` | GET | `headers_handler` | `core_routes.rs` |
+| 16 | `/endpoints` | GET | `endpoints_handler` | `core_routes.rs` |
+| 17 | `/healthz` | GET | `healthz_handler` | `healthz.rs` |
+| 18 | `/delay/:n` | ANY | `delay_handler` | `delay.rs` |
+| 19 | `/redirect/:n` | ANY | `redirect_handler` | `redirect.rs` |
+| 20 | `/metrics` | GET | `get_metrics` | `metrics.rs` |
+| 21 | `/swagger-ui` | GET | *(utoipa-swagger-ui)* | `main.rs` |
+| 22 | `/cookies` | GET | `cookies_handler` | `cookies.rs` |
+| 23 | `/cookies/set` | GET | `set_cookies_handler` | `cookies.rs` |
+| 24 | `/cookies/delete` | GET | `delete_cookies_handler` | `cookies.rs` |
+| 25 | `/base64/:encoded` | GET | `base64_handler` | `base64.rs` |
 
 ### 5.2 Echo Handlers
 
@@ -634,7 +634,7 @@ All echo handlers share a common pattern:
 3. Build a JSON payload with `method`, `headers`, and optionally `body`.
 4. Call `format_json_response_with_timing(payload, duration_ms)`.
 
-**`post_handler`** (`src/routes/core_routes.rs:611-628`):
+**`post_handler`** (`src/routes/core_routes.rs`):
 
 ```rust
 pub async fn post_handler(
@@ -670,16 +670,16 @@ pub async fn post_handler(
 Note: `delete_handler` does *not* return a 400 on missing/invalid body. Instead
 it echoes `"body": null` — this is intentional since DELETE bodies are optional.
 
-**`anything_handler`** (`src/routes/core_routes.rs:298-320`) is unique: it reads
+**`anything_handler`** (`src/routes/core_routes.rs`) is unique: it reads
 the raw body bytes via `axum::body::Body` and converts with
 `String::from_utf8_lossy`, and also captures the full URI path + query.
 
 ### 5.3 Utility Handlers
 
-**`uuid_handler`** (`src/routes/core_routes.rs:485-489`):
+**`uuid_handler`** (`src/routes/core_routes.rs`):
 Returns `{ "uuid": "<v4 uuid>" }`. Uses `uuid::Uuid::new_v4()`.
 
-**`ip_handler`** (`src/routes/core_routes.rs:509-527`):
+**`ip_handler`** (`src/routes/core_routes.rs`):
 IP extraction logic (priority order):
 1. `X-Forwarded-For` header — takes the *first* IP from the comma-separated
    list (leftmost = original client).
@@ -700,16 +700,16 @@ let origin = headers
     .unwrap_or_else(|| "unknown".to_string());
 ```
 
-**`user_agent_handler`** (`src/routes/core_routes.rs:547-559`):
+**`user_agent_handler`** (`src/routes/core_routes.rs`):
 Returns `{ "user-agent": "<value>" }`. Falls back to empty string if header
 is missing.
 
-**`headers_handler`** (`src/routes/core_routes.rs:579-585`):
+**`headers_handler`** (`src/routes/core_routes.rs`):
 Returns `{ "headers": { ... } }` with all request headers serialized.
 
 ### 5.4 Special Handlers
 
-**`status_handler`** (`src/routes/core_routes.rs:270-277`):
+**`status_handler`** (`src/routes/core_routes.rs`):
 
 ```rust
 pub async fn status_handler(
@@ -725,24 +725,24 @@ pub async fn status_handler(
 Accepts any HTTP method. Returns the status code from the path parameter. If the
 code is not a valid HTTP status (e.g., 999), defaults to 400 Bad Request.
 
-**`options_handler`** (`src/routes/core_routes.rs:787-796`):
+**`options_handler`** (`src/routes/core_routes.rs`):
 Returns 204 No Content with an `Allow` header listing all supported methods.
 
-**`root_handler`** (`src/routes/core_routes.rs:379-381`):
+**`root_handler`** (`src/routes/core_routes.rs`):
 Returns plain text `"Welcome to Echo Server!\n"`.
 
-**`head_handler`** (`src/routes/core_routes.rs:427-432`):
+**`head_handler`** (`src/routes/core_routes.rs`):
 Returns an empty body with 200 OK status. (Axum automatically strips the body
 for HEAD requests, but this handler explicitly returns an empty body.)
 
-**`endpoints_handler`** (`src/routes/core_routes.rs:454-465`):
+**`endpoints_handler`** (`src/routes/core_routes.rs`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs:69-204` and lists all 20 endpoints with their
+at `src/routes/core_routes.rs` and lists all 20 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
 
-**`healthz_handler`** (`src/routes/healthz.rs:21-23`):
+**`healthz_handler`** (`src/routes/healthz.rs`):
 
 ```rust
 pub async fn healthz_handler() -> impl IntoResponse {
@@ -752,7 +752,7 @@ pub async fn healthz_handler() -> impl IntoResponse {
 
 Simple health check — returns 200 with plain text "OK".
 
-**`delay_handler`** (`src/routes/delay.rs:26-44`):
+**`delay_handler`** (`src/routes/delay.rs`):
 
 ```rust
 pub async fn delay_handler(
@@ -773,7 +773,7 @@ pub async fn delay_handler(
 
 Caps at `MAX_DELAY_SECONDS` (300) to prevent DoS.
 
-**`redirect_handler`** (`src/routes/redirect.rs:33-56`):
+**`redirect_handler`** (`src/routes/redirect.rs`):
 
 ```rust
 pub async fn redirect_handler(axum::extract::Path(n): axum::extract::Path<u32>) -> Response {
@@ -802,7 +802,7 @@ Returns a chain of HTTP 302 redirects that decrement `n` on each hop. When `n`
 reaches 1, redirects to `/get` as the final destination. When `n` is 0, returns
 200 OK directly. Caps at `MAX_REDIRECT_HOPS` (20) to prevent abuse.
 
-**`cookies_handler`** (`src/routes/cookies.rs:60-67`):
+**`cookies_handler`** (`src/routes/cookies.rs`):
 
 ```rust
 pub async fn cookies_handler(
@@ -819,7 +819,7 @@ Parses the `Cookie` header into a `HashMap<String, String>` using the helper
 `parse_cookies()`, which splits on `; ` then on `=`. Returns a JSON object with
 a `cookies` key containing all cookie name-value pairs. Supports timing.
 
-**`set_cookies_handler`** (`src/routes/cookies.rs:88-101`):
+**`set_cookies_handler`** (`src/routes/cookies.rs`):
 
 ```rust
 pub async fn set_cookies_handler(
@@ -839,7 +839,7 @@ pub async fn set_cookies_handler(
 Each query parameter becomes a `Set-Cookie` response header with `Path=/`.
 Responds with a 302 redirect to `/cookies` so the client can see the result.
 
-**`delete_cookies_handler`** (`src/routes/cookies.rs:121-136`):
+**`delete_cookies_handler`** (`src/routes/cookies.rs`):
 
 ```rust
 pub async fn delete_cookies_handler(
@@ -861,7 +861,7 @@ pub async fn delete_cookies_handler(
 Each query parameter name generates a `Set-Cookie` header with `Max-Age=0` to
 expire the cookie. Like `set_cookies_handler`, redirects to `/cookies`.
 
-**`get_metrics`** (`src/routes/metrics.rs:43-46`):
+**`get_metrics`** (`src/routes/metrics.rs`):
 
 ```rust
 pub async fn get_metrics(State(metrics): State<Arc<Metrics>>) -> impl IntoResponse {
@@ -882,7 +882,7 @@ full snapshot as JSON.
 **File:** `src/server/timing_layer.rs` (22 lines total)
 
 ```rust
-// Full source — src/server/timing_layer.rs:1-22
+// Full source — src/server/timing_layer.rs
 use axum::{body::Body, extract::Request, middleware::Next, response::Response};
 use crate::utils::timing::RequestTiming;
 
@@ -892,7 +892,7 @@ pub async fn timing_middleware(mut request: Request, next: Next) -> Response<Bod
 }
 ```
 
-**`RequestTiming` struct** (`src/utils/timing.rs:13-30`):
+**`RequestTiming` struct** (`src/utils/timing.rs`):
 
 ```rust
 #[derive(Clone, Copy)]
@@ -930,7 +930,7 @@ This is passed to `format_json_response_with_timing()` which injects
 **File:** `src/server/metrics_layer.rs` (113 lines including tests)
 
 ```rust
-// src/server/metrics_layer.rs:16-34
+// src/server/metrics_layer.rs
 pub async fn metrics_middleware(
     request: Request, next: Next, metrics: Arc<Metrics>,
 ) -> Response<Body> {
@@ -942,7 +942,7 @@ pub async fn metrics_middleware(
 }
 ```
 
-**Path normalization** (`src/server/metrics_layer.rs:42-60`):
+**Path normalization** (`src/server/metrics_layer.rs`):
 
 Returns `Cow<'static, str>` — parameterized routes resolve to zero-allocation
 `Cow::Borrowed` static strings, while passthrough paths and `/cookies/{action}`
@@ -1051,7 +1051,7 @@ The most complex middleware. Implements a three-stage chaos injection pipeline.
                             RESPONSE
 ```
 
-**Stage 1 — Failure injection** (`src/server/chaos_layer.rs:32-59`):
+**Stage 1 — Failure injection** (`src/server/chaos_layer.rs`):
 
 ```rust
 if chaos.has_failure() && rng.gen::<f64>() < chaos.failure_rate {
@@ -1082,7 +1082,7 @@ if chaos.has_failure() && rng.gen::<f64>() < chaos.failure_rate {
 **Key behavior:** Failure **short-circuits** — the request never reaches the
 handler. The response is a JSON error with the randomly selected status code.
 
-**Stage 2 — Delay injection** (`src/server/chaos_layer.rs:62-73`):
+**Stage 2 — Delay injection** (`src/server/chaos_layer.rs`):
 
 ```rust
 if chaos.has_delay() && rng.gen::<f64>() < chaos.delay_rate {
@@ -1103,7 +1103,7 @@ The delay happens *before* the handler runs. Two modes:
 - **Random:** `delay_ms` is `"random"`, and the actual delay is
   `rng.gen_range(0..delay_max_ms)`.
 
-**Stage 3 — Corruption** (`src/server/chaos_layer.rs:79-111`):
+**Stage 3 — Corruption** (`src/server/chaos_layer.rs`):
 
 After the handler returns, if corruption is enabled and the roll passes:
 
@@ -1129,7 +1129,7 @@ seeding, while keeping the resulting `StdRng` `Send`-safe across `.await` points
 
 ### 7.1 Config and ChaosConfig Structs
 
-**`Config`** (`src/utils/config.rs:125-160`):
+**`Config`** (`src/utils/config.rs`):
 
 ```rust
 pub struct Config {
@@ -1153,7 +1153,7 @@ pub struct Config {
 }
 ```
 
-**`ChaosConfig`** (`src/utils/config.rs:17-36`):
+**`ChaosConfig`** (`src/utils/config.rs`):
 
 ```rust
 pub struct ChaosConfig {
@@ -1216,21 +1216,21 @@ Configuration is loaded in layers, with each layer overriding the previous:
 4. RUCHO_* env vars         environment variables (highest priority)
 ```
 
-Implementation: `Config::load_from_paths_with_env()` at `src/utils/config.rs:344-510`.
+Implementation: `Config::load_from_paths_with_env()` at `src/utils/config.rs`.
 
 This method accepts an injectable `env_reader: &dyn Fn(&str) -> Result<String, VarError>`
 parameter. Production code passes `env::var`; tests pass a mock HashMap-backed
 closure for parallel-safe isolation.
 
-`Config::load_from_paths()` at `src/utils/config.rs:511-515` delegates to
+`Config::load_from_paths()` at `src/utils/config.rs` delegates to
 `load_from_paths_with_env()` with `&|key| env::var(key)`.
 
-`Config::load()` at `src/utils/config.rs:684-686` simply calls
+`Config::load()` at `src/utils/config.rs` simply calls
 `load_from_paths(None, None)` which uses the default paths and real env vars.
 
 ### 7.4 The `load_env_var!` Macro
 
-**File:** `src/utils/config.rs:81-111`
+**File:** `src/utils/config.rs`
 
 The macro accepts an `$env_reader` callable (e.g. `env::var` or a test mock)
 so that tests can supply a pure HashMap-backed reader instead of mutating the
@@ -1295,7 +1295,7 @@ fields. They also use `env_reader` directly.
 
 ### 7.5 File Parsing
 
-`Config::parse_file_contents()` at `src/utils/config.rs:228-331`:
+`Config::parse_file_contents()` at `src/utils/config.rs`:
 
 - Iterates over each line of the file contents.
 - Skips lines starting with `#` (comments) and empty lines.
@@ -1330,7 +1330,7 @@ and split at parse time:
 
 ### 7.6 Validation Pipeline
 
-`Config::validate()` at `src/utils/config.rs:528-539` runs three checks in
+`Config::validate()` at `src/utils/config.rs` runs three checks in
 sequence:
 
 ```
@@ -1364,7 +1364,7 @@ validate()
           corruption_type must be "empty", "truncate", or "garbage"
 ```
 
-**Error types** (`src/utils/config.rs:190-221`):
+**Error types** (`src/utils/config.rs`):
 
 ```rust
 pub enum ConfigValidationError {
@@ -1383,7 +1383,7 @@ All variants implement `Display` and `Error`.
 
 ### 8.1 `run_server()`
 
-**File:** `src/server/mod.rs:24-56`
+**File:** `src/server/mod.rs`
 
 ```rust
 pub async fn run_server(config: &Config, app: Router) {
@@ -1435,7 +1435,7 @@ pub async fn run_server(config: &Config, app: Router) {
 ```
 run_server()
   |
-  +-- setup_http_listeners()            src/server/http.rs:64-105
+  +-- setup_http_listeners()            src/server/http.rs
         |
         +-- parse_listen_address(primary)     strip " ssl" suffix
         +-- parse_listen_address(secondary)   strip " ssl" suffix
@@ -1443,14 +1443,14 @@ run_server()
         for each (address, is_ssl):
           |
           +-- if is_ssl:
-          |     setup_https_listener()  src/server/http.rs:145-173
+          |     setup_https_listener()  src/server/http.rs
           |       +-- try_load_rustls_config()  load TLS certs
           |       +-- axum_server::bind_rustls()
           |       +-- configure_http_builder()
           |       +-- tokio::spawn(server_future)
           |
           +-- else:
-                setup_http_listener()   src/server/http.rs:108-142
+                setup_http_listener()   src/server/http.rs
                   +-- TcpListener::bind()
                   +-- listener.into_std()       convert to std for socket2
                   +-- configure_tcp_socket()    set keepalive + nodelay
@@ -1466,7 +1466,7 @@ is necessary because `socket2::SockRef` requires a standard library socket.
 
 ### 8.3 TCP Socket Configuration
 
-`configure_tcp_socket()` at `src/server/http.rs:18-36`:
+`configure_tcp_socket()` at `src/server/http.rs`:
 
 ```rust
 fn configure_tcp_socket(listener: &std::net::TcpListener, config: &Config) {
@@ -1501,7 +1501,7 @@ socket options on an already-bound listener.
 
 ### 8.4 HTTP Builder Configuration
 
-`configure_http_builder()` at `src/server/http.rs:42-58`:
+`configure_http_builder()` at `src/server/http.rs`:
 
 ```rust
 fn configure_http_builder<A>(server: &mut axum_server::Server<A>, config: &Config) {
@@ -1535,7 +1535,7 @@ fn configure_http_builder<A>(server: &mut axum_server::Server<A>, config: &Confi
 
 ### 8.5 TLS Configuration
 
-**`parse_listen_address()`** (`src/utils/server_config.rs:92-106`):
+**`parse_listen_address()`** (`src/utils/server_config.rs`):
 
 ```rust
 pub fn parse_listen_address(listen_str: &str) -> Option<(String, bool)> {
@@ -1556,7 +1556,7 @@ Input/output examples:
 - `"0.0.0.0:443 SSL"` -> `Some(("0.0.0.0:443", true))`
 - `""` -> `None`
 
-**`try_load_rustls_config()`** (`src/utils/server_config.rs:27-64`):
+**`try_load_rustls_config()`** (`src/utils/server_config.rs`):
 
 ```rust
 pub async fn try_load_rustls_config(
@@ -1593,7 +1593,7 @@ Returns `None` in three cases:
 
 ### 9.1 TCP Echo Loop
 
-**File:** `src/tcp_udp_handlers.rs:38-74`
+**File:** `src/tcp_udp_handlers.rs`
 
 ```rust
 pub async fn handle_tcp_connection(mut stream: TcpStream) {
@@ -1656,7 +1656,7 @@ connection is bounded.
 
 ### 9.2 TCP Listener Setup
 
-**File:** `src/server/tcp.rs:12-51`
+**File:** `src/server/tcp.rs`
 
 ```rust
 pub async fn setup_tcp_listener(
@@ -1699,7 +1699,7 @@ logged but don't stop the listener.
 
 ### 9.3 UDP Echo with Exponential Backoff
 
-**File:** `src/tcp_udp_handlers.rs:95-158`
+**File:** `src/tcp_udp_handlers.rs`
 
 ```rust
 pub async fn handle_udp_socket(socket: Arc<UdpSocket>) -> std::io::Result<()> {
@@ -1756,7 +1756,7 @@ slows down under error conditions.
 
 ### 9.4 UDP Listener Setup
 
-**File:** `src/server/udp.rs:18-54`
+**File:** `src/server/udp.rs`
 
 Two functions:
 
@@ -1778,7 +1778,7 @@ datagrams on the socket.
 **File:** `src/utils/metrics.rs`
 
 ```rust
-// src/utils/metrics.rs:66-79
+// src/utils/metrics.rs
 pub struct Metrics {
     total_requests: AtomicU64,                       // all-time request count
     total_successes: AtomicU64,                      // all-time 2xx count
@@ -1799,7 +1799,7 @@ pub struct Metrics {
 ### 10.2 TimeBucket Struct
 
 ```rust
-// src/utils/metrics.rs:22-33
+// src/utils/metrics.rs
 struct TimeBucket {
     start_time: Option<Instant>,              // None if never used
     requests: u64,
@@ -1823,7 +1823,7 @@ struct TimeBucket {
 
 ### 10.3 Recording Flow
 
-`Metrics::record_request(endpoint, status_code)` at `src/utils/metrics.rs:109-129`:
+`Metrics::record_request(endpoint, status_code)` at `src/utils/metrics.rs`:
 
 ```
 record_request(endpoint, status_code)
@@ -1856,7 +1856,7 @@ neither `successes` nor `failures` — they are tracked but not classified.
 
 ### 10.4 Querying Flow
 
-`Metrics::snapshot()` at `src/utils/metrics.rs:230-245`:
+`Metrics::snapshot()` at `src/utils/metrics.rs`:
 
 ```
 snapshot()
@@ -1874,7 +1874,7 @@ snapshot()
         endpoint_hits  = get_last_hour_endpoint_hits()
 ```
 
-`sum_rolling_window()` at `src/utils/metrics.rs:214-227`:
+`sum_rolling_window()` at `src/utils/metrics.rs`:
 
 ```rust
 fn sum_rolling_window<F>(&self, extractor: F) -> u64
@@ -1895,7 +1895,7 @@ sums the extracted field.
 ### 10.5 Snapshot Structs
 
 ```rust
-// src/utils/metrics.rs:249-281
+// src/utils/metrics.rs
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct MetricsSnapshot {
     pub all_time: AllTimeMetrics,
@@ -1933,7 +1933,7 @@ return `Json(snapshot)` directly.
 The PID file path is hardcoded as a constant:
 
 ```rust
-// src/utils/constants.rs:19
+// src/utils/constants.rs
 pub const PID_FILE_PATH: &str = "/var/run/rucho/rucho.pid";
 ```
 
@@ -1941,12 +1941,12 @@ pub const PID_FILE_PATH: &str = "/var/run/rucho/rucho.pid";
 
 | Function | Description | Source |
 |----------|------------|--------|
-| `write_pid_file(pid)` | Creates file, writes PID + newline | `pid.rs:57-61` |
-| `read_pid_file()` | Reads file, parses as `usize` | `pid.rs:69-75` |
-| `remove_pid_file()` | Deletes the PID file | `pid.rs:82-84` |
-| `check_process_running(pid)` | Uses `sysinfo` to check if PID exists | `pid.rs:95-99` |
-| `stop_process(pid)` | Sends SIGTERM, waits 1s, checks if stopped | `pid.rs:123-152` |
-| `pid_file_path()` | Returns `PID_FILE_PATH` | `pid.rs:155-157` |
+| `write_pid_file(pid)` | Creates file, writes PID + newline | `pid.rs` |
+| `read_pid_file()` | Reads file, parses as `usize` | `pid.rs` |
+| `remove_pid_file()` | Deletes the PID file | `pid.rs` |
+| `check_process_running(pid)` | Uses `sysinfo` to check if PID exists | `pid.rs` |
+| `stop_process(pid)` | Sends SIGTERM, waits 1s, checks if stopped | `pid.rs` |
+| `pid_file_path()` | Returns `PID_FILE_PATH` | `pid.rs` |
 
 ### Error Types
 
@@ -2002,26 +2002,26 @@ stop_process(pid)
 
 ### CLI Command Handlers
 
-**`handle_start_command()`** (`src/cli/commands.rs:38-52`):
+**`handle_start_command()`** (`src/cli/commands.rs`):
 1. Gets current PID via `process::id()`.
 2. Writes PID file.
 3. Returns `true` on success (caller proceeds to start server), `false` on
    failure (caller exits without starting).
 
-**`handle_stop_command()`** (`src/cli/commands.rs:55-104`):
+**`handle_stop_command()`** (`src/cli/commands.rs`):
 1. Reads PID from file.
 2. Calls `stop_process(pid)`.
 3. On `Stopped` or `NotFound`: removes PID file.
 4. On `SignalSent`: warns user may need `kill -9`.
 5. If PID file doesn't exist: reports "Server not running".
 
-**`handle_status_command()`** (`src/cli/commands.rs:107-135`):
+**`handle_status_command()`** (`src/cli/commands.rs`):
 1. Reads PID from file.
 2. Calls `check_process_running(pid)`.
 3. Reports running/stopped status.
 4. If PID file exists but process isn't running: suggests cleanup.
 
-**`handle_version_command()`** (`src/cli/commands.rs:138-140`):
+**`handle_version_command()`** (`src/cli/commands.rs`):
 Prints `rucho 1.0.0` using `env!("CARGO_PKG_NAME")` and
 `env!("CARGO_PKG_VERSION")`.
 
@@ -2031,7 +2031,7 @@ Prints `rucho 1.0.0` using `env!("CARGO_PKG_NAME")` and
 
 ### `format_json_response()`
 
-**File:** `src/utils/json_response.rs:17-19`
+**File:** `src/utils/json_response.rs`
 
 ```rust
 pub fn format_json_response(data: Value) -> Response {
@@ -2043,7 +2043,7 @@ Convenience wrapper — delegates to the timing variant with `None`.
 
 ### `format_json_response_with_timing()`
 
-**File:** `src/utils/json_response.rs:35-66`
+**File:** `src/utils/json_response.rs`
 
 Detailed in [Section 4, Step 11](#step-11-format_json_response_with_timing).
 
@@ -2062,7 +2062,7 @@ Detailed in [Section 4, Step 11](#step-11-format_json_response_with_timing).
 
 ### `format_error_response()`
 
-**File:** `src/utils/error_response.rs:19-39`
+**File:** `src/utils/error_response.rs`
 
 ```rust
 pub fn format_error_response(status: StatusCode, message: &str) -> Response {
@@ -2101,7 +2101,7 @@ pub fn format_error_response(status: StatusCode, message: &str) -> Response {
 
 ### `serialize_headers()`
 
-**File:** `src/routes/core_routes.rs:38-49`
+**File:** `src/routes/core_routes.rs`
 
 Detailed in [Section 4, Step 10](#step-10-serialize_headers). Converts a
 `HeaderMap` into a `serde_json::Value` JSON object. Non-UTF-8 header values
@@ -2141,7 +2141,7 @@ down. Since they're stateless echo handlers, this is acceptable.
 
 ## 14. OpenAPI / Swagger Integration
 
-**File:** `src/main.rs:33-71`
+**File:** `src/main.rs`
 
 ```rust
 #[derive(OpenApi)]
@@ -2190,7 +2190,7 @@ struct ApiDoc;
 3. The `components(schemas(...))` section registers reusable schema types.
 4. The `tags(...)` section defines API grouping for the Swagger UI.
 
-**Router mount** (`src/main.rs:141`):
+**Router mount** (`src/main.rs`):
 
 ```rust
 .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
@@ -2203,7 +2203,7 @@ This serves:
 **`anything_path_handler` note:** This handler exists *solely* for OpenAPI
 documentation. The actual `/anything/*path` requests are handled by
 `anything_handler`. The path handler returns 501 if ever called directly
-(`src/routes/core_routes.rs:348-362`).
+(`src/routes/core_routes.rs`).
 
 ---
 
