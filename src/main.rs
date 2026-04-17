@@ -52,6 +52,7 @@ use rucho::utils::metrics::Metrics;
         rucho::routes::cookies::set_cookies_handler,
         rucho::routes::cookies::delete_cookies_handler,
         rucho::routes::base64::base64_handler,
+        rucho::routes::response_headers::response_headers_handler,
         rucho::routes::core_routes::uuid_handler,
         rucho::routes::core_routes::ip_handler,
         rucho::routes::core_routes::user_agent_handler,
@@ -154,6 +155,7 @@ fn build_app(
         .merge(rucho::routes::redirect::router())
         .merge(rucho::routes::cookies::router())
         .merge(rucho::routes::base64::router())
+        .merge(rucho::routes::response_headers::router())
         .layer(DefaultBodyLimit::max(max_body_size_bytes));
 
     // Add metrics endpoint and middleware if enabled

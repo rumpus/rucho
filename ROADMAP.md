@@ -81,7 +81,7 @@
 - [ ] `/image/:format` — return a small test image (png, jpeg, svg, webp)
 
 ### Response Control
-- [ ] `/response-headers?key=value` — return arbitrary response headers via query params
+- [x] `/response-headers?key=value` — return arbitrary response headers via query params (PR #113)
 - [ ] `/cache` + `/cache/:seconds` — return cache headers (`ETag`, `Last-Modified`, `Cache-Control`)
 - [ ] `/gzip`, `/brotli`, `/deflate` — force a specific encoding regardless of `Accept-Encoding`
 
@@ -251,7 +251,7 @@
 
 Ranked by payoff-per-hour from the review:
 
-1. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
+1. **`/bytes` + `/drip`** — remaining Tier 3 plugin-testing endpoints (request-size-limiting, timeout policy). `/response-headers` shipped in PR #113.
 2. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
 3. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
 4. **Multi-arch Docker image** — small CI change, big UX win for Mac users

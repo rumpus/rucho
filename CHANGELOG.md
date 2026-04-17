@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `/base64/:encoded` endpoint — decode URL-safe base64 strings and return JSON with decoded content, UTF-8 validity, and byte length. Accepts URL-safe base64 with or without padding; standard base64 is attempted as a fallback. Input capped at 4096 bytes.
 - `max_body_size_bytes` config field (env: `RUCHO_MAX_BODY_SIZE_BYTES`, default: 2 MiB) — caps request body size globally via `DefaultBodyLimit`. Requests exceeding the limit receive 413 Payload Too Large.
+- `/response-headers?key=value` endpoint — echoes each query parameter as a response header and in the JSON body. Duplicate keys emit repeated headers and collapse to a JSON array. User-supplied headers replace defaults (including `content-type`). Invalid header names or values return 400. Designed for exercising gateway plugins that mutate upstream response headers (Kong's `response-transformer`, `cors`, `proxy-cache`).
 
 ### Fixed
 - `/anything` handler no longer reads the full request body with `usize::MAX` limit — closes an OOM vector. `anything_handler` now uses the `Bytes` extractor which honors the configured `max_body_size_bytes`.

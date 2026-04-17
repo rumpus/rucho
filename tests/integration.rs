@@ -5,7 +5,7 @@
 //! actual TCP connections.
 
 use axum::{extract::DefaultBodyLimit, middleware, Router};
-use rucho::routes::{base64, cookies, core_routes, delay, healthz, redirect};
+use rucho::routes::{base64, cookies, core_routes, delay, healthz, redirect, response_headers};
 use rucho::server::timing_layer::timing_middleware;
 use rucho::utils::constants::DEFAULT_MAX_BODY_SIZE_BYTES;
 
@@ -29,6 +29,7 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
         .merge(redirect::router())
         .merge(cookies::router())
         .merge(base64::router())
+        .merge(response_headers::router())
         .layer(DefaultBodyLimit::max(max_body_size))
         .layer(middleware::from_fn(timing_middleware));
 
@@ -271,6 +272,35 @@ async fn test_anything_wildcard() {
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["method"], "POST");
     assert_eq!(body["path"], "/anything/foo/bar");
+}
+
+#[tokio::test]
+async fn test_response_headers_mirrors_query_params() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!(
+        "{base}/response-headers?x-rate-limit=100&cache-control=no-store"
+    ))
+    .await
+    .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.headers().get("x-rate-limit").unwrap(), "100");
+    assert_eq!(resp.headers().get("cache-control").unwrap(), "no-store");
+
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["x-rate-limit"], "100");
+    assert_eq!(body["cache-control"], "no-store");
+}
+
+#[tokio::test]
+async fn test_response_headers_invalid_returns_400() {
+    let base = spawn_app().await;
+    // %0A is a newline — invalid inside a header name.
+    let resp = reqwest::get(format!("{base}/response-headers?bad%0Aname=value"))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 400);
 }
 
 #[tokio::test]

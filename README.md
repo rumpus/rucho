@@ -74,6 +74,7 @@ rucho version  # Display version
 | GET     | `/cookies/set`    | Set cookies via query params and redirect            |
 | GET     | `/cookies/delete` | Delete cookies via query params and redirect         |
 | GET     | `/base64/:encoded`| Decode URL-safe base64 (max 4096 bytes)              |
+| GET     | `/response-headers`| Echo query params as response headers + JSON body   |
 | GET     | `/uuid`           | Random UUID v4                                       |
 | GET     | `/ip`             | Client IP address                                    |
 | GET     | `/user-agent`     | User-Agent header echo                               |
@@ -171,6 +172,7 @@ src/
 │   ├── core_routes.rs   # Core echo + utility endpoints
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── healthz.rs       # /healthz endpoint
+│   ├── response_headers.rs # /response-headers endpoint
 │   ├── metrics.rs       # /metrics endpoint handler
 │   └── redirect.rs      # /redirect/:n endpoint
 ├── server/              # Server setup and orchestration
