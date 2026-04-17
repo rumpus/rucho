@@ -500,7 +500,11 @@ pub async fn uuid_handler(timing: Option<Extension<RequestTiming>>) -> Response 
         (status = 200, description = "Returns the client's IP address", body = serde_json::Value)
     )
 )]
-pub async fn ip_handler(headers: HeaderMap, timing: Option<Extension<RequestTiming>>) -> Response {
+pub async fn ip_handler(
+    headers: HeaderMap,
+    connect_info: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    timing: Option<Extension<RequestTiming>>,
+) -> Response {
     // Try X-Forwarded-For first (common for proxied requests)
     let origin = headers
         .get("x-forwarded-for")
@@ -513,7 +517,9 @@ pub async fn ip_handler(headers: HeaderMap, timing: Option<Extension<RequestTimi
                 .and_then(|v| v.to_str().ok())
                 .map(|s| s.to_string())
         })
-        // Default if no headers present
+        // Fall back to the actual peer address from the TCP connection
+        .or_else(|| connect_info.map(|ci| ci.0.ip().to_string()))
+        // Last resort if the server wasn't bound with ConnectInfo
         .unwrap_or_else(|| "unknown".to_string());
 
     let duration_ms = timing.map(|t| t.elapsed_ms());

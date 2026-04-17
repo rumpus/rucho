@@ -120,7 +120,9 @@ async fn setup_http_listener(
                 tracing::info!("Starting HTTP server on http://{}", sock_addr);
                 let mut server = axum_server::Server::from_tcp(std_listener);
                 configure_http_builder(&mut server, config);
-                let server_future = server.handle(handle).serve(app.into_make_service());
+                let server_future = server
+                    .handle(handle)
+                    .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>());
                 server_handles.push(tokio::spawn(server_future));
             }
             Err(e) => {
@@ -159,7 +161,9 @@ async fn setup_https_listener(
             tracing::info!("Starting HTTPS server on https://{}", sock_addr);
             let mut server = axum_server::bind_rustls(sock_addr, rustls_config);
             configure_http_builder(&mut server, config);
-            let server_future = server.handle(handle).serve(app.into_make_service());
+            let server_future = server
+                .handle(handle)
+                .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>());
             server_handles.push(tokio::spawn(server_future));
         }
         None => {

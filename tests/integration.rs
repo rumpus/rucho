@@ -32,7 +32,14 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
         .layer(DefaultBodyLimit::max(max_body_size))
         .layer(middleware::from_fn(timing_middleware));
 
-    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .unwrap()
+    });
 
     format!("http://{addr}")
 }
@@ -114,7 +121,30 @@ async fn test_ip() {
 
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
-    assert!(body["origin"].is_string());
+    let origin = body["origin"].as_str().expect("origin should be a string");
+    // With ConnectInfo fallback, the peer address (127.0.0.1 or ::1) should
+    // appear even when no X-Forwarded-For / X-Real-IP header is set.
+    assert_ne!(origin, "unknown", "origin should fall back to peer address");
+    assert!(
+        origin.parse::<std::net::IpAddr>().is_ok(),
+        "origin should be a valid IP: {origin}"
+    );
+}
+
+#[tokio::test]
+async fn test_ip_respects_forwarded_header() {
+    let base = spawn_app().await;
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("{base}/ip"))
+        .header("x-forwarded-for", "203.0.113.42, 10.0.0.1")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["origin"], "203.0.113.42");
 }
 
 #[tokio::test]

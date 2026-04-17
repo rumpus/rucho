@@ -91,7 +91,7 @@
 - [ ] `/links/:n` — return an HTML page with `n` links (crawler testing)
 
 ### Endpoint Enhancements (from review)
-- [ ] `/ip` peer-address fallback via `ConnectInfo<SocketAddr>` — currently returns `"unknown"` when no `X-Forwarded-For` / `X-Real-IP` header is present (`src/routes/core_routes.rs`)
+- [x] `/ip` peer-address fallback via `ConnectInfo<SocketAddr>` — previously returned `"unknown"` when no `X-Forwarded-For` / `X-Real-IP` header was present. Server now binds with `into_make_service_with_connect_info::<SocketAddr>()` so `ip_handler` can read the peer IP from the TCP connection. (PR #111)
 - [ ] `/status/:code` should return the canonical reason phrase in the body (e.g., `"Not Found"` for 404) — matches httpbin behavior
 - [ ] `/redirect/:n` should emit an `X-Redirect-Count` header so clients can observe hop number without parsing the URL
 - [ ] `/cookies/set` should accept cookie attribute flags (`secure`, `httponly`, `samesite`, `max_age`) via query params for richer auth/session testing
@@ -252,14 +252,13 @@
 
 Ranked by payoff-per-hour from the review:
 
-1. **`/ip` peer-address fallback** — fixes a real correctness surprise, ~15 lines
-2. **Prometheus metrics format** — unlocks Grafana dashboards, pairs naturally with Kong's Prom plugin
-3. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
-4. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
-5. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
-6. **Multi-arch Docker image** — small CI change, big UX win for Mac users
-7. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
-8. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
+1. **Prometheus metrics format** — unlocks Grafana dashboards, pairs naturally with Kong's Prom plugin
+2. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
+3. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
+4. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
+5. **Multi-arch Docker image** — small CI change, big UX win for Mac users
+6. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
+7. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
 
 ---
 
