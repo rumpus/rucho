@@ -5,7 +5,7 @@
 //! actual TCP connections.
 
 use axum::{middleware, Router};
-use rucho::routes::{cookies, core_routes, delay, healthz, redirect};
+use rucho::routes::{base64, cookies, core_routes, delay, healthz, redirect};
 use rucho::server::timing_layer::timing_middleware;
 
 /// Spawns a test server on a random port and returns its base URL.
@@ -22,6 +22,7 @@ async fn spawn_app() -> String {
         .merge(delay::router())
         .merge(redirect::router())
         .merge(cookies::router())
+        .merge(base64::router())
         .layer(middleware::from_fn(timing_middleware));
 
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
@@ -194,6 +195,29 @@ async fn test_cookies_roundtrip() {
 
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["cookies"]["foo"], "bar");
+}
+
+#[tokio::test]
+async fn test_base64_decode() {
+    let base = spawn_app().await;
+    // "Hello, Rucho!" -> SGVsbG8sIFJ1Y2hvIQ==
+    let resp = reqwest::get(format!("{base}/base64/SGVsbG8sIFJ1Y2hvIQ=="))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["decoded"], "Hello, Rucho!");
+    assert_eq!(body["is_utf8"], true);
+    assert_eq!(body["byte_length"], 13);
+}
+
+#[tokio::test]
+async fn test_base64_invalid_returns_400() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/base64/a")).await.unwrap();
+
+    assert_eq!(resp.status(), 400);
 }
 
 #[tokio::test]

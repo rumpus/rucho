@@ -21,6 +21,7 @@ All examples assume rucho is running at `http://localhost:8080` (the default).
 - [Redirect Testing](#redirect-testing)
 - [Delay & Timeout Testing](#delay--timeout-testing)
 - [Cookie Management](#cookie-management)
+- [Base64 Decoding](#base64-decoding)
 - [Chaos Engineering](#chaos-engineering)
 - [Health Checks & Monitoring](#health-checks--monitoring)
 
@@ -697,6 +698,85 @@ const inspectResp = await fetch("http://localhost:8080/cookies", {
 });
 const data = await inspectResp.json();
 console.log("Cookies:", data.cookies);
+```
+
+---
+
+## Base64 Decoding
+
+Decode a URL-safe base64 string from the URL path. Useful for inspecting encoded tokens, data URIs, or any opaque payload a client is about to send through a gateway. Returns a JSON wrapper with the decoded content, a UTF-8 validity flag, and the byte length — so you can tell textual payloads apart from binary blobs.
+
+Input is capped at 4096 bytes. URL-safe alphabet (`-`, `_`) with or without padding is preferred; standard base64 is attempted as a fallback but `/` in the encoding will break path routing.
+
+### Decode a UTF-8 string
+
+**curl:**
+
+```bash
+curl http://localhost:8080/base64/SGVsbG8sIFJ1Y2hvIQ==
+```
+
+**Python:**
+
+```python
+import base64, requests
+
+text = "Hello, Rucho!"
+encoded = base64.urlsafe_b64encode(text.encode()).decode()
+resp = requests.get(f"http://localhost:8080/base64/{encoded}")
+print(resp.json())
+```
+
+**JavaScript:**
+
+```javascript
+const text = "Hello, Rucho!";
+const encoded = Buffer.from(text).toString("base64url");
+const resp = await fetch(`http://localhost:8080/base64/${encoded}`);
+console.log(await resp.json());
+```
+
+**Sample response:**
+
+```json
+{
+  "encoded": "SGVsbG8sIFJ1Y2hvIQ==",
+  "decoded": "Hello, Rucho!",
+  "is_utf8": true,
+  "byte_length": 13,
+  "timing": {
+    "duration_ms": 0.041
+  }
+}
+```
+
+### Detect binary (non-UTF-8) payloads
+
+Encoded bytes that aren't valid UTF-8 are still returned (with lossy replacement), but `is_utf8` will be `false` so clients can branch on it:
+
+```bash
+# Encodes bytes [0xFF, 0xFE, 0xFD] — a non-UTF-8 sequence
+curl http://localhost:8080/base64/__79
+```
+
+```json
+{
+  "encoded": "__79",
+  "decoded": "���",
+  "is_utf8": false,
+  "byte_length": 3,
+  "timing": { "duration_ms": 0.018 }
+}
+```
+
+### Error cases
+
+```bash
+# Invalid base64 — returns 400
+curl -i http://localhost:8080/base64/a
+
+# Input exceeds 4096-byte cap — returns 400
+curl -i "http://localhost:8080/base64/$(python3 -c 'print("A"*4097)')"
 ```
 
 ---

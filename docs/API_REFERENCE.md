@@ -15,6 +15,7 @@ Complete reference for all Rucho HTTP endpoints.
 - [Redirects](#redirects)
 - [Delay](#delay)
 - [Cookies](#cookies)
+- [Data Formats](#data-formats)
 - [Infrastructure](#infrastructure)
 - [Documentation](#documentation)
 
@@ -388,6 +389,51 @@ Each query parameter name identifies a cookie to expire. Values are ignored.
 curl -b "name=rucho" -c - http://localhost:8080/cookies/delete?name
 # Set-Cookie: name=; Max-Age=0; Path=/
 # Location: /cookies
+```
+
+---
+
+## Data Formats
+
+### GET /base64/:encoded
+
+Decodes a URL-safe base64-encoded string from the URL path and returns metadata about the result.
+
+**Path parameters:**
+
+| Name | Description |
+|------|-------------|
+| `encoded` | URL-safe base64-encoded string (max 4096 bytes). Padding is optional. Standard base64 is attempted as a fallback but won't tolerate `/` in the path. |
+
+**Response:** `200 OK`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `encoded` | string | The input base64 string (as received) |
+| `decoded` | string | The decoded content (via `String::from_utf8_lossy` — invalid UTF-8 bytes are replaced with `U+FFFD`) |
+| `is_utf8` | boolean | `true` if the raw decoded bytes are valid UTF-8 |
+| `byte_length` | number | Length of the decoded bytes |
+| `timing.duration_ms` | number | Processing time in milliseconds |
+
+**Errors:**
+
+- `400 Bad Request` — invalid base64 input
+- `400 Bad Request` — input exceeds the 4096-byte cap
+
+```json
+{
+  "encoded": "SGVsbG8sIFJ1Y2hvIQ==",
+  "decoded": "Hello, Rucho!",
+  "is_utf8": true,
+  "byte_length": 13,
+  "timing": {
+    "duration_ms": 0.041
+  }
+}
+```
+
+```bash
+curl http://localhost:8080/base64/SGVsbG8sIFJ1Y2hvIQ==
 ```
 
 ---

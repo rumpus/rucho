@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `/base64/:encoded` endpoint — decode URL-safe base64 strings and return JSON with decoded content, UTF-8 validity, and byte length. Accepts URL-safe base64 with or without padding; standard base64 is attempted as a fallback. Input capped at 4096 bytes.
+
 ## [1.4.6] - 2026-02-17
 
 ### Changed

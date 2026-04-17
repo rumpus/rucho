@@ -2,11 +2,14 @@
 //!
 //! This module contains all the HTTP route handlers organized into submodules:
 //!
+//! - [`base64`] - Base64 decoding endpoint
 //! - [`cookies`] - Cookie inspection and manipulation endpoints
 //! - [`core_routes`] - Main API endpoints (GET, POST, PUT, PATCH, DELETE, etc.)
 //! - [`delay`] - Delay endpoint for testing timeouts
 //! - [`healthz`] - Health check endpoint
 
+/// Module for the base64 decoding endpoint (`/base64/:encoded`).
+pub mod base64;
 /// Module for the cookie inspection and manipulation endpoints (`/cookies`).
 pub mod cookies;
 /// Module for core API routes, including various HTTP method handlers and utility endpoints.

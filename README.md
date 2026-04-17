@@ -73,6 +73,7 @@ rucho version  # Display version
 | GET     | `/cookies`        | Inspect request cookies                              |
 | GET     | `/cookies/set`    | Set cookies via query params and redirect            |
 | GET     | `/cookies/delete` | Delete cookies via query params and redirect         |
+| GET     | `/base64/:encoded`| Decode URL-safe base64 (max 4096 bytes)              |
 | GET     | `/uuid`           | Random UUID v4                                       |
 | GET     | `/ip`             | Client IP address                                    |
 | GET     | `/user-agent`     | User-Agent header echo                               |
