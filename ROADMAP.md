@@ -71,10 +71,8 @@
 
 ## Tier 3: New Endpoints
 
-### Cookies & Auth
+### Cookies
 - [x] `/cookies` + `/cookies/set` + `/cookies/delete` — inspect, set, and delete cookies
-- [ ] `/basic-auth/:user/:pass` — test HTTP Basic auth (401 if wrong, 200 if correct)
-- [ ] `/bearer` — test Bearer token auth (check `Authorization` header)
 
 ### Data Formats & Content Types
 - [x] `/base64/:encoded` — decode base64 in the URL and return the result
@@ -86,7 +84,6 @@
 - [ ] `/response-headers?key=value` — return arbitrary response headers via query params
 - [ ] `/cache` + `/cache/:seconds` — return cache headers (`ETag`, `Last-Modified`, `Cache-Control`)
 - [ ] `/gzip`, `/brotli`, `/deflate` — force a specific encoding regardless of `Accept-Encoding`
-- [ ] `/deny` — return a 403 forbidden page
 
 ### Streaming & Range
 - [ ] `/drip?duration=5&numbytes=10` — slowly drip data over time
@@ -259,7 +256,7 @@ Ranked by payoff-per-hour from the review:
 2. **Body-size cap on `/anything`** — security, 5-line fix
 3. **`/ip` peer-address fallback** — fixes a real correctness surprise, ~15 lines
 4. **Prometheus metrics format** — unlocks Grafana dashboards, pairs naturally with Kong's Prom plugin
-5. **`/basic-auth` + `/bearer` + `/response-headers`** — highest-ROI roadmap endpoints for Kong plugin testing
+5. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
 6. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
 7. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
 8. **Multi-arch Docker image** — small CI change, big UX win for Mac users
@@ -282,7 +279,8 @@ Low-priority ideas — not worth the effort right now, but kept for reference.
 
 The following are explicitly out of scope to maintain focus on the core mission:
 
-- Full authentication/authorization middleware (testing auth endpoints above are mock-only)
+- Auth-validating endpoints (`/basic-auth`, `/bearer`, etc.) — API gateways already handle credential validation via dedicated plugins (Kong's `basic-auth`, `key-auth`, `jwt`, `oauth2`). Upstream-side validation is redundant when a gateway is in front, and `/headers` already exposes what the upstream received so forwarding behavior can be verified.
+- `/deny` and similar fixed-status endpoints — `/status/:code` already covers this with full flexibility.
 - gRPC support
 - Plugin/extension systems
 - Infrastructure provisioning (Terraform, etc.)
