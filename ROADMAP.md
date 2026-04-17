@@ -142,7 +142,7 @@
 - [ ] Mutual TLS (mTLS) — `ssl_ca_cert` config for client certificate verification
 
 ### From Review
-- [ ] Body-size cap on `/anything` handler — `to_bytes(body, usize::MAX)` is an OOM vector. Add `DefaultBodyLimit` layer (configurable via `max_body_size_bytes`) (`src/routes/core_routes.rs:305`)
+- [x] Body-size cap on `/anything` handler — `to_bytes(body, usize::MAX)` was an OOM vector. Added `DefaultBodyLimit` layer (configurable via `max_body_size_bytes`) (PR #109)
 - [ ] Prometheus exposition format for `/metrics` — emit `text/plain; version=0.0.4` alongside the JSON output, so users can scrape with Prometheus/Grafana (highest-ROI observability addition for gateway-upstream workflows)
 - [ ] `log_format = json` config option — use `tracing_subscriber::fmt().json()` so the binary works in structured-logging environments (Loki, Datadog, ELK)
 - [ ] `X-Response-Time` header — `RequestTiming` should emit this in addition to the extension, matching Kong's own plugin output
@@ -252,15 +252,14 @@
 
 Ranked by payoff-per-hour from the review:
 
-1. **Body-size cap on `/anything`** — security, 5-line fix
-2. **`/ip` peer-address fallback** — fixes a real correctness surprise, ~15 lines
-3. **Prometheus metrics format** — unlocks Grafana dashboards, pairs naturally with Kong's Prom plugin
-4. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
-5. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
-6. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
-7. **Multi-arch Docker image** — small CI change, big UX win for Mac users
-8. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
-9. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
+1. **`/ip` peer-address fallback** — fixes a real correctness surprise, ~15 lines
+2. **Prometheus metrics format** — unlocks Grafana dashboards, pairs naturally with Kong's Prom plugin
+3. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
+4. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
+5. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
+6. **Multi-arch Docker image** — small CI change, big UX win for Mac users
+7. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
+8. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
 
 ---
 
