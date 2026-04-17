@@ -77,7 +77,7 @@
 - [ ] `/bearer` — test Bearer token auth (check `Authorization` header)
 
 ### Data Formats & Content Types
-- [ ] `/base64/:encoded` — decode base64 in the URL and return the result
+- [x] `/base64/:encoded` — decode base64 in the URL and return the result
 - [ ] `/bytes/:n` — return `n` random bytes (binary download testing)
 - [ ] `/xml`, `/html` — return non-JSON content types
 - [ ] `/image/:format` — return a small test image (png, jpeg, svg, webp)

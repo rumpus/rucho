@@ -26,6 +26,10 @@ pub const MAX_DELAY_SECONDS: u64 = 300;
 /// This prevents abuse through excessively long redirect chains.
 pub const MAX_REDIRECT_HOPS: u32 = 20;
 
+/// Maximum length in bytes for the encoded input to the `/base64/:encoded` endpoint.
+/// This prevents DoS from oversized decode operations on the path segment.
+pub const MAX_BASE64_INPUT_BYTES: usize = 4096;
+
 /// Maximum buffer size in bytes for TCP/UDP connections.
 /// This prevents memory exhaustion from malicious large payloads.
 pub const MAX_BUFFER_SIZE: usize = 65536;
