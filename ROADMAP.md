@@ -143,7 +143,6 @@
 
 ### From Review
 - [x] Body-size cap on `/anything` handler — `to_bytes(body, usize::MAX)` was an OOM vector. Added `DefaultBodyLimit` layer (configurable via `max_body_size_bytes`) (PR #109)
-- [ ] Prometheus exposition format for `/metrics` — emit `text/plain; version=0.0.4` alongside the JSON output, so users can scrape with Prometheus/Grafana (highest-ROI observability addition for gateway-upstream workflows)
 - [ ] `log_format = json` config option — use `tracing_subscriber::fmt().json()` so the binary works in structured-logging environments (Loki, Datadog, ELK)
 - [ ] `X-Response-Time` header — `RequestTiming` should emit this in addition to the extension, matching Kong's own plugin output
 - [ ] Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` — benefits Apple Silicon users
@@ -252,13 +251,12 @@
 
 Ranked by payoff-per-hour from the review:
 
-1. **Prometheus metrics format** — unlocks Grafana dashboards, pairs naturally with Kong's Prom plugin
-2. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
-3. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
-4. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
-5. **Multi-arch Docker image** — small CI change, big UX win for Mac users
-6. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
-7. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
+1. **`/response-headers` + `/bytes` + `/drip`** — highest-ROI roadmap endpoints for exercising gateway plugins (response-transformer, request-size-limiting, timeout policy)
+2. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
+3. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
+4. **Multi-arch Docker image** — small CI change, big UX win for Mac users
+5. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
+6. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
 
 ---
 
@@ -278,6 +276,7 @@ The following are explicitly out of scope to maintain focus on the core mission:
 
 - Auth-validating endpoints (`/basic-auth`, `/bearer`, etc.) — API gateways already handle credential validation via dedicated plugins (Kong's `basic-auth`, `key-auth`, `jwt`, `oauth2`). Upstream-side validation is redundant when a gateway is in front, and `/headers` already exposes what the upstream received so forwarding behavior can be verified.
 - `/deny` and similar fixed-status endpoints — `/status/:code` already covers this with full flexibility.
+- Prometheus exposition format for `/metrics` — rucho is a controllable upstream test target, not a production-monitoring component. Kong's own Prometheus plugin covers gateway-side metrics; upstream-side Prometheus output would duplicate Kong-layer infrastructure without adding test-specific value. The existing JSON `/metrics` stays for quick introspection.
 - gRPC support
 - Plugin/extension systems
 - Infrastructure provisioning (Terraform, etc.)
