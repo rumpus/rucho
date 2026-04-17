@@ -147,6 +147,7 @@ src/
 │   └── commands.rs      # start, stop, status, version handlers
 ├── routes/              # HTTP route handlers
 │   ├── mod.rs
+│   ├── base64.rs        # /base64/:encoded endpoint
 │   ├── cookies.rs       # /cookies endpoints
 │   ├── core_routes.rs   # Core echo + utility endpoints
 │   ├── delay.rs         # /delay/:n endpoint

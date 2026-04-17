@@ -82,6 +82,7 @@ rucho (crate root)
   |
   +-- routes/                # HTTP route handlers
   |   +-- mod.rs             # Re-exports submodules
+  |   +-- base64.rs          # /base64/:encoded handler + router()
   |   +-- cookies.rs         # /cookies, /cookies/set, /cookies/delete handlers + router()
   |   +-- core_routes.rs     # 16 route handlers + router()
   |   +-- delay.rs           # /delay/:n handler + router()
@@ -621,6 +622,7 @@ The response travels back up through each middleware layer:
 | 22 | `/cookies` | GET | `cookies_handler` | `cookies.rs:60` |
 | 23 | `/cookies/set` | GET | `set_cookies_handler` | `cookies.rs:88` |
 | 24 | `/cookies/delete` | GET | `delete_cookies_handler` | `cookies.rs:121` |
+| 25 | `/base64/:encoded` | GET | `base64_handler` | `base64.rs:48` |
 
 ### 5.2 Echo Handlers
 
@@ -2274,6 +2276,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/cli/mod.rs` | CLI module re-exports |
 | `src/cli/commands.rs` | `Args`, `CliCommand`, start/stop/status/version handlers |
 | `src/routes/mod.rs` | Routes module re-exports |
+| `src/routes/base64.rs` | `/base64/:encoded` handler and router |
 | `src/routes/cookies.rs` | `/cookies`, `/cookies/set`, `/cookies/delete` handlers and router |
 | `src/routes/core_routes.rs` | 16 route handlers, `router()`, `EndpointInfo`, `API_ENDPOINTS` |
 | `src/routes/delay.rs` | `/delay/:n` handler and router |
