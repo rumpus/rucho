@@ -7,6 +7,9 @@
 //! - [`core_routes`] - Main API endpoints (GET, POST, PUT, PATCH, DELETE, etc.)
 //! - [`delay`] - Delay endpoint for testing timeouts
 //! - [`healthz`] - Health check endpoint
+//! - [`metrics`] - Metrics endpoint (JSON)
+//! - [`redirect`] - Chained redirect endpoint
+//! - [`response_headers`] - Echo query params as response headers
 
 /// Module for the base64 decoding endpoint (`/base64/:encoded`).
 pub mod base64;
@@ -22,3 +25,5 @@ pub mod healthz;
 pub mod metrics;
 /// Module for the redirect endpoint (`/redirect/:n`).
 pub mod redirect;
+/// Module for the response-headers endpoint (`/response-headers`).
+pub mod response_headers;
