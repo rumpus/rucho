@@ -4,15 +4,21 @@
 //! `reqwest`, validating status codes, headers, and response bodies over
 //! actual TCP connections.
 
-use axum::{middleware, Router};
+use axum::{extract::DefaultBodyLimit, middleware, Router};
 use rucho::routes::{base64, cookies, core_routes, delay, healthz, redirect};
 use rucho::server::timing_layer::timing_middleware;
+use rucho::utils::constants::DEFAULT_MAX_BODY_SIZE_BYTES;
 
 /// Spawns a test server on a random port and returns its base URL.
 ///
 /// Builds a minimal Router (no chaos, metrics, tracing, or swagger) and
 /// serves it on `127.0.0.1:0` so each test gets its own isolated server.
 async fn spawn_app() -> String {
+    spawn_app_with_body_limit(DEFAULT_MAX_BODY_SIZE_BYTES).await
+}
+
+/// Variant of `spawn_app` that caps request bodies at `max_body_size` bytes.
+async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
 
@@ -23,6 +29,7 @@ async fn spawn_app() -> String {
         .merge(redirect::router())
         .merge(cookies::router())
         .merge(base64::router())
+        .layer(DefaultBodyLimit::max(max_body_size))
         .layer(middleware::from_fn(timing_middleware));
 
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
@@ -234,4 +241,19 @@ async fn test_anything_wildcard() {
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["method"], "POST");
     assert_eq!(body["path"], "/anything/foo/bar");
+}
+
+#[tokio::test]
+async fn test_anything_body_limit_returns_413() {
+    let base = spawn_app_with_body_limit(1024).await;
+    let client = reqwest::Client::new();
+    let big_body = vec![b'x'; 2048];
+    let resp = client
+        .post(format!("{base}/anything"))
+        .body(big_body)
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 413);
 }

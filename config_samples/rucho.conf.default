@@ -74,6 +74,12 @@ compression_enabled = false
 # Protects against slowloris-style attacks.
 # Default: 30
 # header_read_timeout = 30
+#
+# Maximum request body size in bytes. Requests exceeding this return 413
+# Payload Too Large. Protects against OOM from unbounded bodies to /anything
+# and other body-accepting handlers.
+# Default: 2097152 (2 MiB)
+# max_body_size_bytes = 2097152
 
 # --- Chaos Engineering Mode ---
 # Chaos mode injects random failures, delays, and response corruption

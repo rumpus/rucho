@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `/base64/:encoded` endpoint — decode URL-safe base64 strings and return JSON with decoded content, UTF-8 validity, and byte length. Accepts URL-safe base64 with or without padding; standard base64 is attempted as a fallback. Input capped at 4096 bytes.
+- `max_body_size_bytes` config field (env: `RUCHO_MAX_BODY_SIZE_BYTES`, default: 2 MiB) — caps request body size globally via `DefaultBodyLimit`. Requests exceeding the limit receive 413 Payload Too Large.
+
+### Fixed
+- `/anything` handler no longer reads the full request body with `usize::MAX` limit — closes an OOM vector. `anything_handler` now uses the `Bytes` extractor which honors the configured `max_body_size_bytes`.
 
 ## [1.4.6] - 2026-02-17
 
