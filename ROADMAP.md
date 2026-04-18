@@ -76,7 +76,7 @@
 
 ### Data Formats & Content Types
 - [x] `/base64/:encoded` — decode base64 in the URL and return the result
-- [ ] `/bytes/:n` — return `n` random bytes (binary download testing)
+- [x] `/bytes/:n` — return `n` random bytes (binary download testing) (PR #114)
 - [ ] `/xml`, `/html` — return non-JSON content types
 - [ ] `/image/:format` — return a small test image (png, jpeg, svg, webp)
 
@@ -251,7 +251,7 @@
 
 Ranked by payoff-per-hour from the review:
 
-1. **`/bytes` + `/drip`** — remaining Tier 3 plugin-testing endpoints (request-size-limiting, timeout policy). `/response-headers` shipped in PR #113.
+1. **`/drip`** — final Tier 3 plugin-testing endpoint for slow-streaming upstream behavior (tests `read_timeout` / `send_timeout` policies). `/response-headers` shipped in PR #113; `/bytes` shipped in PR #114.
 2. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
 3. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
 4. **Multi-arch Docker image** — small CI change, big UX win for Mac users

@@ -74,6 +74,7 @@ rucho version  # Display version
 | GET     | `/cookies/set`    | Set cookies via query params and redirect            |
 | GET     | `/cookies/delete` | Delete cookies via query params and redirect         |
 | GET     | `/base64/:encoded`| Decode URL-safe base64 (max 4096 bytes)              |
+| GET     | `/bytes/:n`       | Return n random bytes (max 10 MiB)                   |
 | GET     | `/response-headers`| Echo query params as response headers + JSON body   |
 | GET     | `/uuid`           | Random UUID v4                                       |
 | GET     | `/ip`             | Client IP address                                    |
@@ -168,6 +169,7 @@ src/
 ├── routes/              # HTTP route handlers
 │   ├── mod.rs
 │   ├── base64.rs        # /base64/:encoded endpoint
+│   ├── bytes.rs         # /bytes/:n endpoint
 │   ├── cookies.rs       # /cookies endpoints
 │   ├── core_routes.rs   # Core echo + utility endpoints
 │   ├── delay.rs         # /delay/:n endpoint
