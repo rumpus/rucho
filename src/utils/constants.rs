@@ -35,6 +35,11 @@ pub const MAX_BASE64_INPUT_BYTES: usize = 4096;
 /// handlers, including `anything_handler`. Protects against OOM from unbounded bodies.
 pub const DEFAULT_MAX_BODY_SIZE_BYTES: usize = 2 * 1024 * 1024;
 
+/// Maximum number of random bytes the `/bytes/:n` endpoint will emit (10 MiB).
+/// Requests for more return 400. Prevents a single request from allocating
+/// unbounded memory to generate the response body.
+pub const MAX_BYTES_RESPONSE_SIZE: usize = 10 * 1024 * 1024;
+
 /// Maximum buffer size in bytes for TCP/UDP connections.
 /// This prevents memory exhaustion from malicious large payloads.
 pub const MAX_BUFFER_SIZE: usize = 65536;

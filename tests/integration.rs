@@ -5,7 +5,9 @@
 //! actual TCP connections.
 
 use axum::{extract::DefaultBodyLimit, middleware, Router};
-use rucho::routes::{base64, cookies, core_routes, delay, healthz, redirect, response_headers};
+use rucho::routes::{
+    base64, bytes, cookies, core_routes, delay, healthz, redirect, response_headers,
+};
 use rucho::server::timing_layer::timing_middleware;
 use rucho::utils::constants::DEFAULT_MAX_BODY_SIZE_BYTES;
 
@@ -29,6 +31,7 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
         .merge(redirect::router())
         .merge(cookies::router())
         .merge(base64::router())
+        .merge(bytes::router())
         .merge(response_headers::router())
         .layer(DefaultBodyLimit::max(max_body_size))
         .layer(middleware::from_fn(timing_middleware));
@@ -272,6 +275,31 @@ async fn test_anything_wildcard() {
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["method"], "POST");
     assert_eq!(body["path"], "/anything/foo/bar");
+}
+
+#[tokio::test]
+async fn test_bytes_returns_correct_size_and_type() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/bytes/512")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers().get("content-type").unwrap(),
+        "application/octet-stream"
+    );
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(body.len(), 512);
+}
+
+#[tokio::test]
+async fn test_bytes_exceeds_max_returns_400() {
+    let base = spawn_app().await;
+    // 10 MiB + 1 is one over the cap.
+    let resp = reqwest::get(format!("{base}/bytes/{}", 10 * 1024 * 1024 + 1))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 400);
 }
 
 #[tokio::test]

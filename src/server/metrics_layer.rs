@@ -47,6 +47,7 @@ fn normalize_path(path: &str) -> Cow<'static, str> {
             Some(&"status") if segments.len() >= 3 => Cow::Borrowed("/status/:code"),
             Some(&"delay") if segments.len() >= 3 => Cow::Borrowed("/delay/:n"),
             Some(&"redirect") if segments.len() >= 3 => Cow::Borrowed("/redirect/:n"),
+            Some(&"bytes") if segments.len() >= 3 => Cow::Borrowed("/bytes/:n"),
             Some(&"cookies") if segments.len() >= 3 => {
                 let action = segments.get(2).unwrap_or(&"");
                 Cow::Owned(format!("/cookies/{action}"))
@@ -81,6 +82,13 @@ mod tests {
         assert_eq!(normalize_path("/redirect/3"), "/redirect/:n");
         assert_eq!(normalize_path("/redirect/1"), "/redirect/:n");
         assert_eq!(normalize_path("/redirect/20"), "/redirect/:n");
+    }
+
+    #[test]
+    fn test_normalize_bytes_path() {
+        assert_eq!(normalize_path("/bytes/1024"), "/bytes/:n");
+        assert_eq!(normalize_path("/bytes/0"), "/bytes/:n");
+        assert_eq!(normalize_path("/bytes/10485760"), "/bytes/:n");
     }
 
     #[test]
