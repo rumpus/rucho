@@ -221,6 +221,33 @@ Returns all request headers as a JSON object.
 }
 ```
 
+### GET /response-headers
+
+Echoes each query parameter as a response header **and** in the JSON body. Useful for exercising gateway plugins that inspect or rewrite upstream response headers (Kong's `response-transformer`, `cors`, `proxy-cache`).
+
+**Query parameters:** Any number of `key=value` pairs. Duplicate keys emit repeated `Set-Header`-style entries on the response and collapse to a JSON array in the body. User-supplied headers replace the default response headers (including `content-type`; the body is still JSON — intentional mismatch for plugin testing).
+
+**Response:** `200 OK` — JSON body mirroring the headers.
+
+```bash
+curl -i 'http://localhost:8080/response-headers?x-rate-limit=100&cache-control=no-store'
+```
+
+```http
+HTTP/1.1 200 OK
+x-rate-limit: 100
+cache-control: no-store
+
+{
+  "x-rate-limit": "100",
+  "cache-control": "no-store"
+}
+```
+
+**Errors:**
+
+- `400 Bad Request` — invalid header name (must be valid HTTP token) or invalid header value (must be visible ASCII)
+
 ---
 
 ## Status Codes
@@ -434,6 +461,53 @@ Decodes a URL-safe base64-encoded string from the URL path and returns metadata 
 
 ```bash
 curl http://localhost:8080/base64/SGVsbG8sIFJ1Y2hvIQ==
+```
+
+### GET /bytes/:n
+
+Returns `n` random bytes as `application/octet-stream`. The body is filled via `rand::thread_rng().fill_bytes()` for maximum entropy, which makes any tampering by an intermediate proxy observable.
+
+**Path parameters:**
+
+| Name | Description |
+|------|-------------|
+| `n` | Number of random bytes to return. Capped at 10 MiB (10 485 760). |
+
+**Response:** `200 OK` — raw bytes with `Content-Type: application/octet-stream` and `Content-Length: n`. `n = 0` returns an empty 200.
+
+**Errors:**
+
+- `400 Bad Request` — `n` exceeds the 10 MiB cap
+
+```bash
+curl -o random.bin http://localhost:8080/bytes/1024
+```
+
+### GET /drip
+
+Streams `numbytes` bytes of `*` evenly over `duration` seconds via `Transfer-Encoding: chunked`. Distinct from `/delay/:n`, which exercises *first-byte* (idle) timeouts: `/drip` exercises the *streaming* / inter-byte timeouts that fire when bytes are arriving but slowly (Kong's `read_timeout` / `send_timeout`, response buffering vs streaming behavior).
+
+**Query parameters (all optional):**
+
+| Name | Default | Description |
+|------|---------|-------------|
+| `numbytes` | `10` | Total bytes to emit. Capped at 10 000. |
+| `duration` | `2` | Total stream duration in seconds. Capped at 300. |
+| `code` | `200` | HTTP status code to return. Must be a valid HTTP status (100–999). |
+| `delay` | `0` | Initial delay in seconds before the first byte. Capped at 300. |
+
+**Response:** Status `code` (default `200`), `Content-Type: application/octet-stream`, body of `numbytes` `*` characters spread evenly across `duration` seconds. Chunk pacing is clamped so emissions are at least ~1 ms apart (tokio's timer precision).
+
+**Errors:**
+
+- `400 Bad Request` — any cap exceeded, or `code` is not a valid HTTP status
+
+```bash
+# 100 bytes spread over 5 seconds
+curl http://localhost:8080/drip?numbytes=100&duration=5
+
+# Test how a proxy handles a slow 504 upstream
+curl -i 'http://localhost:8080/drip?numbytes=20&duration=3&code=504'
 ```
 
 ---

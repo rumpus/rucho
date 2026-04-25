@@ -83,12 +83,15 @@ rucho (crate root)
   +-- routes/                # HTTP route handlers
   |   +-- mod.rs             # Re-exports submodules
   |   +-- base64.rs          # /base64/:encoded handler + router()
+  |   +-- bytes.rs           # /bytes/:n handler + router()
   |   +-- cookies.rs         # /cookies, /cookies/set, /cookies/delete handlers + router()
   |   +-- core_routes.rs     # 16 route handlers + router()
   |   +-- delay.rs           # /delay/:n handler + router()
+  |   +-- drip.rs            # /drip handler + router() (slow-streaming)
   |   +-- healthz.rs         # /healthz handler + router()
   |   +-- metrics.rs         # /metrics handler (stateful)
-  |   +-- redirect.rs       # /redirect/:n handler + router()
+  |   +-- redirect.rs        # /redirect/:n handler + router()
+  |   +-- response_headers.rs # /response-headers handler + router()
   |
   +-- server/                # Server setup and orchestration
   |   +-- mod.rs             # run_server() — top-level orchestrator
@@ -623,6 +626,9 @@ The response travels back up through each middleware layer:
 | 23 | `/cookies/set` | GET | `set_cookies_handler` | `cookies.rs` |
 | 24 | `/cookies/delete` | GET | `delete_cookies_handler` | `cookies.rs` |
 | 25 | `/base64/:encoded` | GET | `base64_handler` | `base64.rs` |
+| 26 | `/bytes/:n` | GET | `bytes_handler` | `bytes.rs` |
+| 27 | `/response-headers` | GET | `response_headers_handler` | `response_headers.rs` |
+| 28 | `/drip` | GET | `drip_handler` | `drip.rs` |
 
 ### 5.2 Echo Handlers
 

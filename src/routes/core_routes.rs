@@ -194,11 +194,34 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         method: "GET",
         description: "Returns all request headers.",
     },
-    // Add the new entry for /endpoints itself
+    // /endpoints itself
     EndpointInfo {
         path: "/endpoints",
         method: "GET",
         description: "Lists all available API endpoints.",
+    },
+    // Data-format endpoint
+    EndpointInfo {
+        path: "/base64/:encoded",
+        method: "GET",
+        description: "Decodes a URL-safe base64 string from the path and returns metadata as JSON.",
+    },
+    // Tier 3 plugin-testing trio: controllable upstream behaviors for gateway plugin tests
+    EndpointInfo {
+        path: "/bytes/:n",
+        method: "GET",
+        description: "Returns n random bytes as application/octet-stream (max 10 MiB).",
+    },
+    EndpointInfo {
+        path: "/response-headers",
+        method: "GET",
+        description: "Echoes each query parameter as a response header and in the JSON body.",
+    },
+    EndpointInfo {
+        path: "/drip",
+        method: "GET",
+        description:
+            "Streams numbytes bytes of '*' over duration seconds via chunked transfer encoding.",
     },
 ];
 
