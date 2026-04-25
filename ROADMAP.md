@@ -237,9 +237,9 @@
 ## Tier 8: Security & Supply Chain
 
 - [ ] Set `rust-version = "1.70"` in `Cargo.toml` `[package]` and verify — otherwise CONTRIBUTING's "Rust 1.70+" is aspirational
-- [ ] Add `cargo audit` CI job (security advisories against `Cargo.lock`)
+- [ ] Add `cargo audit` CI job (security advisories against `Cargo.lock`) — deferred from PR #117 until Dependabot clears the existing 16 advisories + 5 unmaintained warnings in `Cargo.lock` (else turning audit on red-fails its own enabling PR). Re-enable as a parallel `Audit` job with `rustsec/audit-check@v2` once the lockfile is clean (or carry an `audit.toml` ignore list with rationale per advisory).
 - [ ] Add `cargo deny` CI job (license + advisory policy enforcement)
-- [ ] Add `.github/dependabot.yml` for Cargo + Docker + GitHub Actions — ~15 lines, saves weekly manual bumps
+- [x] Add `.github/dependabot.yml` for Cargo + GitHub Actions — weekly Monday cadence, minor+patch bumps grouped per ecosystem. Docker omitted (no version-pinning in Dockerfile beyond a single `FROM rust:...` we already control). (PR #117)
 - [ ] Configurable CORS — gate the permissive default behind a `cors_allowed_origins` config field (comma-separated list, `*` preserved as opt-in)
 - [ ] HSTS header for TLS listeners (`Strict-Transport-Security: max-age=...`)
 - [ ] Rate limiting on standalone deploys — optional, or document that "a gateway should handle this" in README (since single client can saturate `/delay`)
@@ -251,13 +251,13 @@
 
 Ranked by payoff-per-hour from the review:
 
-1. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
+1. **`cargo audit` CI job** — deferred from PR #117; revisit after Dependabot has had a couple weeks to land dep-bump PRs and shrink the existing advisory list. Either turn audit on clean or ship with a documented `audit.toml` ignore list.
 2. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
 3. **Multi-arch Docker image** — small CI change, big UX win for Mac users
 4. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
 5. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
 
-(Tier 3 plugin-testing trio complete: `/response-headers` PR #113, `/bytes` PR #114, `/drip` PR #115.)
+(Tier 3 plugin-testing trio complete: `/response-headers` PR #113, `/bytes` PR #114, `/drip` PR #115. Dependabot landed in PR #117; audit job follows once advisories shrink.)
 
 ---
 
