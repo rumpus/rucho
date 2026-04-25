@@ -76,6 +76,7 @@ rucho version  # Display version
 | GET     | `/base64/:encoded`| Decode URL-safe base64 (max 4096 bytes)              |
 | GET     | `/bytes/:n`       | Return n random bytes (max 10 MiB)                   |
 | GET     | `/response-headers`| Echo query params as response headers + JSON body   |
+| GET     | `/drip`           | Slowly stream bytes (test inter-byte timeouts)       |
 | GET     | `/uuid`           | Random UUID v4                                       |
 | GET     | `/ip`             | Client IP address                                    |
 | GET     | `/user-agent`     | User-Agent header echo                               |
@@ -173,6 +174,7 @@ src/
 │   ├── cookies.rs       # /cookies endpoints
 │   ├── core_routes.rs   # Core echo + utility endpoints
 │   ├── delay.rs         # /delay/:n endpoint
+│   ├── drip.rs          # /drip slow-streaming endpoint
 │   ├── healthz.rs       # /healthz endpoint
 │   ├── response_headers.rs # /response-headers endpoint
 │   ├── metrics.rs       # /metrics endpoint handler

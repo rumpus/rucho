@@ -53,6 +53,7 @@ use rucho::utils::metrics::Metrics;
         rucho::routes::cookies::delete_cookies_handler,
         rucho::routes::base64::base64_handler,
         rucho::routes::bytes::bytes_handler,
+        rucho::routes::drip::drip_handler,
         rucho::routes::response_headers::response_headers_handler,
         rucho::routes::core_routes::uuid_handler,
         rucho::routes::core_routes::ip_handler,
@@ -157,6 +158,7 @@ fn build_app(
         .merge(rucho::routes::cookies::router())
         .merge(rucho::routes::base64::router())
         .merge(rucho::routes::bytes::router())
+        .merge(rucho::routes::drip::router())
         .merge(rucho::routes::response_headers::router())
         .layer(DefaultBodyLimit::max(max_body_size_bytes));
 

@@ -86,7 +86,7 @@
 - [ ] `/gzip`, `/brotli`, `/deflate` — force a specific encoding regardless of `Accept-Encoding`
 
 ### Streaming & Range
-- [ ] `/drip?duration=5&numbytes=10` — slowly drip data over time
+- [x] `/drip?duration=N&numbytes=M` — emit `numbytes` bytes evenly over `duration` seconds. Optional `code` and `delay` parameters. Caps: numbytes ≤ 10 000, duration/delay ≤ 300 s. Chunk pacing clamped to ~1 ms timer precision. Tests inter-byte (read/send) timeouts and streaming-vs-buffering behavior. (PR #115)
 - [ ] `/range/:n` — return `n` bytes with `Accept-Ranges` support
 - [ ] `/links/:n` — return an HTML page with `n` links (crawler testing)
 
@@ -251,12 +251,13 @@
 
 Ranked by payoff-per-hour from the review:
 
-1. **`/drip`** — final Tier 3 plugin-testing endpoint for slow-streaming upstream behavior (tests `read_timeout` / `send_timeout` policies). `/response-headers` shipped in PR #113; `/bytes` shipped in PR #114.
-2. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
-3. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
-4. **Multi-arch Docker image** — small CI change, big UX win for Mac users
-5. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
-6. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
+1. **`cargo audit` + Dependabot in CI** — supply-chain hygiene, trivial to add
+2. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
+3. **Multi-arch Docker image** — small CI change, big UX win for Mac users
+4. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
+5. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
+
+(Tier 3 plugin-testing trio complete: `/response-headers` PR #113, `/bytes` PR #114, `/drip` PR #115.)
 
 ---
 
