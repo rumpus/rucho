@@ -7,6 +7,7 @@
 //! - [`cookies`] - Cookie inspection and manipulation endpoints
 //! - [`core_routes`] - Main API endpoints (GET, POST, PUT, PATCH, DELETE, etc.)
 //! - [`delay`] - Delay endpoint for testing timeouts
+//! - [`drip`] - Slow-streaming bytes endpoint for testing inter-byte timeouts
 //! - [`healthz`] - Health check endpoint
 //! - [`metrics`] - Metrics endpoint (JSON)
 //! - [`redirect`] - Chained redirect endpoint
@@ -22,6 +23,8 @@ pub mod cookies;
 pub mod core_routes;
 /// Module for the delay endpoint (`/delay/:n`).
 pub mod delay;
+/// Module for the slow-streaming drip endpoint (`/drip`).
+pub mod drip;
 /// Module for the health check endpoint (`/healthz`).
 pub mod healthz;
 /// Module for the metrics endpoint (`/metrics`).

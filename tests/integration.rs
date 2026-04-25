@@ -6,7 +6,7 @@
 
 use axum::{extract::DefaultBodyLimit, middleware, Router};
 use rucho::routes::{
-    base64, bytes, cookies, core_routes, delay, healthz, redirect, response_headers,
+    base64, bytes, cookies, core_routes, delay, drip, healthz, redirect, response_headers,
 };
 use rucho::server::timing_layer::timing_middleware;
 use rucho::utils::constants::DEFAULT_MAX_BODY_SIZE_BYTES;
@@ -32,6 +32,7 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
         .merge(cookies::router())
         .merge(base64::router())
         .merge(bytes::router())
+        .merge(drip::router())
         .merge(response_headers::router())
         .layer(DefaultBodyLimit::max(max_body_size))
         .layer(middleware::from_fn(timing_middleware));
@@ -329,6 +330,62 @@ async fn test_response_headers_invalid_returns_400() {
         .unwrap();
 
     assert_eq!(resp.status(), 400);
+}
+
+#[tokio::test]
+async fn test_drip_streams_correct_byte_count() {
+    let base = spawn_app().await;
+    // Tight duration — keeps the test fast while still going through the
+    // streaming path.
+    let resp = reqwest::get(format!("{base}/drip?numbytes=20&duration=0"))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers().get("content-type").unwrap(),
+        "application/octet-stream"
+    );
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(body.len(), 20);
+    assert!(body.iter().all(|&b| b == b'*'));
+}
+
+#[tokio::test]
+async fn test_drip_takes_at_least_requested_duration() {
+    let base = spawn_app().await;
+    let start = std::time::Instant::now();
+    let resp = reqwest::get(format!("{base}/drip?numbytes=4&duration=1"))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body = resp.bytes().await.unwrap();
+    let elapsed = start.elapsed();
+    assert_eq!(body.len(), 4);
+    assert!(
+        elapsed >= std::time::Duration::from_millis(950),
+        "expected >= 950ms, got {elapsed:?}"
+    );
+}
+
+#[tokio::test]
+async fn test_drip_numbytes_cap_returns_400() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/drip?numbytes=10001"))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+}
+
+#[tokio::test]
+async fn test_drip_custom_status_code() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/drip?numbytes=3&duration=0&code=504"))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 504);
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(body.len(), 3);
 }
 
 #[tokio::test]

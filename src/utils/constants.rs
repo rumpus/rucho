@@ -40,6 +40,12 @@ pub const DEFAULT_MAX_BODY_SIZE_BYTES: usize = 2 * 1024 * 1024;
 /// unbounded memory to generate the response body.
 pub const MAX_BYTES_RESPONSE_SIZE: usize = 10 * 1024 * 1024;
 
+/// Maximum total bytes the `/drip` endpoint will emit per request.
+/// Smaller than `MAX_BYTES_RESPONSE_SIZE` because `/drip` is for testing slow
+/// streaming behavior, not bulk transfer. Capping here also bounds how many
+/// chunk-sleep iterations the streaming task performs.
+pub const MAX_DRIP_NUMBYTES: usize = 10_000;
+
 /// Maximum buffer size in bytes for TCP/UDP connections.
 /// This prevents memory exhaustion from malicious large payloads.
 pub const MAX_BUFFER_SIZE: usize = 65536;
