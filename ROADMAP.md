@@ -241,7 +241,7 @@
 - [ ] Set `rust-version = "1.70"` in `Cargo.toml` `[package]` and verify — otherwise CONTRIBUTING's "Rust 1.70+" is aspirational
 - [ ] `cargo audit` CI job — re-evaluate through the side-project lens before re-attempting. Tried-and-removed companion (Dependabot, below) hit the same scope problem; running `cargo audit` manually quarterly may be the right answer here. If we *do* re-enable, the lockfile carries known advisories that would need explicit `audit.toml` ignores or a manual `cargo update` pass first.
 - [ ] Add `cargo deny` CI job (license + advisory policy enforcement) — also subject to the side-project-lens evaluation
-- [ ] ~~`.github/dependabot.yml` for Cargo + GitHub Actions~~ — **tried and reverted** (added PR #117, removed PR #1XX). Within hours of merging it opened 5 PRs, 3 of which had to be triaged and closed for ecosystem incompatibilities (`axum-server 0.7` doesn't yet support `hyper 1.9`; `utoipa v5` needs source migration; `utoipa-swagger-ui v9` requires axum-0.8 cascade). For a single-maintainer test target the weekly PR triage cost exceeds the security benefit. See `feedback_side_project_tooling_scope.md` for the lens.
+- [ ] ~~`.github/dependabot.yml` for Cargo + GitHub Actions~~ — **tried and reverted** (added PR #117, removed PR #129). Within hours of merging it opened 5 PRs, 3 of which had to be triaged and closed for ecosystem incompatibilities (`axum-server 0.7` doesn't yet support `hyper 1.9`; `utoipa v5` needs source migration; `utoipa-swagger-ui v9` requires axum-0.8 cascade). For a single-maintainer test target the weekly PR triage cost exceeds the security benefit. See `feedback_side_project_tooling_scope.md` for the lens.
 - [ ] Configurable CORS — gate the permissive default behind a `cors_allowed_origins` config field (comma-separated list, `*` preserved as opt-in)
 - [ ] HSTS header for TLS listeners (`Strict-Transport-Security: max-age=...`)
 - [ ] Rate limiting on standalone deploys — optional, or document that "a gateway should handle this" in README (since single client can saturate `/delay`)
@@ -258,7 +258,7 @@ Ranked by payoff-per-hour from the review:
 3. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
 4. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
 
-(Tier 3 plugin-testing trio complete: `/response-headers` PR #113, `/bytes` PR #114, `/drip` PR #115. Dependabot was tried in PR #117 and reverted in PR #1XX — see Tier 8 note. `cargo audit` removed from priority order for the same reason; will revisit after a fresh side-project-lens evaluation.)
+(Tier 3 plugin-testing trio complete: `/response-headers` PR #113, `/bytes` PR #114, `/drip` PR #115. Dependabot was tried in PR #117 and reverted in PR #129 — see Tier 8 note. `cargo audit` removed from priority order for the same reason; will revisit after a fresh side-project-lens evaluation.)
 
 ---
 
