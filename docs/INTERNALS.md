@@ -2298,7 +2298,7 @@ Key external crates and their role in the application:
 | `hyper` | 1.0 | HTTP/1.1 and HTTP/2 protocol implementation (under axum) |
 | `hyper-util` | 0.1 | `TokioTimer` for hyper's timeout system |
 | `tower` | 0.5 | Middleware/service abstraction (tower::Layer, tower::Service) |
-| `tower-http` | 0.5 | Trace, CORS, NormalizePath, Compression middleware layers |
+| `tower-http` | 0.6 | Trace, CORS, NormalizePath, Compression middleware layers |
 | `axum-server` | 0.7 | TLS-capable HTTP server with graceful shutdown `Handle` |
 | `clap` | 4.4 | CLI argument parsing with derive macros |
 | `serde` | 1.0 | Serialization/deserialization framework |
@@ -2307,12 +2307,14 @@ Key external crates and their role in the application:
 | `tracing-subscriber` | 0.3 | Logging output layer (console formatting) |
 | `rustls` | 0.23 | Modern TLS library (replaces OpenSSL) |
 | `tokio-rustls` | 0.25 | Tokio integration for rustls |
-| `rustls-pemfile` | 1.0 | PEM file parsing for certificates and keys |
+| `rustls-pemfile` | 2.2 | PEM file parsing for certificates and keys |
 | `socket2` | 0.5 | Low-level socket options (keepalive, nodelay) via `SockRef` |
 | `utoipa` | 4 | OpenAPI spec generation from code annotations |
 | `utoipa-swagger-ui` | 7 | Swagger UI serving as an axum route |
 | `uuid` | 1 (v4) | UUID v4 generation for `/uuid` endpoint |
-| `rand` | 0.8 | Random number generation for chaos middleware |
+| `rand` | 0.8 | Random number generation for chaos middleware and `/bytes/:n` |
+| `base64` | 0.22 | URL-safe + standard base64 decode for `/base64/:encoded` |
+| `futures-util` | 0.3 | `stream::unfold` for the `/drip` chunked-streaming body |
 | `sysinfo` | 0.30 | Process inspection for PID management (`kill`, `process`) |
 | `http` | 1.0 | HTTP types (`StatusCode`, `HeaderMap`, etc.) |
 | `tempfile` | 3.8 | *(dev only)* Temporary directories for config tests |
