@@ -139,26 +139,17 @@ fn build_drip_stream(
     total_ms: u64,
     initial_delay: Duration,
 ) -> impl Stream<Item = Result<Vec<u8>, std::io::Error>> {
-    let num_chunks = if numbytes == 0 {
-        0
+    // For `numbytes == 0` everything is zero — no chunks, no sleeps. Otherwise
+    // pick the chunk count so emissions are at least ~1 ms apart, then divide
+    // unconditionally; `chunks >= 1` is guaranteed by `.max(1)`.
+    let (num_chunks, interval, base, remainder) = if numbytes == 0 {
+        (0usize, Duration::ZERO, 0usize, 0usize)
     } else {
-        // At most one chunk per ms, at most one byte per chunk.
-        total_ms.min(numbytes as u64).max(1) as usize
-    };
-    let interval = if num_chunks > 0 {
-        Duration::from_millis(total_ms / num_chunks as u64)
-    } else {
-        Duration::ZERO
-    };
-    let base = if num_chunks > 0 {
-        numbytes / num_chunks
-    } else {
-        0
-    };
-    let remainder = if num_chunks > 0 {
-        numbytes % num_chunks
-    } else {
-        0
+        let chunks = total_ms.min(numbytes as u64).max(1) as usize;
+        let interval = Duration::from_millis(total_ms / chunks as u64);
+        let base = numbytes / chunks;
+        let rem = numbytes % chunks;
+        (chunks, interval, base, rem)
     };
 
     stream::unfold(0usize, move |i| async move {
