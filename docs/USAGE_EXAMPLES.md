@@ -22,6 +22,9 @@ All examples assume rucho is running at `http://localhost:8080` (the default).
 - [Delay & Timeout Testing](#delay--timeout-testing)
 - [Cookie Management](#cookie-management)
 - [Base64 Decoding](#base64-decoding)
+- [Custom Response Headers](#custom-response-headers)
+- [Random Bytes](#random-bytes)
+- [Slow Streaming (Drip)](#slow-streaming-drip)
 - [Chaos Engineering](#chaos-engineering)
 - [Health Checks & Monitoring](#health-checks--monitoring)
 
@@ -777,6 +780,152 @@ curl -i http://localhost:8080/base64/a
 
 # Input exceeds 4096-byte cap — returns 400
 curl -i "http://localhost:8080/base64/$(python3 -c 'print("A"*4097)')"
+```
+
+---
+
+## Custom Response Headers
+
+`/response-headers` echoes each query parameter as both a response header and a field in the JSON body. Useful for exercising gateway plugins that mutate or inspect upstream response headers — Kong's `response-transformer`, `cors`, `proxy-cache`, and so on. Duplicate keys emit repeated headers and collapse to a JSON array in the body. User-supplied headers replace defaults (including `content-type`; the body is still JSON — intentional mismatch for plugin testing).
+
+### Basic usage
+
+```bash
+curl -i 'http://localhost:8080/response-headers?x-rate-limit=100&cache-control=no-store'
+```
+
+```http
+HTTP/1.1 200 OK
+x-rate-limit: 100
+cache-control: no-store
+
+{
+  "x-rate-limit": "100",
+  "cache-control": "no-store"
+}
+```
+
+### Scenario: validate a `response-transformer` plugin
+
+Configure your gateway to *strip* `x-internal-token` from upstream responses, then point it at this endpoint:
+
+```bash
+# Without the plugin: header passes through
+curl -i 'http://gateway/response-headers?x-internal-token=secret'
+
+# With the plugin: header should be removed
+```
+
+### Duplicate keys
+
+```bash
+curl -i 'http://localhost:8080/response-headers?set-cookie=a=1&set-cookie=b=2'
+```
+
+Emits `Set-Cookie: a=1` and `Set-Cookie: b=2` as two separate headers; the body collapses to `{"set-cookie": ["a=1", "b=2"]}`.
+
+### Error cases
+
+```bash
+# Invalid header name (newline) — returns 400
+curl -i 'http://localhost:8080/response-headers?bad%0Aname=value'
+```
+
+---
+
+## Random Bytes
+
+`/bytes/:n` returns `n` random bytes as `application/octet-stream`. The body is filled with maximum-entropy random data, so any tampering by an intermediate proxy is observable. Capped at 10 MiB (10 485 760).
+
+### Download a random binary blob
+
+```bash
+curl -o random.bin http://localhost:8080/bytes/4096
+ls -lh random.bin   # 4.0K
+```
+
+### Scenario: verify a proxy doesn't corrupt binary upstreams
+
+Compare the SHA-256 of the response when going direct vs. through your gateway:
+
+```bash
+# Direct
+curl -s http://localhost:8080/bytes/65536 | sha256sum
+
+# Through gateway — should be identical
+curl -s http://gateway/bytes/65536 | sha256sum
+```
+
+### Scenario: exercise compression-plugin behavior on incompressible data
+
+Random bytes don't compress, so a gzip plugin should either skip them or report ~0% reduction:
+
+```bash
+curl -i -H 'Accept-Encoding: gzip' http://localhost:8080/bytes/100000
+```
+
+### Error cases
+
+```bash
+# Exceeds 10 MiB cap — returns 400
+curl -i http://localhost:8080/bytes/10485761
+```
+
+---
+
+## Slow Streaming (Drip)
+
+`/drip` streams `numbytes` bytes of `*` evenly over `duration` seconds via `Transfer-Encoding: chunked`. Distinct from `/delay/:n` — that exercises *first-byte* (idle) timeouts, while `/drip` exercises the *streaming* timeouts that fire when bytes are arriving but slowly (Kong's `read_timeout` / `send_timeout`, response buffering vs streaming).
+
+Query parameters (all optional): `numbytes` (default 10, max 10 000), `duration` (default 2, max 300), `code` (default 200), `delay` (initial wait before first byte, default 0, max 300).
+
+### Basic usage
+
+```bash
+# 100 bytes spread over 5 seconds
+time curl -s http://localhost:8080/drip?numbytes=100&duration=5 | wc -c
+# ~100, ~5s
+```
+
+### Scenario: tune `read_timeout` against a slow upstream
+
+If your gateway's `read_timeout` is 2 s and the upstream emits a byte every 3 s, the connection should drop:
+
+```bash
+curl -i 'http://gateway/drip?numbytes=10&duration=30'
+# Expect a timeout error from the gateway
+```
+
+### Scenario: verify proxy streams instead of buffering
+
+A proxy that buffers the full response will deliver everything at once after `duration`. A streaming proxy will deliver bytes incrementally. Use `curl --no-buffer` and `pv` (pipe viewer) to watch:
+
+```bash
+curl --no-buffer -s 'http://gateway/drip?numbytes=20&duration=10' | pv -c -N drip > /dev/null
+```
+
+### Custom status codes
+
+```bash
+# Test how a proxy handles a slow 504 upstream
+curl -i 'http://localhost:8080/drip?numbytes=20&duration=3&code=504'
+```
+
+### Initial delay before first byte
+
+```bash
+# Wait 2s, then drip 10 bytes over 1s
+curl -i 'http://localhost:8080/drip?numbytes=10&duration=1&delay=2'
+```
+
+### Error cases
+
+```bash
+# numbytes over cap — returns 400
+curl -i 'http://localhost:8080/drip?numbytes=10001'
+
+# Invalid status code — returns 400
+curl -i 'http://localhost:8080/drip?code=1000'
 ```
 
 ---

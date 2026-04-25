@@ -148,12 +148,15 @@ src/
 ├── routes/              # HTTP route handlers
 │   ├── mod.rs
 │   ├── base64.rs        # /base64/:encoded endpoint
+│   ├── bytes.rs         # /bytes/:n endpoint
 │   ├── cookies.rs       # /cookies endpoints
 │   ├── core_routes.rs   # Core echo + utility endpoints
 │   ├── delay.rs         # /delay/:n endpoint
+│   ├── drip.rs          # /drip slow-streaming endpoint
 │   ├── healthz.rs       # /healthz endpoint
 │   ├── metrics.rs       # /metrics endpoint handler
-│   └── redirect.rs      # /redirect/:n endpoint
+│   ├── redirect.rs      # /redirect/:n endpoint
+│   └── response_headers.rs # /response-headers endpoint
 ├── server/              # Server setup and orchestration
 │   ├── mod.rs
 │   ├── chaos_layer.rs   # Chaos engineering middleware
