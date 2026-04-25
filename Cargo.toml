@@ -24,7 +24,7 @@ rustls-pemfile = "1.0"
 hyper = { version = "1.0", features = ["server"] }
 http = "1.0"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
-utoipa = { version = "4", features = ["axum_extras"] }
+utoipa = { version = "5", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "7", features = ["axum"] }
 uuid = { version = "1", features = ["v4"] }
 rand = "0.8"
