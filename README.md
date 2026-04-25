@@ -13,6 +13,12 @@ Designed for testing, debugging, and simulating various HTTP behaviors.
 - Configurable response delay (`/delay/:n`, max 300s)
 - Chained HTTP redirects (`/redirect/:n`, max 20 hops)
 - Cookie inspection, setting, and deletion (`/cookies`, `/cookies/set`, `/cookies/delete`)
+- Base64 decoding with UTF-8 detection (`/base64/:encoded`, max 4 KiB)
+- Gateway plugin-testing trio:
+  - `/response-headers?key=value` — echo query params as response headers
+  - `/bytes/:n` — random bytes as `application/octet-stream` (max 10 MiB)
+  - `/drip?duration=N&numbytes=M` — slow byte stream for inter-byte timeout testing
+- Configurable request body size cap (`max_body_size_bytes`, default 2 MiB)
 - TCP and UDP echo listeners for protocol testing
 - HTTPS support via Rustls with HTTP/2
 - Response compression (gzip, brotli) - optional, client-negotiated

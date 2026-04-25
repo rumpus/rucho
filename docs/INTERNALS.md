@@ -743,7 +743,7 @@ for HEAD requests, but this handler explicitly returns an empty body.)
 
 **`endpoints_handler`** (`src/routes/core_routes.rs`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs` and lists all 20 endpoints with their
+at `src/routes/core_routes.rs` and lists all 28 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
@@ -878,6 +878,56 @@ pub async fn get_metrics(State(metrics): State<Arc<Metrics>>) -> impl IntoRespon
 
 Uses Axum's `State` extractor to access the shared `Arc<Metrics>`. Returns the
 full snapshot as JSON.
+
+### 5.6 Data & Plugin-Testing Handlers
+
+These handlers exist to give clients a controllable upstream — useful when
+exercising gateway plugins or testing client behavior against deliberately
+shaped responses. The first decodes data, the other three are the "Tier 3
+plugin-testing trio" (response-shaping, payload sizing, slow streaming).
+
+**`base64_handler`** (`src/routes/base64.rs`):
+Decodes the URL-safe base64 string from the path and returns a JSON wrapper
+with the input, the decoded content (via `String::from_utf8_lossy`), an
+`is_utf8` flag derived from `std::str::from_utf8`, and the decoded byte
+length. Standard base64 is attempted as a fallback when the URL-safe decode
+fails (covers cases where a `+` or `/` slipped into a non-URL-safe encode);
+that fallback is best-effort because `/` would also break path routing.
+Input is capped at `MAX_BASE64_INPUT_BYTES` (4096); larger paths return 400
+before any decode work.
+
+**`bytes_handler`** (`src/routes/bytes.rs`):
+Allocates `n` bytes, fills via `rand::thread_rng().fill_bytes()` for maximum
+entropy (so any tampering by an intermediate proxy is observable), and emits
+them with `Content-Type: application/octet-stream`. `n` is capped at
+`MAX_BYTES_RESPONSE_SIZE` (10 MiB) to bound the per-request allocation. The
+metrics layer normalizes `/bytes/:n` to a single bucket so high-cardinality
+`n` values don't blow up the per-endpoint counters.
+
+**`response_headers_handler`** (`src/routes/response_headers.rs`):
+Takes `Query<Vec<(String, String)>>` so duplicate query keys are preserved
+(a `HashMap` would silently collapse them). Each `(key, value)` is validated
+via `HeaderName::from_bytes` and `HeaderValue::from_str`; a single failure
+short-circuits with 400 before any partial response state is built. Builds a
+JSON body that collapses duplicate keys to arrays, then constructs the
+`Response`: removes any default header whose name appears in the user input
+(so user-supplied `content-type` actually replaces the JSON default — the
+intentional mismatch lets you exercise a `response-transformer` plugin), then
+appends each user header in original order so duplicates emit as repeated
+response headers.
+
+**`drip_handler`** (`src/routes/drip.rs`):
+Validates query params (`numbytes`, `duration`, `code`, `delay`) up front —
+once the response body starts streaming, headers are flushed and the status
+can no longer change. Builds a `futures_util::stream::unfold` that emits
+chunks of `*` over `duration` seconds, then wraps it in
+`axum::body::Body::from_stream`. Hyper picks `Transfer-Encoding: chunked`
+automatically because the body has no `Content-Length`. Chunk pacing is
+clamped so emissions are at least ~1 ms apart (tokio timer precision):
+asking for 10 000 bytes over 1 s yields 1 000 chunks of 10 bytes spaced
+1 ms apart, not 10 000 sub-millisecond sleeps that the timer would silently
+coalesce. A trailing sleep is scheduled before the stream ends so the total
+wall-clock time matches the requested duration.
 
 ---
 
@@ -2283,12 +2333,15 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/cli/commands.rs` | `Args`, `CliCommand`, start/stop/status/version handlers |
 | `src/routes/mod.rs` | Routes module re-exports |
 | `src/routes/base64.rs` | `/base64/:encoded` handler and router |
+| `src/routes/bytes.rs` | `/bytes/:n` handler and router |
 | `src/routes/cookies.rs` | `/cookies`, `/cookies/set`, `/cookies/delete` handlers and router |
 | `src/routes/core_routes.rs` | 16 route handlers, `router()`, `EndpointInfo`, `API_ENDPOINTS` |
 | `src/routes/delay.rs` | `/delay/:n` handler and router |
+| `src/routes/drip.rs` | `/drip` handler, streaming body builder, and router |
 | `src/routes/healthz.rs` | `/healthz` handler and router |
 | `src/routes/metrics.rs` | `/metrics` handler (stateful, `State<Arc<Metrics>>`) |
 | `src/routes/redirect.rs` | `/redirect/:n` handler and router |
+| `src/routes/response_headers.rs` | `/response-headers` handler and router (duplicate-key preserving) |
 | `src/server/mod.rs` | `run_server()` — top-level orchestrator |
 | `src/server/http.rs` | HTTP/HTTPS listener setup, TCP socket config, HTTP builder config |
 | `src/server/tcp.rs` | TCP echo listener setup (accept loop) |
@@ -2300,7 +2353,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/tcp_udp_handlers.rs` | TCP echo loop, UDP echo with exponential backoff |
 | `src/utils/mod.rs` | Utils module re-exports |
 | `src/utils/config.rs` | `Config`, `ChaosConfig`, loading, validation, `load_env_var!` |
-| `src/utils/constants.rs` | All hardcoded constants (15 values) |
+| `src/utils/constants.rs` | All hardcoded constants (19 values) |
 | `src/utils/error_response.rs` | `format_error_response()` |
 | `src/utils/json_response.rs` | `format_json_response()`, `format_json_response_with_timing()` |
 | `src/utils/metrics.rs` | `Metrics`, `TimeBucket`, rolling window, snapshot structs |
@@ -2309,7 +2362,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/utils/timing.rs` | `RequestTiming` struct |
 | `benches/response_benchmarks.rs` | Criterion microbenchmarks for response building functions |
 | `benches/endpoint_benchmarks.rs` | Criterion async benchmarks for full endpoint request cycles via `tower::oneshot` |
-| `tests/integration.rs` | Integration tests — real HTTP server per test via `reqwest` (12 tests) |
+| `tests/integration.rs` | Integration tests — real HTTP server per test via `reqwest` (24 tests) |
 | `debian/man/rucho.1` | Man page (roff format) — installed to `/usr/share/man/man1/` via `.deb` |
 
 ---
