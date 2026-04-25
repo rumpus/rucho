@@ -236,10 +236,12 @@
 
 ## Tier 8: Security & Supply Chain
 
+> **Scope note:** Most items in this tier were proposed during a generic code review and assume a production-team operating model. Rucho is a single-maintainer test target — re-evaluate each item through the side-project lens before working on it. Quarterly manual `cargo update && cargo audit` provides most of the security signal automated tooling would, with zero CI overhead. Tools that auto-open PRs or block builds need to clearly justify their maintenance cost at this scale.
+
 - [ ] Set `rust-version = "1.70"` in `Cargo.toml` `[package]` and verify — otherwise CONTRIBUTING's "Rust 1.70+" is aspirational
-- [ ] Add `cargo audit` CI job (security advisories against `Cargo.lock`) — deferred from PR #117 until Dependabot clears the existing 16 advisories + 5 unmaintained warnings in `Cargo.lock` (else turning audit on red-fails its own enabling PR). Re-enable as a parallel `Audit` job with `rustsec/audit-check@v2` once the lockfile is clean (or carry an `audit.toml` ignore list with rationale per advisory).
-- [ ] Add `cargo deny` CI job (license + advisory policy enforcement)
-- [x] Add `.github/dependabot.yml` for Cargo + GitHub Actions — weekly Monday cadence, minor+patch bumps grouped per ecosystem. Docker omitted (no version-pinning in Dockerfile beyond a single `FROM rust:...` we already control). (PR #117)
+- [ ] `cargo audit` CI job — re-evaluate through the side-project lens before re-attempting. Tried-and-removed companion (Dependabot, below) hit the same scope problem; running `cargo audit` manually quarterly may be the right answer here. If we *do* re-enable, the lockfile carries known advisories that would need explicit `audit.toml` ignores or a manual `cargo update` pass first.
+- [ ] Add `cargo deny` CI job (license + advisory policy enforcement) — also subject to the side-project-lens evaluation
+- [ ] ~~`.github/dependabot.yml` for Cargo + GitHub Actions~~ — **tried and reverted** (added PR #117, removed PR #129). Within hours of merging it opened 5 PRs, 3 of which had to be triaged and closed for ecosystem incompatibilities (`axum-server 0.7` doesn't yet support `hyper 1.9`; `utoipa v5` needs source migration; `utoipa-swagger-ui v9` requires axum-0.8 cascade). For a single-maintainer test target the weekly PR triage cost exceeds the security benefit. See `feedback_side_project_tooling_scope.md` for the lens.
 - [ ] Configurable CORS — gate the permissive default behind a `cors_allowed_origins` config field (comma-separated list, `*` preserved as opt-in)
 - [ ] HSTS header for TLS listeners (`Strict-Transport-Security: max-age=...`)
 - [ ] Rate limiting on standalone deploys — optional, or document that "a gateway should handle this" in README (since single client can saturate `/delay`)
@@ -251,13 +253,12 @@
 
 Ranked by payoff-per-hour from the review:
 
-1. **`cargo audit` CI job** — deferred from PR #117; revisit after Dependabot has had a couple weeks to land dep-bump PRs and shrink the existing advisory list. Either turn audit on clean or ship with a documented `audit.toml` ignore list.
-2. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
-3. **Multi-arch Docker image** — small CI change, big UX win for Mac users
-4. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
-5. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
+1. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
+2. **Multi-arch Docker image** — small CI change, big UX win for Mac users
+3. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
+4. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
 
-(Tier 3 plugin-testing trio complete: `/response-headers` PR #113, `/bytes` PR #114, `/drip` PR #115. Dependabot landed in PR #117; audit job follows once advisories shrink.)
+(Tier 3 plugin-testing trio complete: `/response-headers` PR #113, `/bytes` PR #114, `/drip` PR #115. Dependabot was tried in PR #117 and reverted in PR #129 — see Tier 8 note. `cargo audit` removed from priority order for the same reason; will revisit after a fresh side-project-lens evaluation.)
 
 ---
 
