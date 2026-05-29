@@ -78,7 +78,7 @@
 - [x] `/base64/:encoded` — decode base64 in the URL and return the result
 - [x] `/bytes/:n` — return `n` random bytes (binary download testing) (PR #114)
 - [x] `/xml`, `/html` — return non-JSON content types (`application/xml` / `text/html`; deliberately non-JSON for gateway content-type testing) (PR #132)
-- [ ] `/image/:format` — return a small test image (png, jpeg, svg, webp)
+- [x] `/image/:format` — return a small test image (png, jpeg, svg, webp); embedded fixtures, served as `&'static` bytes, metrics-normalized to `/image/:format` (PR #133)
 
 ### Response Control
 - [x] `/response-headers?key=value` — return arbitrary response headers via query params (PR #113)

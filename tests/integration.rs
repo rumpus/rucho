@@ -6,7 +6,7 @@
 
 use axum::{extract::DefaultBodyLimit, middleware, Router};
 use rucho::routes::{
-    base64, bytes, content_types, cookies, core_routes, delay, drip, healthz, redirect,
+    base64, bytes, content_types, cookies, core_routes, delay, drip, healthz, image, redirect,
     response_headers,
 };
 use rucho::server::timing_layer::timing_middleware;
@@ -36,6 +36,7 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
         .merge(drip::router())
         .merge(response_headers::router())
         .merge(content_types::router())
+        .merge(image::router())
         .layer(DefaultBodyLimit::max(max_body_size))
         .layer(middleware::from_fn(timing_middleware));
 
@@ -441,4 +442,47 @@ async fn test_html_returns_text_html() {
     let body = resp.text().await.unwrap();
     assert!(body.contains("<!DOCTYPE html>"));
     assert!(body.contains("<h1>Rucho</h1>"));
+}
+
+#[tokio::test]
+async fn test_image_png_returns_valid_png() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/image/png")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "image/png"
+    );
+    let body = resp.bytes().await.unwrap();
+    // PNG magic number survives the round trip.
+    assert_eq!(&body[..8], b"\x89PNG\r\n\x1a\n");
+}
+
+#[tokio::test]
+async fn test_image_svg_returns_svg_xml() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/image/svg")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "image/svg+xml"
+    );
+    assert!(resp.text().await.unwrap().contains("<svg"));
+}
+
+#[tokio::test]
+async fn test_image_unsupported_format_returns_400() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/image/gif")).await.unwrap();
+    assert_eq!(resp.status(), 400);
 }

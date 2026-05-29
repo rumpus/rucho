@@ -10,6 +10,7 @@
 //! - [`delay`] - Delay endpoint for testing timeouts
 //! - [`drip`] - Slow-streaming bytes endpoint for testing inter-byte timeouts
 //! - [`healthz`] - Health check endpoint
+//! - [`image`] - Sample image endpoint (png/jpeg/svg/webp)
 //! - [`metrics`] - Metrics endpoint (JSON)
 //! - [`redirect`] - Chained redirect endpoint
 //! - [`response_headers`] - Echo query params as response headers
@@ -30,6 +31,8 @@ pub mod delay;
 pub mod drip;
 /// Module for the health check endpoint (`/healthz`).
 pub mod healthz;
+/// Module for the sample-image endpoint (`/image/:format`).
+pub mod image;
 /// Module for the metrics endpoint (`/metrics`).
 pub mod metrics;
 /// Module for the redirect endpoint (`/redirect/:n`).

@@ -233,6 +233,12 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         method: "GET",
         description: "Returns a sample HTML document as text/html.",
     },
+    EndpointInfo {
+        path: "/image/:format",
+        method: "GET",
+        description:
+            "Returns a sample image (png, jpeg, svg, webp) with the matching content type.",
+    },
 ];
 
 /// Creates and returns the Axum router for the core API endpoints.

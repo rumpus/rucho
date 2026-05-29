@@ -15,6 +15,7 @@ Designed for testing, debugging, and simulating various HTTP behaviors.
 - Cookie inspection, setting, and deletion (`/cookies`, `/cookies/set`, `/cookies/delete`)
 - Base64 decoding with UTF-8 detection (`/base64/:encoded`, max 4 KiB)
 - Non-JSON content types (`/xml` → `application/xml`, `/html` → `text/html`) for testing gateway content-type handling
+- Sample images (`/image/:format` — png, jpeg, svg, webp) for testing gateway binary/image handling
 - Gateway plugin-testing trio:
   - `/response-headers?key=value` — echo query params as response headers
   - `/bytes/:n` — random bytes as `application/octet-stream` (max 10 MiB)
@@ -86,6 +87,7 @@ rucho version  # Display version
 | GET     | `/drip`           | Slowly stream bytes (test inter-byte timeouts)       |
 | GET     | `/xml`            | Sample XML document (`application/xml`)              |
 | GET     | `/html`           | Sample HTML document (`text/html`)                   |
+| GET     | `/image/:format`  | Sample image (png, jpeg, svg, webp)                  |
 | GET     | `/uuid`           | Random UUID v4                                       |
 | GET     | `/ip`             | Client IP address                                    |
 | GET     | `/user-agent`     | User-Agent header echo                               |
@@ -186,6 +188,7 @@ src/
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── drip.rs          # /drip slow-streaming endpoint
 │   ├── healthz.rs       # /healthz endpoint
+│   ├── image.rs         # /image/:format endpoint
 │   ├── response_headers.rs # /response-headers endpoint
 │   ├── metrics.rs       # /metrics endpoint handler
 │   └── redirect.rs      # /redirect/:n endpoint
