@@ -158,12 +158,12 @@
 ### Correctness / Hot Paths
 - [ ] Metrics lock contention — swap `RwLock<HashMap>` for `DashMap<String, AtomicU64>` or sharded atomics. Current implementation serializes every recorded request on a write lock (`src/utils/metrics.rs`)
 - [ ] Metrics cardinality cap for `/cookies/{action}` — clients can force unbounded growth by sending arbitrary subpaths. Bucket unknown `action` values to `/cookies/other` (`src/server/metrics_layer.rs:52`)
-- [ ] Chaos RNG: replace per-request `StdRng::from_rng(rand::thread_rng())` with cached `thread_local!` `StdRng` or use `rand::thread_rng()` directly — the v1.4.6 CHANGELOG claims this was optimized but the per-request seed is still present (`src/server/chaos_layer.rs:29`)
+- [x] Chaos RNG: now uses a per-thread cached `thread_local!` `StdRng` (seeded once via `from_entropy`, accessed via `with` so the borrow never crosses an `.await` — keeping the future `Send`) instead of re-seeding per request. Lands the optimization the v1.4.6 CHANGELOG had claimed but never implemented (`src/server/chaos_layer.rs`)
 - [ ] Replace `RwLock<usize>` around `current_bucket_idx` with `AtomicUsize` (`src/utils/metrics.rs:78`)
 - [ ] Remove dead 500 branch in `endpoints_handler` — `serde_json::to_value` on `&'static [EndpointInfo]` is infallible (`src/routes/core_routes.rs:454-465`)
 
 ### `.unwrap()` Hygiene
-- [ ] Replace `.unwrap()` in `src/server/chaos_layer.rs:49-50, 55, 107, 118` with `.expect("infallible: static response builder")` so intent matches CLAUDE.md "no unwrap in production" rule
+- [x] Replaced `.unwrap()` in `src/server/chaos_layer.rs` (response builder + the three `x-chaos` header inserts, the latter via a shared `chaos_header()` helper) with `.expect("infallible: …")` — matches CLAUDE.md "no unwrap in production" rule
 - [ ] Replace `.unwrap()` in `src/routes/core_routes.rs:431, 795` (head_handler, options_handler response builders) with `.expect(...)`
 
 ### DRY & Refactoring

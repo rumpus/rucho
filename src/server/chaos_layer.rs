@@ -11,9 +11,33 @@ use axum::response::Response;
 use http::StatusCode;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use std::cell::RefCell;
 use std::sync::Arc;
 
 use crate::utils::config::ChaosConfig;
+
+thread_local! {
+    /// Per-thread RNG for chaos rolls, seeded once from OS entropy and reused
+    /// across requests. Avoids re-seeding a `StdRng` on every request (the prior
+    /// per-call `StdRng::from_rng(thread_rng())` cost). Accessed only via `with`,
+    /// so the borrow is never held across an `.await` — a `!Send` value held
+    /// across `.await` would make the middleware future `!Send`, which axum rejects.
+    static CHAOS_RNG: RefCell<StdRng> = RefCell::new(StdRng::from_entropy());
+}
+
+/// Draws a uniform probability in `[0, 1)` from the per-thread chaos RNG.
+fn roll_probability() -> f64 {
+    CHAOS_RNG.with(|rng| rng.borrow_mut().gen::<f64>())
+}
+
+/// Builds the `X-Chaos` response header value from the applied-effects list.
+/// Infallible: the value is a comma-joined list of static ASCII tokens.
+fn chaos_header(applied: &[&str]) -> http::HeaderValue {
+    applied
+        .join(",")
+        .parse()
+        .expect("infallible: x-chaos header value is ASCII")
+}
 
 /// Middleware that injects chaos behaviors based on configuration.
 ///
@@ -26,12 +50,12 @@ pub async fn chaos_middleware(
     next: Next,
     chaos: Arc<ChaosConfig>,
 ) -> Response<Body> {
-    let mut rng = StdRng::from_rng(rand::thread_rng()).expect("thread_rng seeding");
     let mut applied: Vec<&str> = Vec::new();
 
     // 1. Roll for failure — short-circuit with error response
-    if chaos.has_failure() && rng.gen::<f64>() < chaos.failure_rate {
-        let code_idx = rng.gen_range(0..chaos.failure_codes.len());
+    if chaos.has_failure() && roll_probability() < chaos.failure_rate {
+        let code_idx =
+            CHAOS_RNG.with(|rng| rng.borrow_mut().gen_range(0..chaos.failure_codes.len()));
         let status_code = chaos.failure_codes[code_idx];
         applied.push("failure");
 
@@ -46,22 +70,25 @@ pub async fn chaos_middleware(
         let mut response = Response::builder()
             .status(StatusCode::from_u16(status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
             .header("content-type", "application/json")
-            .body(Body::from(serde_json::to_vec_pretty(&body).unwrap()))
-            .unwrap();
+            .body(Body::from(
+                serde_json::to_vec_pretty(&body)
+                    .expect("infallible: serializing static chaos body"),
+            ))
+            .expect("infallible: chaos failure response builder");
 
         if chaos.inform_header {
             response
                 .headers_mut()
-                .insert("x-chaos", applied.join(",").parse().unwrap());
+                .insert("x-chaos", chaos_header(&applied));
         }
 
         return response;
     }
 
     // 2. Roll for delay — sleep before passing to handler
-    if chaos.has_delay() && rng.gen::<f64>() < chaos.delay_rate {
+    if chaos.has_delay() && roll_probability() < chaos.delay_rate {
         let delay_ms = if chaos.delay_ms == "random" {
-            rng.gen_range(0..chaos.delay_max_ms)
+            CHAOS_RNG.with(|rng| rng.borrow_mut().gen_range(0..chaos.delay_max_ms))
         } else {
             chaos.delay_ms.parse::<u64>().unwrap_or(0)
         };
@@ -76,7 +103,7 @@ pub async fn chaos_middleware(
     let response = next.run(request).await;
 
     // 4. Roll for corruption — modify response body
-    if chaos.has_corruption() && rng.gen::<f64>() < chaos.corruption_rate {
+    if chaos.has_corruption() && roll_probability() < chaos.corruption_rate {
         applied.push("corruption");
         let (mut parts, body) = response.into_parts();
 
@@ -94,7 +121,10 @@ pub async fn chaos_middleware(
                     .await
                     .unwrap_or_default();
                 let len = bytes.len();
-                let garbage: Vec<u8> = (0..len).map(|_| rng.gen_range(0x21..0x7F)).collect();
+                let garbage: Vec<u8> = CHAOS_RNG.with(|rng| {
+                    let mut rng = rng.borrow_mut();
+                    (0..len).map(|_| rng.gen_range(0x21u8..0x7F)).collect()
+                });
                 Body::from(garbage)
             }
             _ => body, // Shouldn't happen after validation
@@ -102,9 +132,7 @@ pub async fn chaos_middleware(
 
         // 5. Add X-Chaos header if inform_header enabled and any effect applied
         if chaos.inform_header && !applied.is_empty() {
-            parts
-                .headers
-                .insert("x-chaos", applied.join(",").parse().unwrap());
+            parts.headers.insert("x-chaos", chaos_header(&applied));
         }
 
         return Response::from_parts(parts, corrupted_body);
@@ -113,11 +141,24 @@ pub async fn chaos_middleware(
     // 5. Add X-Chaos header if inform_header enabled and any effect applied (no corruption path)
     if chaos.inform_header && !applied.is_empty() {
         let (mut parts, body) = response.into_parts();
-        parts
-            .headers
-            .insert("x-chaos", applied.join(",").parse().unwrap());
+        parts.headers.insert("x-chaos", chaos_header(&applied));
         return Response::from_parts(parts, body);
     }
 
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn roll_probability_stays_in_unit_interval() {
+        // Exercises the thread-local RNG plumbing: many sequential borrows must
+        // not panic (no overlapping `borrow_mut`) and must keep advancing the RNG.
+        for _ in 0..1000 {
+            let p = roll_probability();
+            assert!((0.0..1.0).contains(&p), "probability out of range: {p}");
+        }
+    }
 }
