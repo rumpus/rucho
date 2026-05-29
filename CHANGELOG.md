@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/bytes/:n` endpoint — returns `n` random bytes as `application/octet-stream`. Capped at 10 MiB; larger values return 400. Metrics path normalized to `/bytes/:n` to prevent cardinality explosion. Targets gateway response-buffering, binary-integrity, and compression-plugin testing.
 - `/drip` endpoint — streams `numbytes` bytes of `*` evenly over `duration` seconds via chunked transfer encoding. Optional `code` overrides the response status; optional `delay` waits before the first byte. Caps: `numbytes` ≤ 10 000, `duration` and `delay` ≤ 300 s. Internally clamps chunk pacing to ~1 ms intervals to respect timer precision. Designed for exercising inter-byte (read/send) timeouts and streaming-vs-buffering behavior in gateways.
 
+### Changed
+- Chaos middleware now uses a per-thread cached RNG (`thread_local!` `StdRng`, seeded once from entropy) instead of constructing and re-seeding a `StdRng` from `thread_rng()` on every request. The v1.4.6 changelog described this optimization, but the implementation had continued to re-seed per request — this lands it for real. Internal only; chaos injection behavior is unchanged.
+
 ### Fixed
 - `/anything` handler no longer reads the full request body with `usize::MAX` limit — closes an OOM vector. `anything_handler` now uses the `Bytes` extractor which honors the configured `max_body_size_bytes`.
 - `/ip` no longer returns `"unknown"` when a request arrives without `X-Forwarded-For` or `X-Real-IP` headers. The server now binds with `into_make_service_with_connect_info::<SocketAddr>()`, letting `ip_handler` fall back to the peer address from the TCP connection.
