@@ -58,6 +58,7 @@ use rucho::utils::metrics::Metrics;
         rucho::routes::content_types::xml_handler,
         rucho::routes::content_types::html_handler,
         rucho::routes::image::image_handler,
+        rucho::routes::range::range_handler,
         rucho::routes::core_routes::uuid_handler,
         rucho::routes::core_routes::ip_handler,
         rucho::routes::core_routes::user_agent_handler,
@@ -165,6 +166,7 @@ fn build_app(
         .merge(rucho::routes::response_headers::router())
         .merge(rucho::routes::content_types::router())
         .merge(rucho::routes::image::router())
+        .merge(rucho::routes::range::router())
         .layer(DefaultBodyLimit::max(max_body_size_bytes));
 
     // Add metrics endpoint and middleware if enabled

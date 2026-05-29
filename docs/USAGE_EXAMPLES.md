@@ -27,6 +27,7 @@ All examples assume rucho is running at `http://localhost:8080` (the default).
 - [Slow Streaming (Drip)](#slow-streaming-drip)
 - [XML & HTML Documents](#xml--html-documents)
 - [Sample Images](#sample-images)
+- [Byte Ranges](#byte-ranges)
 - [Chaos Engineering](#chaos-engineering)
 - [Health Checks & Monitoring](#health-checks--monitoring)
 
@@ -974,6 +975,32 @@ curl -i -H 'Accept-Encoding: gzip' http://gateway/image/webp
 
 # SVG is text — a gateway with response compression may gzip it
 curl -i -H 'Accept-Encoding: gzip' http://gateway/image/svg
+```
+
+---
+
+## Byte Ranges
+
+`/range/:n` serves `n` bytes of deterministic content (byte `i` is `a`+`i%26`, so any slice is verifiable) and honors the `Range` header — `Accept-Ranges: bytes`, `206 Partial Content` with `Content-Range`, and `416` when unsatisfiable. A controllable upstream for testing how a gateway proxies partial-content and resumable downloads.
+
+```bash
+# Full body (26 bytes: the alphabet)
+curl -i http://localhost:8080/range/26
+
+# Sub-ranges → 206 Partial Content
+curl -i -H 'Range: bytes=0-4' http://localhost:8080/range/26   # "abcde"
+curl -i -H 'Range: bytes=-3'  http://localhost:8080/range/26   # last 3: "xyz"
+
+# Unsatisfiable range → 416
+curl -i -H 'Range: bytes=100-200' http://localhost:8080/range/26
+```
+
+### Through a gateway: are ranges passed through?
+
+```bash
+# A gateway that proxies ranges correctly returns 206 + Content-Range,
+# not 200 with the full body
+curl -i -H 'Range: bytes=0-9' http://gateway/range/1000000
 ```
 
 ---
