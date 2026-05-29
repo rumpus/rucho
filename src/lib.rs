@@ -20,8 +20,15 @@
 //! - [`cli`] - Command-line interface argument parsing and command handlers
 //! - [`server`] - Server setup and orchestration
 
+/// Axum application assembly — [`build_app`](app::build_app) wires every route
+/// module and the full middleware stack into a single `Router`.
+pub mod app;
+
 /// Command-line interface module for argument parsing and command handling.
 pub mod cli;
+
+/// OpenAPI specification (`ApiDoc`) for the API, served at `/api-docs/openapi.json`.
+pub mod openapi;
 
 /// The `routes` module contains all the route handlers for the Rucho web server.
 ///
