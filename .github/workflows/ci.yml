@@ -149,5 +149,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Build Docker image
-        run: docker build -t rucho:ci-test .
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Build for both release platforms (no push) so arm64 Dockerfile breakage
+      # is caught on PRs, not only at release time. Cached via GHA to amortize
+      # the emulated arm64 build across runs.
+      - name: Build Docker image (multi-arch)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: rucho:ci-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
