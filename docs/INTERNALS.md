@@ -84,6 +84,7 @@ rucho (crate root)
   |   +-- mod.rs             # Re-exports submodules
   |   +-- base64.rs          # /base64/:encoded handler + router()
   |   +-- bytes.rs           # /bytes/:n handler + router()
+  |   +-- content_types.rs   # /xml + /html handlers + router() (non-JSON)
   |   +-- cookies.rs         # /cookies, /cookies/set, /cookies/delete handlers + router()
   |   +-- core_routes.rs     # 16 route handlers + router()
   |   +-- delay.rs           # /delay/:n handler + router()
@@ -629,6 +630,8 @@ The response travels back up through each middleware layer:
 | 26 | `/bytes/:n` | GET | `bytes_handler` | `bytes.rs` |
 | 27 | `/response-headers` | GET | `response_headers_handler` | `response_headers.rs` |
 | 28 | `/drip` | GET | `drip_handler` | `drip.rs` |
+| 29 | `/xml` | GET | `xml_handler` | `content_types.rs` |
+| 30 | `/html` | GET | `html_handler` | `content_types.rs` |
 
 ### 5.2 Echo Handlers
 
@@ -743,7 +746,7 @@ for HEAD requests, but this handler explicitly returns an empty body.)
 
 **`endpoints_handler`** (`src/routes/core_routes.rs`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs` and lists all 28 endpoints with their
+at `src/routes/core_routes.rs` and lists all 29 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
@@ -928,6 +931,14 @@ asking for 10 000 bytes over 1 s yields 1 000 chunks of 10 bytes spaced
 1 ms apart, not 10 000 sub-millisecond sleeps that the timer would silently
 coalesce. A trailing sleep is scheduled before the stream ends so the total
 wall-clock time matches the requested duration.
+
+**`xml_handler`** / **`html_handler`** (`src/routes/content_types.rs`):
+Return fixed sample documents as `application/xml` and `text/html; charset=utf-8`
+respectively, via `([(CONTENT_TYPE, …)], BODY).into_response()` — the header
+tuple overrides the `text/plain` default that a `&str` body would otherwise set.
+Deliberately non-JSON (the only handlers besides `/bytes` that break the
+JSON-everywhere convention): a controllable upstream for testing how a gateway
+treats different content types.
 
 ---
 
@@ -2336,6 +2347,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/routes/mod.rs` | Routes module re-exports |
 | `src/routes/base64.rs` | `/base64/:encoded` handler and router |
 | `src/routes/bytes.rs` | `/bytes/:n` handler and router |
+| `src/routes/content_types.rs` | `/xml` and `/html` handlers and router (non-JSON content types) |
 | `src/routes/cookies.rs` | `/cookies`, `/cookies/set`, `/cookies/delete` handlers and router |
 | `src/routes/core_routes.rs` | 16 route handlers, `router()`, `EndpointInfo`, `API_ENDPOINTS` |
 | `src/routes/delay.rs` | `/delay/:n` handler and router |
