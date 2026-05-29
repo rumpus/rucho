@@ -110,7 +110,7 @@ Coverage that backs the "more robust than httpbin" claim, and CI that catches th
 
 Docker/release ergonomics at **single-maintainer scope** — explicitly *not* production-team tooling (see `feedback_side_project_tooling_scope.md`).
 
-- [ ] **[H]** Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` — small CI change, big UX for Apple-Silicon / ARM mesh nodes
+- [x] **[H]** Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` + QEMU — release pushes a multi-arch manifest; CI builds both platforms (no push) to catch arm64 breakage on PRs (PR #139)
 - [ ] **[M]** `/healthz/ready` + `/healthz/live` — distinct K8s/mesh readiness vs liveness probes
 - [ ] **[M]** Request-ID middleware — generate & return `X-Request-Id` on every response (pairs with gateway/mesh tracing as a correlation ID)
 - [ ] **[M]** `log_format = json` config — `tracing_subscriber::fmt().json()` for structured-logging mesh deployments (Loki/Datadog/ELK)
@@ -146,13 +146,13 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **Multi-arch Docker image** — small CI change, big UX for Apple-Silicon / ARM mesh nodes
-2. **`/status/:code` reason phrase + `/redirect/:n` `X-Redirect-Count`** — cheap echo-fidelity + gateway-observability wins (two small one-PR-each items)
-3. **Forced-encoding trio `/gzip`·`/brotli`·`/deflate`** — highest-value remaining endpoint; drives Kong Response-Transformer decode path; codecs already vendored
-4. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
-5. **`/cookies/set` attribute flags + `parse_cookies` RFC tolerance** — echo-fidelity cookie correctness
+1. **`/status/:code` reason phrase + `/redirect/:n` `X-Redirect-Count`** — cheap echo-fidelity + gateway-observability wins (two small one-PR-each items)
+2. **Forced-encoding trio `/gzip`·`/brotli`·`/deflate`** — highest-value remaining endpoint; drives Kong Response-Transformer decode path; codecs already vendored
+3. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
+4. **`/cookies/set` attribute flags + `parse_cookies` RFC tolerance** — echo-fidelity cookie correctness
+5. **`/healthz/ready` + `/healthz/live` + request-ID middleware** — K8s/mesh probe parity + correlation IDs
 
-_Done: `windows-latest` CI matrix (PR #136) · "Why rucho?" + Kong upstream/mesh docs (PR #137) · `spawn_full_app()` + `build_app`/`ApiDoc` → library (PR #138)._
+_Done: `windows-latest` CI matrix (PR #136) · "Why rucho?" + Kong upstream/mesh docs (PR #137) · `spawn_full_app()` + library refactor (PR #138) · multi-arch Docker (PR #139)._
 
 ---
 
