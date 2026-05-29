@@ -224,6 +224,9 @@ async fn test_status_codes() {
     let base = spawn_app().await;
     let resp = reqwest::get(format!("{base}/status/418")).await.unwrap();
     assert_eq!(resp.status(), 418);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["status"], 418);
+    assert_eq!(body["reason"], "I'm a teapot");
 }
 
 #[tokio::test]
@@ -244,6 +247,14 @@ async fn test_redirect_chain() {
     assert_eq!(
         resp.headers().get("location").unwrap().to_str().unwrap(),
         "/redirect/2"
+    );
+    assert_eq!(
+        resp.headers()
+            .get("x-redirect-count")
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "3"
     );
 }
 

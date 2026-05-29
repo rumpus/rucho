@@ -86,11 +86,11 @@ rucho version  # Display version
 | PATCH   | `/patch`          | Echo request with JSON body                          |
 | DELETE  | `/delete`         | Echo request details                                 |
 | OPTIONS | `/options`        | Return allowed methods                               |
-| ANY     | `/status/:code`   | Return specified HTTP status code                    |
+| ANY     | `/status/:code`   | Return a status code + `{status, reason}` JSON body  |
 | ANY     | `/anything`       | Echo any request                                     |
 | ANY     | `/anything/*path` | Echo any request with path                           |
 | ANY     | `/delay/:n`       | Delay response by n seconds (max 300)                |
-| ANY     | `/redirect/:n`    | Chain of n HTTP 302 redirects (max 20)               |
+| ANY     | `/redirect/:n`    | Chain of n 302s (max 20; `X-Redirect-Count` header)  |
 | GET     | `/cookies`        | Inspect request cookies                              |
 | GET     | `/cookies/set`    | Set cookies via query params and redirect            |
 | GET     | `/cookies/delete` | Delete cookies via query params and redirect         |
