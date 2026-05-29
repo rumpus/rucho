@@ -4,7 +4,19 @@
 [![Release](https://img.shields.io/github/v/release/rumpus/rucho)](https://github.com/rumpus/rucho/releases/latest)
 
 Simple, fast, and scalable HTTP echo server built with Rust and Axum.
-Designed for testing, debugging, and simulating various HTTP behaviors.
+Designed for testing and debugging HTTP behaviors — and for use as a controllable
+upstream behind Kong Gateway or inside Kong Mesh.
+
+## Why rucho?
+
+Rucho is an **echo server first** — a faster, more robust alternative to [httpbin](https://httpbin.org) for inspecting and shaping HTTP requests and responses:
+
+- **Fast & robust** — Rust / Axum / Tokio with zero-copy responses; no interpreter startup and predictable latency under load (vs. Python/Flask httpbin).
+- **Maintained & tested** — the original httpbin is effectively unmaintained; rucho ships an integration + unit test suite and a multi-platform (Linux + Windows) CI matrix.
+- **More than HTTP** — built-in **TCP and UDP** echo listeners, first-class **HTTPS / HTTP-2** via Rustls, and connection/socket tuning that go-httpbin doesn't expose.
+- **Chaos built in** — failure / delay / corruption injection for resilience testing, no sidecar required.
+
+It's also purpose-built as a **controllable testing upstream behind [Kong Gateway](https://konghq.com/products/kong-gateway) or inside [Kong Mesh](https://konghq.com/products/kong-mesh)**: endpoints that deterministically emit the stimuli (status codes, delays, slow streams, redirects, forced content types, byte ranges) you need to observe how the gateway/mesh proxies, transforms, times out, retries, and routes. See **[Using rucho as a Kong upstream](docs/USAGE_EXAMPLES.md#using-rucho-as-a-kong-upstream)**.
 
 ## Features
 

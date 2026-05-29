@@ -97,7 +97,7 @@ Keep the "fast, robust Rust" promise — hot-path correctness over premature opt
 
 Coverage that backs the "more robust than httpbin" claim, and CI that catches the WSL-dev / Linux-CI drift.
 
-- [ ] **[H]** Add `windows-latest` to the CI matrix for `cargo check` — catches platform-gated drift (e.g. `socket2` `with_retries`); zero PR-triage cost; unambiguous side-project win
+- [x] **[H]** Add `windows-latest` to the CI matrix for `cargo check` — catches platform-gated drift; Rucho confirmed to compile cleanly on Windows (PR #136)
 - [ ] **[H]** `spawn_full_app()` test helper that uses the real `build_app()` — current `spawn_app()` builds a minimal router and misses chaos/metrics middleware regressions
 - [ ] **[M]** Integration-test gaps — `/delay` fires (≥1 s), `HEAD /get`, `/status/500`, response compression, `/metrics` enabled, `/endpoints` shape, malformed-JSON → 400
 - [ ] **[M]** Property tests — chaos probabilities stay within bounds; `/redirect/:n` yields exactly `n` hops; `parse_cookies` never panics on any byte sequence
@@ -126,9 +126,9 @@ Docker/release ergonomics at **single-maintainer scope** — explicitly *not* pr
 
 Tell the dual-mission story and end the doc sprawl.
 
-- [ ] **[H]** "Why rucho?" section at the top of the README — 3–4 lines vs httpbin / go-httpbin / mockoon (speed, robustness, chaos mode, TCP/UDP, production-grade TLS + socket tuning)
-- [ ] **[H]** "Using rucho as a Kong upstream" section + a declarative `kong.yaml` snippet — the secondary-mission story
-- [ ] **[M]** "Using rucho inside Kong Mesh" snippet (Kuma `Dataplane` / service) — completes the secondary identity now that mesh is in scope
+- [x] **[H]** "Why rucho?" section at the top of the README — vs httpbin / go-httpbin (speed, robustness, TCP/UDP, TLS, chaos) + the Kong-upstream pitch (PR #137)
+- [x] **[H]** "Using rucho as a Kong upstream" section + a declarative `kong.yaml` snippet (PR #137)
+- [x] **[M]** "Using rucho in Kong Mesh" snippet — Kuma sidecar injection + a MeshRetry example (PR #137)
 - [ ] **[M]** Deduplicate the project-structure block (one canonical source; README/CONTRIBUTING/INTERNALS currently triplicate it — this ROADMAP no longer renders it either)
 - [ ] **[M]** Deduplicate config-field tables — canonical source is `config_samples/rucho.conf.default`; link, don't re-render
 - [ ] **[M]** Replace `docs/API_REFERENCE.md` with a one-pager linking `/swagger-ui` as canonical + 3–4 example responses (the hand-written table caused the v1.4.4 missing-endpoint fix)
@@ -146,11 +146,13 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **`windows-latest` CI matrix** — closes the WSL-dev / Linux-CI drift the memory flags as recurring; zero triage cost
-2. **"Why rucho?" + "rucho as a Kong upstream / in Kong Mesh" docs** — the mission was just clarified; make it real to users (cheapest, highest leverage)
-3. **`spawn_full_app()` real-`build_app()` test helper** — removes a correctness blind spot (chaos/metrics middleware) that undercuts the robustness claim
-4. **Multi-arch Docker image** — small CI change, big UX for Apple-Silicon / ARM mesh nodes
-5. **`/status/:code` reason phrase + `/redirect/:n` `X-Redirect-Count`** — cheap echo-fidelity + gateway-observability wins (two small one-PR-each items)
+1. **`spawn_full_app()` real-`build_app()` test helper** — removes a correctness blind spot (chaos/metrics middleware) that undercuts the robustness claim
+2. **Multi-arch Docker image** — small CI change, big UX for Apple-Silicon / ARM mesh nodes
+3. **`/status/:code` reason phrase + `/redirect/:n` `X-Redirect-Count`** — cheap echo-fidelity + gateway-observability wins (two small one-PR-each items)
+4. **Forced-encoding trio `/gzip`·`/brotli`·`/deflate`** — highest-value remaining endpoint; drives Kong Response-Transformer decode path; codecs already vendored
+5. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
+
+_Done: `windows-latest` CI matrix (PR #136) · "Why rucho?" + Kong upstream/mesh docs (PR #137)._
 
 ---
 

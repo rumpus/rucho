@@ -30,6 +30,8 @@ All examples assume rucho is running at `http://localhost:8080` (the default).
 - [Byte Ranges](#byte-ranges)
 - [Chaos Engineering](#chaos-engineering)
 - [Health Checks & Monitoring](#health-checks--monitoring)
+- [Using rucho as a Kong Upstream](#using-rucho-as-a-kong-upstream)
+- [Using rucho in Kong Mesh](#using-rucho-in-kong-mesh)
 
 ---
 
@@ -1224,4 +1226,95 @@ spec:
           port: 8080
         initialDelaySeconds: 3
         periodSeconds: 5
+```
+
+---
+
+## Using rucho as a Kong Upstream
+
+Point a Kong Gateway route at rucho, then use its deterministic endpoints to exercise plugins and proxy behavior from the upstream side. Declarative (DB-less) config:
+
+```yaml
+# kong.yaml — a route that proxies to rucho as the upstream service
+_format_version: "3.0"
+services:
+  - name: rucho
+    url: http://rucho:8080          # rucho running as a container/service on the same network
+    routes:
+      - name: rucho
+        paths: ["/"]
+    # plugins attached here act on what rucho returns:
+    # - name: response-transformer
+    #   config: { add: { headers: ["X-Proxied-By:kong"] } }
+```
+
+Then drive gateway behavior deterministically:
+
+```bash
+# Does the service/route timeout fire? rucho holds the response for 10s.
+curl -i http://kong:8000/delay/10
+
+# How does the gateway handle a 503 from upstream (retries / circuit breaker)?
+curl -i http://kong:8000/status/503
+
+# Response buffering vs streaming, and Range passthrough:
+curl -i http://kong:8000/bytes/65536
+curl -i -H 'Range: bytes=0-99' http://kong:8000/range/1000000
+
+# Inspect exactly what the gateway forwarded upstream (added / stripped / rewritten headers):
+curl -s http://kong:8000/headers | jq
+```
+
+`/headers` and `/anything` are the workhorses: they echo precisely what reached the upstream, so you can verify what a plugin added, stripped, or rewrote.
+
+## Using rucho in Kong Mesh
+
+In [Kong Mesh](https://docs.konghq.com/mesh/) (built on [Kuma](https://kuma.io/)), run rucho as a plain-HTTP service with sidecar injection. The sidecar provides mTLS, observability, and traffic policies — so rucho stays a simple upstream you point policies at (**don't** enable rucho's own TLS/mTLS inside the mesh; that's the sidecar's job).
+
+```yaml
+# Kubernetes Deployment — Kong Mesh / Kuma sidecar injection
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rucho
+spec:
+  selector: { matchLabels: { app: rucho } }
+  template:
+    metadata:
+      labels: { app: rucho }
+      annotations:
+        kuma.io/sidecar-injection: enabled    # mesh injects the sidecar (mTLS + observability)
+    spec:
+      containers:
+        - name: rucho
+          image: rumpus/rucho:latest
+          ports:
+            - containerPort: 8080
+              name: http                       # name it `http` so Kuma treats it as L7
+```
+
+Apply a traffic policy, then use rucho's stimulus endpoints to trigger and observe it:
+
+```yaml
+# MeshRetry — retry on 5xx; rucho's /status/503 forces the condition
+apiVersion: kuma.io/v1alpha1
+kind: MeshRetry
+metadata:
+  name: rucho-retry
+  namespace: kong-mesh-system
+spec:
+  targetRef: { kind: Mesh }
+  to:
+    - targetRef: { kind: MeshService, name: rucho }
+      default:
+        http:
+          numRetries: 3
+          retryOn: ["5xx"]
+```
+
+```bash
+# From another meshed pod — observe retries against a forced 503, and
+# MeshTimeout behavior against a held response:
+curl -i http://rucho.default.svc:8080/status/503
+curl -i http://rucho.default.svc:8080/delay/10
 ```
