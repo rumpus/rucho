@@ -530,6 +530,24 @@ Returns a small, valid sample HTML document with `Content-Type: text/html; chars
 curl -i http://localhost:8080/html
 ```
 
+### GET /image/:format
+
+Returns a small, fixed 16×16 sample image in the requested `format` with the matching `Content-Type`. A controllable upstream for testing how a gateway handles binary/image responses — content-type routing and compression decisions (a gateway should generally skip re-compressing raster formats, but may compress the text-based SVG).
+
+| `format` | Content-Type |
+|----------|--------------|
+| `png` | `image/png` |
+| `jpeg` (alias `jpg`) | `image/jpeg` |
+| `webp` | `image/webp` |
+| `svg` | `image/svg+xml` |
+
+**Errors:** `400 Bad Request` — any other format.
+
+```bash
+curl -o sample.png http://localhost:8080/image/png
+curl -i http://localhost:8080/image/svg
+```
+
 ---
 
 ## Infrastructure

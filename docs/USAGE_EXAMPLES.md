@@ -26,6 +26,7 @@ All examples assume rucho is running at `http://localhost:8080` (the default).
 - [Random Bytes](#random-bytes)
 - [Slow Streaming (Drip)](#slow-streaming-drip)
 - [XML & HTML Documents](#xml--html-documents)
+- [Sample Images](#sample-images)
 - [Chaos Engineering](#chaos-engineering)
 - [Health Checks & Monitoring](#health-checks--monitoring)
 
@@ -949,6 +950,30 @@ curl -i http://localhost:8080/html
 # Text bodies are compressible — a gateway with response compression enabled
 # should gzip these (contrast with /bytes, which it should leave alone)
 curl -i -H 'Accept-Encoding: gzip' http://gateway/html
+```
+
+---
+
+## Sample Images
+
+`/image/:format` returns a tiny fixed 16×16 sample image in `png`, `jpeg` (alias `jpg`), `svg`, or `webp` (any other format returns 400), each with the matching `Content-Type` (`image/png`, `image/jpeg`, `image/webp`, `image/svg+xml`). A controllable upstream for testing how a gateway treats binary/image bodies.
+
+```bash
+# Download the PNG and confirm the magic bytes
+curl -s http://localhost:8080/image/png | head -c 8 | xxd
+
+# SVG is text/XML
+curl -i http://localhost:8080/image/svg
+```
+
+### Through a gateway: compression should skip raster, may apply to SVG
+
+```bash
+# Raster formats are already compressed — a sane gateway leaves them alone
+curl -i -H 'Accept-Encoding: gzip' http://gateway/image/webp
+
+# SVG is text — a gateway with response compression may gzip it
+curl -i -H 'Accept-Encoding: gzip' http://gateway/image/svg
 ```
 
 ---

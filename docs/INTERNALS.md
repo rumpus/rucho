@@ -90,6 +90,7 @@ rucho (crate root)
   |   +-- delay.rs           # /delay/:n handler + router()
   |   +-- drip.rs            # /drip handler + router() (slow-streaming)
   |   +-- healthz.rs         # /healthz handler + router()
+  |   +-- image.rs           # /image/:format handler + router() (embedded sample images)
   |   +-- metrics.rs         # /metrics handler (stateful)
   |   +-- redirect.rs        # /redirect/:n handler + router()
   |   +-- response_headers.rs # /response-headers handler + router()
@@ -632,6 +633,7 @@ The response travels back up through each middleware layer:
 | 28 | `/drip` | GET | `drip_handler` | `drip.rs` |
 | 29 | `/xml` | GET | `xml_handler` | `content_types.rs` |
 | 30 | `/html` | GET | `html_handler` | `content_types.rs` |
+| 31 | `/image/:format` | GET | `image_handler` | `image.rs` |
 
 ### 5.2 Echo Handlers
 
@@ -746,7 +748,7 @@ for HEAD requests, but this handler explicitly returns an empty body.)
 
 **`endpoints_handler`** (`src/routes/core_routes.rs`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs` and lists all 29 endpoints with their
+at `src/routes/core_routes.rs` and lists all 30 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
@@ -939,6 +941,16 @@ tuple overrides the `text/plain` default that a `&str` body would otherwise set.
 Deliberately non-JSON (the only handlers besides `/bytes` that break the
 JSON-everywhere convention): a controllable upstream for testing how a gateway
 treats different content types.
+
+**`image_handler`** (`src/routes/image.rs`):
+Matches the `:format` path segment (case-insensitive) against `png`,
+`jpeg`/`jpg`, `webp`, `svg` and returns the corresponding fixed sample image
+with the matching `Content-Type`; any other value yields 400. The raster
+fixtures live in `src/routes/assets/` and are embedded via `include_bytes!`
+(so they ship inside the binary — no runtime file I/O); SVG is an inline
+string. Bodies are served as `&'static [u8]` (no per-request allocation). The
+metrics layer normalizes `/image/{format}` to `/image/:format` to bound
+cardinality.
 
 ---
 
@@ -2353,6 +2365,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/routes/delay.rs` | `/delay/:n` handler and router |
 | `src/routes/drip.rs` | `/drip` handler, streaming body builder, and router |
 | `src/routes/healthz.rs` | `/healthz` handler and router |
+| `src/routes/image.rs` | `/image/:format` handler and router (embedded sample images) |
 | `src/routes/metrics.rs` | `/metrics` handler (stateful, `State<Arc<Metrics>>`) |
 | `src/routes/redirect.rs` | `/redirect/:n` handler and router |
 | `src/routes/response_headers.rs` | `/response-headers` handler and router (duplicate-key preserving) |

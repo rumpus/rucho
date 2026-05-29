@@ -155,6 +155,7 @@ src/
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── drip.rs          # /drip slow-streaming endpoint
 │   ├── healthz.rs       # /healthz endpoint
+│   ├── image.rs         # /image/:format endpoint
 │   ├── metrics.rs       # /metrics endpoint handler
 │   ├── redirect.rs      # /redirect/:n endpoint
 │   └── response_headers.rs # /response-headers endpoint
