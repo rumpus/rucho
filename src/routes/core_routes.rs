@@ -223,6 +223,16 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         description:
             "Streams numbytes bytes of '*' over duration seconds via chunked transfer encoding.",
     },
+    EndpointInfo {
+        path: "/xml",
+        method: "GET",
+        description: "Returns a sample XML document as application/xml.",
+    },
+    EndpointInfo {
+        path: "/html",
+        method: "GET",
+        description: "Returns a sample HTML document as text/html.",
+    },
 ];
 
 /// Creates and returns the Axum router for the core API endpoints.

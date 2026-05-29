@@ -25,6 +25,7 @@ All examples assume rucho is running at `http://localhost:8080` (the default).
 - [Custom Response Headers](#custom-response-headers)
 - [Random Bytes](#random-bytes)
 - [Slow Streaming (Drip)](#slow-streaming-drip)
+- [XML & HTML Documents](#xml--html-documents)
 - [Chaos Engineering](#chaos-engineering)
 - [Health Checks & Monitoring](#health-checks--monitoring)
 
@@ -926,6 +927,28 @@ curl -i 'http://localhost:8080/drip?numbytes=10001'
 
 # Invalid status code — returns 400
 curl -i 'http://localhost:8080/drip?code=1000'
+```
+
+---
+
+## XML & HTML Documents
+
+`/xml` and `/html` return small, fixed sample documents with the matching `Content-Type` — `application/xml` and `text/html; charset=utf-8`. Unlike Rucho's JSON endpoints (and like `/bytes`), these are deliberately non-JSON: a controllable upstream for exercising how a gateway treats different content types — content-type routing, response transformers, and compression (text bodies compress, unlike random `/bytes`).
+
+```bash
+# Fetch the sample XML document
+curl -i http://localhost:8080/xml
+
+# Fetch the sample HTML document
+curl -i http://localhost:8080/html
+```
+
+### Through a gateway: does compression kick in?
+
+```bash
+# Text bodies are compressible — a gateway with response compression enabled
+# should gzip these (contrast with /bytes, which it should leave alone)
+curl -i -H 'Accept-Encoding: gzip' http://gateway/html
 ```
 
 ---

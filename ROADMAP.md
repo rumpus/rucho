@@ -77,7 +77,7 @@
 ### Data Formats & Content Types
 - [x] `/base64/:encoded` — decode base64 in the URL and return the result
 - [x] `/bytes/:n` — return `n` random bytes (binary download testing) (PR #114)
-- [ ] `/xml`, `/html` — return non-JSON content types
+- [x] `/xml`, `/html` — return non-JSON content types (`application/xml` / `text/html`; deliberately non-JSON for gateway content-type testing) (PR #132)
 - [ ] `/image/:format` — return a small test image (png, jpeg, svg, webp)
 
 ### Response Control

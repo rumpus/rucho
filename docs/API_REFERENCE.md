@@ -510,6 +510,26 @@ curl http://localhost:8080/drip?numbytes=100&duration=5
 curl -i 'http://localhost:8080/drip?numbytes=20&duration=3&code=504'
 ```
 
+### GET /xml
+
+Returns a small, valid sample XML document with `Content-Type: application/xml`. Deliberately non-JSON (like `/bytes`) — a controllable upstream for testing how a gateway handles XML responses (content-type-aware plugins, response transformers, compression of text bodies).
+
+**Response:** `200 OK`, `Content-Type: application/xml`, a fixed sample XML body.
+
+```bash
+curl -i http://localhost:8080/xml
+```
+
+### GET /html
+
+Returns a small, valid sample HTML document with `Content-Type: text/html; charset=utf-8`.
+
+**Response:** `200 OK`, `Content-Type: text/html; charset=utf-8`, a fixed sample HTML body.
+
+```bash
+curl -i http://localhost:8080/html
+```
+
 ---
 
 ## Infrastructure

@@ -6,7 +6,8 @@
 
 use axum::{extract::DefaultBodyLimit, middleware, Router};
 use rucho::routes::{
-    base64, bytes, cookies, core_routes, delay, drip, healthz, redirect, response_headers,
+    base64, bytes, content_types, cookies, core_routes, delay, drip, healthz, redirect,
+    response_headers,
 };
 use rucho::server::timing_layer::timing_middleware;
 use rucho::utils::constants::DEFAULT_MAX_BODY_SIZE_BYTES;
@@ -34,6 +35,7 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
         .merge(bytes::router())
         .merge(drip::router())
         .merge(response_headers::router())
+        .merge(content_types::router())
         .layer(DefaultBodyLimit::max(max_body_size))
         .layer(middleware::from_fn(timing_middleware));
 
@@ -401,4 +403,42 @@ async fn test_anything_body_limit_returns_413() {
         .unwrap();
 
     assert_eq!(resp.status(), 413);
+}
+
+#[tokio::test]
+async fn test_xml_returns_application_xml() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/xml")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "application/xml"
+    );
+    let body = resp.text().await.unwrap();
+    assert!(body.starts_with("<?xml"));
+    assert!(body.contains("<rucho>"));
+}
+
+#[tokio::test]
+async fn test_html_returns_text_html() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/html")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "text/html; charset=utf-8"
+    );
+    let body = resp.text().await.unwrap();
+    assert!(body.contains("<!DOCTYPE html>"));
+    assert!(body.contains("<h1>Rucho</h1>"));
 }
