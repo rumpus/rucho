@@ -1,303 +1,189 @@
-# Rucho - Project Roadmap
+# Rucho — Project Roadmap
 
-> **Goal:** A highly robust, enterprise-grade, production-ready echo server built for extreme speed and performance.
+> **Rucho is an echo server first** — a faster, more robust httpbin replacement (Rust / Axum / Tokio) where speed, correctness, and high-fidelity request inspection are the core.
+>
+> **Secondarily, Rucho is a controllable testing upstream** to sit behind **Kong Gateway** or inside **Kong Mesh** (Kuma) — emitting stimuli that let you observe how the gateway/mesh proxies, transforms, times out, retries, caches, and routes.
+>
+> **Kong-redundancy principle:** build only upstream behaviors Kong *cannot* self-generate. If a Kong plugin or mesh policy already provides it (auth, rate limiting, gateway caching/compression, Prometheus, mTLS termination in mesh, request/response transformation), it is a **Non-Goal**.
+
+Items are tagged **[H]** / **[M]** / **[L]** by priority.
 
 ---
 
 ## Completed
 
-### Core Foundation
+### Core echo & inspection
 - [x] HTTP echo endpoints (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
-- [x] `/anything` wildcard endpoint (supports ANY method and subpaths)
-- [x] `/status/:code` — return any HTTP status code
-- [x] `/delay/:n` — configurable response delay (max 300s)
-- [x] `/healthz` — health check endpoint
+- [x] `/anything` wildcard (any method + subpaths)
+- [x] `/status/:code` — return any HTTP status
+- [x] `/delay/:n` — configurable first-byte delay (max 300 s)
+- [x] `/healthz` — health check
 - [x] `/endpoints` — self-documenting endpoint list
-- [x] Pretty-printed JSON output (default)
-- [x] Graceful shutdown (SIGINT/SIGTERM)
-- [x] CLI commands (start, stop, status, version)
+- [x] `/uuid`, `/ip` (peer-address fallback), `/user-agent`, `/headers`
+- [x] Pretty-printed JSON output; graceful shutdown (SIGINT/SIGTERM); CLI (start/stop/status/version)
 
-### Protocol Support
-- [x] HTTP/1.1
-- [x] HTTP/2 (with TLS)
-- [x] HTTPS via Rustls
-- [x] TCP echo listener
-- [x] UDP echo listener
+### Endpoints (echo-fidelity + upstream behaviors)
+- [x] `/redirect/:n` — chained 302 redirects (max 20 hops)
+- [x] `/cookies`, `/cookies/set`, `/cookies/delete`
+- [x] `/base64/:encoded` — decode + JSON metadata (max 4 KiB)
+- [x] `/response-headers` — echo query params as response headers
+- [x] `/bytes/:n` — random bytes, `application/octet-stream` (max 10 MiB)
+- [x] `/drip` — slow byte stream for inter-byte (read/send) timeout testing
+- [x] `/xml`, `/html` — non-JSON content types (PR #132)
+- [x] `/image/:format` — sample png/jpeg/svg/webp (PR #133)
+- [x] `/range/:n` — `Accept-Ranges` / 206 partial content / 416 (PR #134)
 
-### Utility Endpoints
-- [x] `/uuid` — random UUID generation
-- [x] `/ip` — client IP detection
-- [x] `/user-agent` — User-Agent echo
-- [x] `/headers` — request headers echo
+### Protocol support
+- [x] HTTP/1.1, HTTP/2 (with TLS), HTTPS via Rustls, TCP echo, UDP echo
 
-### Production Infrastructure
-- [x] Docker container builds
-- [x] Docker Compose support
-- [x] Systemd service integration
-- [x] OpenAPI/Swagger documentation
-- [x] Configuration via files and environment variables
-- [x] PID file management
-- [x] GitHub Actions CI pipeline
-- [x] CORS support (permissive)
-- [x] Docker Hub publishing (`rumpus/rucho`)
-- [x] Optimized multi-stage Dockerfile (189MB image)
+### Performance & resilience
+- [x] Response compression (gzip, brotli) — toggleable
+- [x] Connection keep-alive + TCP socket tuning; zero-copy responses
+- [x] Benchmark suite; zero-alloc metrics path normalization (`Cow<'static, str>`); thread-local chaos RNG (PR #131)
+- [x] Chaos engineering mode (failure / delay / corruption injection)
+- [x] Body-size cap on `/anything` (`max_body_size_bytes`, default 2 MiB) — closes OOM vector (PR #109)
 
-### Observability
-- [x] `/metrics` endpoint (JSON format, toggleable)
-- [x] Request tracing and logging
-- [x] Request/response timing in echo responses (`timing.duration_ms`)
+### Infrastructure
+- [x] Docker, Docker Compose, systemd, optimized multi-stage Dockerfile (189 MB), Docker Hub publishing
+- [x] OpenAPI/Swagger UI; config files + env vars; PID file; GitHub Actions CI; permissive CORS
+- [x] `/metrics` (JSON, toggleable); request tracing; request/response timing in echo responses
 
-### Testing & Resilience
-- [x] Chaos engineering mode (failure injection, delay injection, response corruption)
+### Docs
+- [x] Usage examples, man page (.deb), API reference, INTERNALS deep-dive (line-refs stripped, PR #108)
 
 ---
 
-## Tier 1: Performance & Speed ✅
+## T1 — Echo & Inspection Fidelity *(Primary mission)*
 
-- [x] Response compression (gzip, brotli) — toggleable via config
-- [x] Connection keep-alive tuning
-- [x] Zero-copy response optimizations
-- [x] Benchmark suite with performance baselines
-- [x] Zero-alloc metrics path normalization (`Cow<'static, str>`)
-- [x] Thread-local RNG seeding for chaos middleware
+Make request inspection more correct, complete, and honest than httpbin & go-httpbin.
 
----
-
-## Tier 2: Advanced Protocol Support ✅
-
-- [x] `/redirect/:n` — chained redirects
+- [ ] **[H]** `/status/:code` returns the canonical reason phrase in the body (e.g. `"Not Found"` for 404) — httpbin-parity; an inspector should report the phrase, not just the number
+- [ ] **[M]** Echo HTTP version + TLS info in `/get` / `/anything` (`http_version`, negotiated ALPN/cipher, presented client-cert info when available) — go-httpbin omits this; unique inspection value that doubles as gateway-proxy visibility
+- [ ] **[M]** `/cache` + `/cache/:seconds` — emit `ETag` / `Last-Modified` and honor `If-None-Match` / `If-Modified-Since` → `304`; `/cache/:n` sets `Cache-Control: max-age=n`. Framed as *conditional-request fidelity* (the upstream emits the stimulus; lets you watch a gateway/cache react). Model on `range.rs`; no new deps
+- [ ] **[M]** `parse_cookies` tolerates both `;` and `; ` separators (RFC 6265) — correctness; sloppy cookie parsing is a known httbin/go-httpbin pain point (`src/routes/cookies.rs`)
+- [ ] **[M]** `/cookies/set` accepts attribute flags (`secure`, `httponly`, `samesite`, `max_age`) via query params — richer `Set-Cookie` fidelity for session inspection
+- [ ] **[L]** Support `DELETE` on `/cookies` — API symmetry with `GET /cookies/delete`
 
 ---
 
-## Tier 3: New Endpoints
+## T2 — Gateway / Mesh Upstream Behaviors *(Secondary mission)*
 
-### Cookies
-- [x] `/cookies` + `/cookies/set` + `/cookies/delete` — inspect, set, and delete cookies
+Controllable upstream knobs to observe Kong Gateway / Kong Mesh behavior the gateway/mesh cannot self-generate.
 
-### Data Formats & Content Types
-- [x] `/base64/:encoded` — decode base64 in the URL and return the result
-- [x] `/bytes/:n` — return `n` random bytes (binary download testing) (PR #114)
-- [x] `/xml`, `/html` — return non-JSON content types (`application/xml` / `text/html`; deliberately non-JSON for gateway content-type testing) (PR #132)
-- [x] `/image/:format` — return a small test image (png, jpeg, svg, webp); embedded fixtures, served as `&'static` bytes, metrics-normalized to `/image/:format` (PR #133)
-
-### Response Control
-- [x] `/response-headers?key=value` — return arbitrary response headers via query params (PR #113)
-- [ ] `/cache` + `/cache/:seconds` — return cache headers (`ETag`, `Last-Modified`, `Cache-Control`)
-- [ ] `/gzip`, `/brotli`, `/deflate` — force a specific encoding regardless of `Accept-Encoding`
-
-### Streaming & Range
-- [x] `/drip?duration=N&numbytes=M` — emit `numbytes` bytes evenly over `duration` seconds. Optional `code` and `delay` parameters. Caps: numbytes ≤ 10 000, duration/delay ≤ 300 s. Chunk pacing clamped to ~1 ms timer precision. Tests inter-byte (read/send) timeouts and streaming-vs-buffering behavior. (PR #115)
-- [x] `/range/:n` — return `n` bytes with `Accept-Ranges` support; deterministic content, 206/416 + `Content-Range`, single-range, metrics-normalized (PR #134)
-- [ ] `/links/:n` — return an HTML page with `n` links (crawler testing)
-
-### Endpoint Enhancements (from review)
-- [x] `/ip` peer-address fallback via `ConnectInfo<SocketAddr>` — previously returned `"unknown"` when no `X-Forwarded-For` / `X-Real-IP` header was present. Server now binds with `into_make_service_with_connect_info::<SocketAddr>()` so `ip_handler` can read the peer IP from the TCP connection. (PR #111)
-- [ ] `/status/:code` should return the canonical reason phrase in the body (e.g., `"Not Found"` for 404) — matches httpbin behavior
-- [ ] `/redirect/:n` should emit an `X-Redirect-Count` header so clients can observe hop number without parsing the URL
-- [ ] `/cookies/set` should accept cookie attribute flags (`secure`, `httponly`, `samesite`, `max_age`) via query params for richer auth/session testing
-- [ ] Support DELETE method for `/cookies` (API symmetry with GET `/cookies/delete`)
+- [ ] **[M]** Forced content-encoding trio `/gzip`, `/deflate`, `/brotli` — return a JSON body compressed with that codec + the matching `Content-Encoding`, *regardless of `Accept-Encoding`*. Tests Kong's Response-Transformer / RT-Advanced decode-and-rewrite path against an already-encoded upstream body (documented breakage: Kong/kong#13741, #1200). `flate2` + `brotli` are already transitive via tower-http → promote to direct deps (near-zero cost). One PR (trio). Fixed paths → no metrics-normalize change
+- [ ] **[M]** `X-Response-Time` response header from `RequestTiming` — matches Kong's own plugin output; lets you compare upstream-measured vs gateway-measured latency
+- [ ] **[M]** `/redirect/:n` emits an `X-Redirect-Count` header — observe hop number without parsing the URL; useful watching Kong follow-redirect behavior
+- [ ] **[M]** Connection-control knob (e.g. `/anything?connection=close`) — force upstream `Connection: close` per request to observe Kong connection pooling / keep-alive reuse; the gateway cannot self-generate upstream teardown
+- [ ] **[L]** mTLS — `ssl_ca_cert` config so the upstream *requires & verifies a client cert*. This is the way to test Kong's **upstream**-mTLS configuration (the gateway must present a cert the upstream demands). Distinct from mesh mTLS, which the sidecar terminates (see Non-Goals). Low priority — needs rustls client-cert verification
+- [ ] **[L]** Investigate a slow-headers / slow-first-byte knob distinct from `/delay` and `/drip` — to exercise Kong upstream `read_timeout` vs `connect_timeout` separately. *Validate it isn't redundant with `/drip` (inter-byte) before building*
 
 ---
 
-## Tier 4: Testing & Quality
+## T3 — Performance & Robustness
 
-- [x] Fix config test isolation (injectable env reader — v1.4.1)
-- [x] Integration tests (spin up server, hit endpoints with reqwest, assert responses)
-- [ ] Benchmark the redirect endpoint
+Keep the "fast, robust Rust" promise — hot-path correctness over premature optimization.
 
-### Integration Test Suite Gaps
-- [ ] Test `/delay` (at least 1s to confirm the sleep fires)
-- [ ] Test `HEAD /get` (header-only response path)
-- [ ] Test `/status/500` and other error-range codes
-- [ ] Test response compression (send `Accept-Encoding: gzip`, assert compressed body)
-- [ ] Test `/metrics` endpoint when enabled
-- [ ] Test `/endpoints` response shape
-- [ ] Test POST/PUT/PATCH error path (malformed JSON → 400)
-- [ ] Add `spawn_full_app()` helper that uses the real `build_app()` so middleware interactions are exercised — current `spawn_app()` builds a minimal router and would miss chaos/metrics regressions
-
-### Benchmark Coverage
-- [ ] Benchmark `/anything` with a body (exercises `to_bytes` path)
-- [ ] Benchmark the cookies roundtrip (GET `/cookies` with a cookie header)
-- [ ] Concurrency benchmark — expose the metrics `RwLock` contention ceiling under parallel load
-- [ ] Benchmark the full middleware stack (chaos+metrics+timing+trace+compression) vs. bare handler
-
-### Property Tests
-- [ ] Add `proptest` for chaos middleware: for any valid `ChaosConfig`, rolled probabilities stay within declared bounds across N requests
-- [ ] Add `proptest` for `/redirect/:n`: following the chain yields exactly `n` hops for any `n ∈ [0, MAX_REDIRECT_HOPS]`
-- [ ] Add `proptest` for `parse_cookies`: never panics on any byte sequence in the `Cookie` header
-
-### CI Matrix
-- [ ] Add `windows-latest` to the CI matrix for `cargo check` — prevents WSL-dev vs Linux-CI drift on platform-gated code (e.g., `#[cfg(not(target_os = "windows"))]` in `src/server/http.rs`)
-- [ ] Add MSRV CI job pinning `rust-version` from `Cargo.toml`
+- [ ] **[M]** Metrics cardinality cap — bucket unknown `/cookies/{action}` (and any unmatched path) to a catch-all so a crawler/fuzzer can't grow the metrics map unbounded; mirrors existing `/delay`,`/bytes`,`/image`,`/range` normalization (`src/server/metrics_layer.rs`)
+- [ ] **[M]** Metrics lock contention — swap `RwLock<HashMap>` for `DashMap` / sharded atomics. Only matters past ~10k rps; do it when a benchmark says so (`src/utils/metrics.rs`)
+- [ ] **[L]** Replace `RwLock<usize>` around `current_bucket_idx` with `AtomicUsize` (`src/utils/metrics.rs`)
+- [ ] **[L]** Replace `.unwrap()` in `head_handler` / `options_handler` response builders with `.expect("infallible: …")` — CLAUDE.md "no unwrap in production"
+- [ ] **[L]** Remove the dead `500` branch in `endpoints_handler` — `serde_json::to_value` on a `&'static` slice is infallible
+- [ ] **[L]** Handler boilerplate DRY — a non-macro `echo_with_body(method, headers, body)` helper for POST/PUT/PATCH/DELETE. Deferred is defensible; revisit only if touched
+- [ ] **[L]** Module organization — move `src/tcp_udp_handlers.rs` → `src/server/echo.rs`; consider splitting `src/utils/`; move `ApiDoc` → `src/openapi.rs` (enables spec-shape integration tests)
 
 ---
 
-## Tier 5: Infrastructure & Ops
+## T4 — Testing & Quality
 
-- [ ] `/healthz/ready` + `/healthz/live` — Kubernetes readiness vs liveness probes
-- [ ] Request ID middleware — generate and return `X-Request-Id` on every response
-- [ ] Configurable response size limit
-- [ ] Alpine Docker image variant (smaller image)
-- [ ] Auto-generated self-signed TLS certs (`ssl_auto_cert = true`) — ephemeral in-memory certs via `rcgen` for zero-setup HTTPS dev/testing
-- [ ] Mutual TLS (mTLS) — `ssl_ca_cert` config for client certificate verification
+Coverage that backs the "more robust than httpbin" claim, and CI that catches the WSL-dev / Linux-CI drift.
 
-### From Review
-- [x] Body-size cap on `/anything` handler — `to_bytes(body, usize::MAX)` was an OOM vector. Added `DefaultBodyLimit` layer (configurable via `max_body_size_bytes`) (PR #109)
-- [ ] `log_format = json` config option — use `tracing_subscriber::fmt().json()` so the binary works in structured-logging environments (Loki, Datadog, ELK)
-- [ ] `X-Response-Time` header — `RequestTiming` should emit this in addition to the extension, matching Kong's own plugin output
-- [ ] Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` — benefits Apple Silicon users
-- [ ] Parallelize CI `deb` and `docker` jobs — both depend on `build` but can run concurrently with each other
-- [ ] Attach `SHA256SUMS` file to GitHub releases — supply-chain hygiene for binary/.deb downloads
-- [ ] Container image vulnerability scanning in CI — Trivy or Docker Scout run against the published image
-- [ ] Investigate read-only filesystem compatibility — PID file path `/var/run/rucho` may break under `--read-only` Docker runs
+- [ ] **[H]** Add `windows-latest` to the CI matrix for `cargo check` — catches platform-gated drift (e.g. `socket2` `with_retries`); zero PR-triage cost; unambiguous side-project win
+- [ ] **[H]** `spawn_full_app()` test helper that uses the real `build_app()` — current `spawn_app()` builds a minimal router and misses chaos/metrics middleware regressions
+- [ ] **[M]** Integration-test gaps — `/delay` fires (≥1 s), `HEAD /get`, `/status/500`, response compression, `/metrics` enabled, `/endpoints` shape, malformed-JSON → 400
+- [ ] **[M]** Property tests — chaos probabilities stay within bounds; `/redirect/:n` yields exactly `n` hops; `parse_cookies` never panics on any byte sequence
+- [ ] **[M]** Benchmark gaps — `/anything` with a body, cookies roundtrip, metrics-contention concurrency, full middleware stack vs bare handler; benchmark `/redirect`
+- [ ] **[L]** MSRV CI job pinning `rust-version` from `Cargo.toml` (resolve the CONTRIBUTING "1.70" vs Dockerfile "1.84" mismatch first — see T6)
 
 ---
 
-## Tier 6: Code Quality & Refactoring
+## T5 — Build & Distribution
 
-### Correctness / Hot Paths
-- [ ] Metrics lock contention — swap `RwLock<HashMap>` for `DashMap<String, AtomicU64>` or sharded atomics. Current implementation serializes every recorded request on a write lock (`src/utils/metrics.rs`)
-- [ ] Metrics cardinality cap for `/cookies/{action}` — clients can force unbounded growth by sending arbitrary subpaths. Bucket unknown `action` values to `/cookies/other` (`src/server/metrics_layer.rs:52`)
-- [x] Chaos RNG: now uses a per-thread cached `thread_local!` `StdRng` (seeded once via `from_entropy`, accessed via `with` so the borrow never crosses an `.await` — keeping the future `Send`) instead of re-seeding per request. Lands the optimization the v1.4.6 CHANGELOG had claimed but never implemented (`src/server/chaos_layer.rs`)
-- [ ] Replace `RwLock<usize>` around `current_bucket_idx` with `AtomicUsize` (`src/utils/metrics.rs:78`)
-- [ ] Remove dead 500 branch in `endpoints_handler` — `serde_json::to_value` on `&'static [EndpointInfo]` is infallible (`src/routes/core_routes.rs:454-465`)
+Docker/release ergonomics at **single-maintainer scope** — explicitly *not* production-team tooling (see `feedback_side_project_tooling_scope.md`).
 
-### `.unwrap()` Hygiene
-- [x] Replaced `.unwrap()` in `src/server/chaos_layer.rs` (response builder + the three `x-chaos` header inserts, the latter via a shared `chaos_header()` helper) with `.expect("infallible: …")` — matches CLAUDE.md "no unwrap in production" rule
-- [ ] Replace `.unwrap()` in `src/routes/core_routes.rs:431, 795` (head_handler, options_handler response builders) with `.expect(...)`
-
-### DRY & Refactoring
-- [ ] Consolidate POST/PUT/PATCH/DELETE handler boilerplate — the four handlers in `src/routes/core_routes.rs` differ only in method string; a `echo_with_body(method, headers, body)` helper would DRY them without a macro (reconsider the "deferred" decision in Backlog)
-- [ ] `parse_cookies`: tolerate both `;` and `; ` separators — current `split("; ")` is stricter than RFC 6265 tolerance rules (`src/routes/cookies.rs:27`)
-
-### Module Organization
-- [ ] Move `src/tcp_udp_handlers.rs` out of `src/` root into `src/server/echo.rs` (or split into `tcp_echo.rs` / `udp_echo.rs`) — inconsistent with the rest of the layout
-- [ ] Split `src/utils/` (10 unrelated modules) into themed submodules: `src/config/`, `src/http/` (response helpers), `src/process/` (pid), `src/observability/` (metrics, timing)
-- [ ] Move `ApiDoc` out of `src/main.rs` into `src/openapi.rs` (library code) — binary-only code can't be tested, and integration tests could assert the spec shape
-- [ ] Gate `anything_path_handler` behind `#[cfg(feature = "openapi-docs-only")]` or move to `openapi_stubs.rs` — it's documentation scaffolding, not runtime code (`src/routes/core_routes.rs:348-362`)
+- [ ] **[H]** Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` — small CI change, big UX for Apple-Silicon / ARM mesh nodes
+- [ ] **[M]** `/healthz/ready` + `/healthz/live` — distinct K8s/mesh readiness vs liveness probes
+- [ ] **[M]** Request-ID middleware — generate & return `X-Request-Id` on every response (pairs with gateway/mesh tracing as a correlation ID)
+- [ ] **[M]** `log_format = json` config — `tracing_subscriber::fmt().json()` for structured-logging mesh deployments (Loki/Datadog/ELK)
+- [ ] **[M]** Read-only-filesystem compatibility — PID path `/var/run/rucho` may break under `--read-only` Docker; make it tolerant/configurable (also the likely source of the stray `C:\var\run` artifact on Windows)
+- [ ] **[M]** Auto-generated self-signed TLS certs (`ssl_auto_cert = true`, ephemeral in-memory via `rcgen`) — zero-setup HTTPS for dev/test; a test-ergonomics win, not gateway-redundant
+- [ ] **[L]** Alpine image variant (smaller image)
+- [ ] **[L]** Parallelize CI `deb` + `docker` jobs (both depend only on `build`)
+- [ ] **[L]** Attach `SHA256SUMS` to GitHub releases — lightweight integrity, no recurring cost
 
 ---
 
-## Tier 7: Documentation
+## T6 — Documentation
 
-- [x] Usage examples doc — real-world testing scenarios (retries, redirects, timeouts)
-- [x] Man page — ship with .deb package
-- [x] API reference — auto-generated from OpenAPI spec
-- [x] Internals deep-dive (`docs/INTERNALS.md`)
+Tell the dual-mission story and end the doc sprawl.
 
-### INTERNALS.md Maintenance (2,357 lines — memory flags line-ref staleness as recurring pain)
-- [x] Strip specific `file:line` citations from INTERNALS.md — keep file paths only. Immediate maintenance-cost reduction; highest-ROI doc change
-- [ ] Evaluate auto-generating internals from `///` doc comments (`cargo doc` + wrapper) — ~60% of INTERNALS duplicates existing doc comments
-- [ ] Add a CI check validating any `file:line` citations in docs actually exist (file has ≥N lines)
-- [ ] Split INTERNALS.md by concern: `ARCHITECTURE.md`, `MIDDLEWARE.md`, `CONFIG.md` — scoped updates, less drift
-
-### README.md (378 lines)
-- [ ] Add a "Why rucho?" differentiation section at the top — 3-4 lines comparing to httpbin, mockoon, go-httpbin (chaos mode, TCP/UDP, production-grade TLS + socket tuning)
-- [ ] Deduplicate the config field tables — canonical source is `config_samples/rucho.conf.default`; README should link, not re-render
-- [ ] Deduplicate the project-structure block (also lives in CONTRIBUTING.md and INTERNALS.md) — keep one canonical source
-- [ ] Group the Features bullet list under sub-headers (Protocol, Resilience, Observability, Deployment) for faster scanning
-- [ ] Explain why `compression_enabled` defaults to off ("preserves raw body inspection")
-- [ ] Mention `tasks/` directory convention (gitignored, local tracking only)
-
-### API_REFERENCE.md (468 lines)
-- [ ] Replace with a one-pager that links to `/swagger-ui` as canonical and shows 3-4 example responses — the hand-written table is what caused the v1.4.4 "add 4 missing endpoints to OpenAPI" fix
-
-### USAGE_EXAMPLES.md (923 lines)
-- [ ] Consolidate the curl/Python/JavaScript triplets — pick curl as canonical and show the others only where behavior differs, or collapse non-curl examples in `<details>` blocks
-- [ ] Add a "Using rucho as a Kong upstream" section with a declarative `kong.yaml` snippet — uniquely useful given the primary-user context
-
-### CONTRIBUTING.md
-- [ ] Deduplicate the "Project Structure" block (links to canonical source)
-- [ ] Align MSRV — doc says "Rust 1.70+" but `Dockerfile` pins 1.84. Either set `rust-version = "1.70"` in `Cargo.toml` and verify, or update CONTRIBUTING to match actual MSRV
-- [ ] Explain the "config tests use an injectable env reader" note — one sentence on the v1.4.1 isolation fix, so a future contributor doesn't reintroduce `--test-threads=1`
-
-### CHANGELOG.md
-- [ ] Add a "Performance" sub-category (distinct from neutral "Changed") — retroactively categorize v1.4.6 and v1.2.0 entries
-- [ ] Add auto-diff link references at the bottom (`[1.4.6]: https://github.com/rumpus/rucho/compare/v1.4.5...v1.4.6`) — GitHub browsing convenience
-
-### Config Sample (`config_samples/rucho.conf.default`)
-- [ ] Pick a consistent style: every field present (commented-out with default as comment) vs. current mix of set values and `# Example:` hints. Uncomment-and-edit is easier than copy-from-README
-
-### New Docs
-- [ ] Add `SECURITY.md` — vulnerability disclosure process, supported versions
-- [ ] Add `ARCHITECTURE.md` — lightweight ADR replacing most of INTERNALS.md for newcomer onboarding
-
-### CLAUDE.md (local, gitignored)
-- [ ] Add a "Debugging" section — `RUST_LOG=debug cargo run -- start`, where to find tracing output
-- [ ] Note the `src/tcp_udp_handlers.rs` placement inconsistency so future readers aren't confused
-- [ ] Add a "Gateway-upstream testing" section with Kong route config examples (project purpose context)
-
-### ROADMAP.md (this file)
-- [x] Renumber tiers to fill the Tier 6 gap (addressed by this revision)
-- [ ] Add size/complexity tags `[S/M/L]` to items for contributor self-selection
-- [ ] Resolve Status-column vs per-tier-header inconsistency in the Timeline table
+- [ ] **[H]** "Why rucho?" section at the top of the README — 3–4 lines vs httpbin / go-httpbin / mockoon (speed, robustness, chaos mode, TCP/UDP, production-grade TLS + socket tuning)
+- [ ] **[H]** "Using rucho as a Kong upstream" section + a declarative `kong.yaml` snippet — the secondary-mission story
+- [ ] **[M]** "Using rucho inside Kong Mesh" snippet (Kuma `Dataplane` / service) — completes the secondary identity now that mesh is in scope
+- [ ] **[M]** Deduplicate the project-structure block (one canonical source; README/CONTRIBUTING/INTERNALS currently triplicate it — this ROADMAP no longer renders it either)
+- [ ] **[M]** Deduplicate config-field tables — canonical source is `config_samples/rucho.conf.default`; link, don't re-render
+- [ ] **[M]** Replace `docs/API_REFERENCE.md` with a one-pager linking `/swagger-ui` as canonical + 3–4 example responses (the hand-written table caused the v1.4.4 missing-endpoint fix)
+- [ ] **[M]** Align MSRV — CONTRIBUTING says "Rust 1.70+", Dockerfile pins 1.84. Set `rust-version` in `Cargo.toml` and verify, or update the doc
+- [ ] **[L]** Group README features under sub-headers (Protocol / Resilience / Observability / Deployment); explain why `compression_enabled` defaults off; mention the gitignored `tasks/` convention
+- [ ] **[L]** Consolidate USAGE_EXAMPLES curl/Python/JS triplets (curl canonical; others in `<details>`)
+- [ ] **[L]** Add `SECURITY.md` (disclosure + supported versions) and a lightweight `ARCHITECTURE.md`
+- [ ] **[L]** CHANGELOG: add a "Performance" sub-category; add compare-link references at the bottom
+- [ ] **[L]** `config_samples/rucho.conf.default` — consistent style (every field present, commented with its default)
+- [ ] **[L]** Evaluate auto-generating internals from `///` doc comments (`cargo doc`); consider splitting INTERNALS by concern
 
 ---
 
-## Tier 8: Security & Supply Chain
+## Priority Order
 
-> **Scope note:** Most items in this tier were proposed during a generic code review and assume a production-team operating model. Rucho is a single-maintainer test target — re-evaluate each item through the side-project lens before working on it. Quarterly manual `cargo update && cargo audit` provides most of the security signal automated tooling would, with zero CI overhead. Tools that auto-open PRs or block builds need to clearly justify their maintenance cost at this scale.
+Ranked by payoff for the dual mission:
 
-- [ ] Set `rust-version = "1.70"` in `Cargo.toml` `[package]` and verify — otherwise CONTRIBUTING's "Rust 1.70+" is aspirational
-- [ ] `cargo audit` CI job — re-evaluate through the side-project lens before re-attempting. Tried-and-removed companion (Dependabot, below) hit the same scope problem; running `cargo audit` manually quarterly may be the right answer here. If we *do* re-enable, the lockfile carries known advisories that would need explicit `audit.toml` ignores or a manual `cargo update` pass first.
-- [ ] Add `cargo deny` CI job (license + advisory policy enforcement) — also subject to the side-project-lens evaluation
-- [ ] ~~`.github/dependabot.yml` for Cargo + GitHub Actions~~ — **tried and reverted** (added PR #117, removed PR #129). Within hours of merging it opened 5 PRs, 3 of which had to be triaged and closed for ecosystem incompatibilities (`axum-server 0.7` doesn't yet support `hyper 1.9`; `utoipa v5` needs source migration; `utoipa-swagger-ui v9` requires axum-0.8 cascade). For a single-maintainer test target the weekly PR triage cost exceeds the security benefit. See `feedback_side_project_tooling_scope.md` for the lens.
-- [ ] Configurable CORS — gate the permissive default behind a `cors_allowed_origins` config field (comma-separated list, `*` preserved as opt-in)
-- [ ] HSTS header for TLS listeners (`Strict-Transport-Security: max-age=...`)
-- [ ] Rate limiting on standalone deploys — optional, or document that "a gateway should handle this" in README (since single client can saturate `/delay`)
-- [ ] SLSA build provenance attestation on releases (optional; aligns with supply-chain best practice)
-
----
-
-## Suggested Priority Order
-
-Ranked by payoff-per-hour from the review:
-
-1. **CI matrix adds `windows-latest`** — prevents the WSL-dev drift the memory flags
-2. **Multi-arch Docker image** — small CI change, big UX win for Mac users
-3. **Metrics lock contention (DashMap / sharded atomics)** — only matters past ~10k rps; do it when benchmarks say so
-4. **Handler boilerplate DRY** — optional; the current "deferred" decision is defensible
-
-(Tier 3 plugin-testing trio complete: `/response-headers` PR #113, `/bytes` PR #114, `/drip` PR #115. Dependabot was tried in PR #117 and reverted in PR #129 — see Tier 8 note. `cargo audit` removed from priority order for the same reason; will revisit after a fresh side-project-lens evaluation.)
+1. **`windows-latest` CI matrix** — closes the WSL-dev / Linux-CI drift the memory flags as recurring; zero triage cost
+2. **"Why rucho?" + "rucho as a Kong upstream / in Kong Mesh" docs** — the mission was just clarified; make it real to users (cheapest, highest leverage)
+3. **`spawn_full_app()` real-`build_app()` test helper** — removes a correctness blind spot (chaos/metrics middleware) that undercuts the robustness claim
+4. **Multi-arch Docker image** — small CI change, big UX for Apple-Silicon / ARM mesh nodes
+5. **`/status/:code` reason phrase + `/redirect/:n` `X-Redirect-Count`** — cheap echo-fidelity + gateway-observability wins (two small one-PR-each items)
 
 ---
 
 ## Backlog
 
-Low-priority ideas — not worth the effort right now, but kept for reference.
+Low-priority parked ideas — kept for reference, not scheduled.
 
-- [ ] Extract echo handler boilerplate (macro or generic handler to DRY up POST/PUT/PATCH/DELETE patterns). Deferred: repetition is obvious not dangerous, and upcoming endpoints have unique logic that wouldn't fit a macro. (See Tier 6 for reconsideration under a non-macro helper-function approach.)
-- [ ] Clean up `C:` directory at repo root — appears to be a WSL path-leak from a Windows tool; `.gitignore` pattern to prevent recurrence
-- [ ] Request body echo for `/post` etc. could support non-JSON content types (currently rejects) — adds complexity for limited value
+- [ ] `/links/:n` — HTML page with `n` links. Primarily a client/crawler fixture with little gateway-upstream value; park unless an inspection-fidelity case emerges
+- [ ] Extract echo-handler boilerplate via a macro — superseded by the non-macro helper idea in T3
+- [ ] Non-JSON request-body echo for `/post` etc. (currently rejects non-JSON) — adds complexity for limited value
 
 ---
 
 ## Non-Goals
 
-The following are explicitly out of scope to maintain focus on the core mission:
+Out of scope to keep focus on the dual mission. Most are things **Kong Gateway or Kong Mesh already provides** (so a controllable upstream gains nothing by duplicating them), or identities Rucho isn't trying to be.
 
-- Auth-validating endpoints (`/basic-auth`, `/bearer`, etc.) — API gateways already handle credential validation via dedicated plugins (Kong's `basic-auth`, `key-auth`, `jwt`, `oauth2`). Upstream-side validation is redundant when a gateway is in front, and `/headers` already exposes what the upstream received so forwarding behavior can be verified.
-- `/deny` and similar fixed-status endpoints — `/status/:code` already covers this with full flexibility.
-- Prometheus exposition format for `/metrics` — rucho is a controllable upstream test target, not a production-monitoring component. Kong's own Prometheus plugin covers gateway-side metrics; upstream-side Prometheus output would duplicate Kong-layer infrastructure without adding test-specific value. The existing JSON `/metrics` stays for quick introspection.
-- gRPC support
-- Plugin/extension systems
-- Infrastructure provisioning (Terraform, etc.)
-- Request replay features
+**Kong/mesh already does it:**
+- Auth-validating endpoints (`/basic-auth`, `/bearer`, …) — Kong's `basic-auth`/`key-auth`/`jwt`/`oauth2` plugins validate credentials; `/headers` already exposes what the upstream received
+- `/deny` and fixed-status endpoints — `/status/:code` already covers this with full flexibility
+- Rate limiting — Kong's `rate-limiting` plugin owns this; for standalone use, document "put a gateway in front"
+- Configurable CORS — a gateway response concern (Kong `cors` plugin); the permissive default is fine for a test upstream
+- HSTS header — a gateway/edge security-posture concern (set via a gateway policy), not an upstream test stimulus
+- Mesh mTLS termination — the Kong Mesh (Kuma) sidecar handles mTLS between services; duplicating it in the upstream adds nothing *(distinct from the optional upstream-mTLS test knob in T2, which targets Kong **Gateway** → upstream client-cert config)*
+- Prometheus exposition for `/metrics` — Kong's Prometheus plugin + mesh observability cover gateway/mesh metrics; the JSON `/metrics` stays for quick introspection
 
----
+**Supply-chain / production-team tooling (wrong scale for a single-maintainer test target):**
+- Dependabot — tried (PR #117) and reverted (PR #129); within hours it opened 5 PRs, 3 needing triage for ecosystem incompatibilities. Quarterly manual `cargo update` is the right scale
+- `cargo audit` / `cargo deny` CI jobs — the lockfile already carries known transitive advisories that would red-fail the enabling PR; run `cargo audit` manually, quarterly
+- Container image vulnerability scanning (Trivy / Docker Scout) and SLSA build provenance — production supply-chain ceremony; revisit only if a downstream consumer requires it
 
-## Timeline
-
-| Phase | Focus | Status |
-|-------|-------|--------|
-| Phase 1 | Core echo functionality | ✅ Done |
-| Phase 2 | Protocol support (HTTP/2, TLS, TCP/UDP) | ✅ Done |
-| Phase 3 | Production infrastructure (Docker, systemd) | ✅ Done |
-| Phase 4 | Performance optimizations | ✅ Done |
-| Phase 5 | Advanced protocols (redirects) | ✅ Done |
-| Phase 6 | New endpoints (cookies, auth, data formats) | 🔄 Next |
-| Phase 7 | Testing, docs, code quality | 🔄 In progress |
-| Phase 8 | Security & supply chain | 📋 Planned |
+**Not Rucho's identity:**
+- gRPC support, plugin/extension systems, infrastructure provisioning (Terraform, etc.), request-replay features
 
 ---
 
@@ -305,8 +191,6 @@ The following are explicitly out of scope to maintain focus on the core mission:
 
 Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
----
-
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+MIT License — see [LICENSE](LICENSE).
