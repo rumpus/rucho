@@ -38,6 +38,32 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+  check-windows:
+    name: Check (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # Compile-only check to catch platform-gated drift (e.g. the
+      # #[cfg(not(target_os = "windows"))] socket2 path in server/http.rs)
+      # without running the full Unix-oriented test suite on Windows.
+      - name: Cargo check
+        run: cargo check --all-targets --all-features
+
   test:
     name: Test
     runs-on: ubuntu-latest
