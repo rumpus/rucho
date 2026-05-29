@@ -71,14 +71,18 @@ for testing and debugging API clients.
 
 ### Module Hierarchy
 
-The crate root (`src/lib.rs`) exports five top-level modules:
+The crate root (`src/lib.rs`) exports seven top-level modules:
 
 ```
 rucho (crate root)
   |
+  +-- app.rs                 # build_app() — assembles routes + full middleware stack
+  |
   +-- cli/                   # Command-line interface
   |   +-- mod.rs             # Re-exports Args, CliCommand
   |   +-- commands.rs        # Args struct, CliCommand enum, command handlers
+  |
+  +-- openapi.rs             # ApiDoc — OpenAPI spec aggregator
   |
   +-- routes/                # HTTP route handlers
   |   +-- mod.rs             # Re-exports submodules
@@ -2362,7 +2366,9 @@ Complete listing of all source files with line counts and primary purpose:
 
 | File | Purpose |
 |------|---------|
-| `src/main.rs` | Entry point, `build_app()`, `ApiDoc`, CLI dispatch |
+| `src/main.rs` | Entry point — CLI dispatch, config load, tracing init |
+| `src/app.rs` | `build_app()` — assembles routes + the full middleware stack |
+| `src/openapi.rs` | `ApiDoc` — OpenAPI spec aggregator (served at `/api-docs/openapi.json`) |
 | `src/lib.rs` | Crate root, module declarations |
 | `src/cli/mod.rs` | CLI module re-exports |
 | `src/cli/commands.rs` | `Args`, `CliCommand`, start/stop/status/version handlers |

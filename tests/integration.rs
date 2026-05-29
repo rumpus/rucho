@@ -53,6 +53,37 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
     format!("http://{addr}")
 }
 
+/// Spawns a test server using the REAL `build_app()` — the full middleware stack
+/// (metrics, chaos-gate, timing, trace, compression, CORS, normalize-path) wired
+/// exactly as the binary wires it. Unlike `spawn_app()` (a minimal router), this
+/// catches middleware-interaction regressions. Metrics are force-enabled so the
+/// `/metrics` endpoint and its collection middleware are exercised.
+async fn spawn_full_app() -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let config = rucho::utils::config::Config::default();
+    let metrics = Some(std::sync::Arc::new(rucho::utils::metrics::Metrics::new()));
+    let chaos = std::sync::Arc::new(config.chaos.clone());
+    let app = rucho::app::build_app(
+        metrics,
+        config.compression_enabled,
+        chaos,
+        config.max_body_size_bytes,
+    );
+
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .unwrap()
+    });
+
+    format!("http://{addr}")
+}
+
 #[tokio::test]
 async fn test_healthz() {
     let base = spawn_app().await;
@@ -532,4 +563,56 @@ async fn test_range_unsatisfiable_returns_416() {
         .unwrap();
 
     assert_eq!(resp.status(), 416);
+}
+
+// --- Full-app (real build_app) regression tests ---
+
+#[tokio::test]
+async fn test_full_app_serves_metrics() {
+    let base = spawn_full_app().await;
+    let resp = reqwest::get(format!("{base}/metrics")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(body["all_time"]["total_requests"].is_number());
+    assert!(body["last_hour"].is_object());
+}
+
+#[tokio::test]
+async fn test_full_app_metrics_middleware_records_requests() {
+    // The minimal spawn_app() omits the metrics middleware entirely, so this
+    // regression is only observable through the real build_app() stack.
+    let base = spawn_full_app().await;
+
+    // Make a recorded request, then read the metrics.
+    let _ = reqwest::get(format!("{base}/get")).await.unwrap();
+    let body: serde_json::Value = reqwest::get(format!("{base}/metrics"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    assert!(
+        body["all_time"]["total_requests"].as_u64().unwrap_or(0) >= 1,
+        "metrics middleware did not record any request: {body}"
+    );
+    assert!(
+        body["all_time"]["endpoint_hits"]["/get"]
+            .as_u64()
+            .unwrap_or(0)
+            >= 1,
+        "metrics middleware did not record the /get hit: {body}"
+    );
+}
+
+#[tokio::test]
+async fn test_full_app_echo_works_through_full_stack() {
+    // Basic echo must still work with the whole middleware stack in place.
+    let base = spawn_full_app().await;
+    let resp = reqwest::get(format!("{base}/get")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["method"], "GET");
 }

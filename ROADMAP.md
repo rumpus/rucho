@@ -89,7 +89,7 @@ Keep the "fast, robust Rust" promise — hot-path correctness over premature opt
 - [ ] **[L]** Replace `.unwrap()` in `head_handler` / `options_handler` response builders with `.expect("infallible: …")` — CLAUDE.md "no unwrap in production"
 - [ ] **[L]** Remove the dead `500` branch in `endpoints_handler` — `serde_json::to_value` on a `&'static` slice is infallible
 - [ ] **[L]** Handler boilerplate DRY — a non-macro `echo_with_body(method, headers, body)` helper for POST/PUT/PATCH/DELETE. Deferred is defensible; revisit only if touched
-- [ ] **[L]** Module organization — move `src/tcp_udp_handlers.rs` → `src/server/echo.rs`; consider splitting `src/utils/`; move `ApiDoc` → `src/openapi.rs` (enables spec-shape integration tests)
+- [ ] **[L]** Module organization — move `src/tcp_udp_handlers.rs` → `src/server/echo.rs`; consider splitting `src/utils/`; refresh INTERNALS' architecture-walkthrough prose still citing `build_app`/`ApiDoc` under `main.rs`. (`ApiDoc`→`src/openapi.rs` + `build_app`→`src/app.rs` landed in PR #138.)
 
 ---
 
@@ -98,7 +98,7 @@ Keep the "fast, robust Rust" promise — hot-path correctness over premature opt
 Coverage that backs the "more robust than httpbin" claim, and CI that catches the WSL-dev / Linux-CI drift.
 
 - [x] **[H]** Add `windows-latest` to the CI matrix for `cargo check` — catches platform-gated drift; Rucho confirmed to compile cleanly on Windows (PR #136)
-- [ ] **[H]** `spawn_full_app()` test helper that uses the real `build_app()` — current `spawn_app()` builds a minimal router and misses chaos/metrics middleware regressions
+- [x] **[H]** `spawn_full_app()` test helper using the real `build_app()` — exposed `build_app`→`src/app.rs` and `ApiDoc`→`src/openapi.rs` in the library; 3 full-stack regression tests incl. one proving the metrics middleware records requests (PR #138)
 - [ ] **[M]** Integration-test gaps — `/delay` fires (≥1 s), `HEAD /get`, `/status/500`, response compression, `/metrics` enabled, `/endpoints` shape, malformed-JSON → 400
 - [ ] **[M]** Property tests — chaos probabilities stay within bounds; `/redirect/:n` yields exactly `n` hops; `parse_cookies` never panics on any byte sequence
 - [ ] **[M]** Benchmark gaps — `/anything` with a body, cookies roundtrip, metrics-contention concurrency, full middleware stack vs bare handler; benchmark `/redirect`
@@ -146,13 +146,13 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **`spawn_full_app()` real-`build_app()` test helper** — removes a correctness blind spot (chaos/metrics middleware) that undercuts the robustness claim
-2. **Multi-arch Docker image** — small CI change, big UX for Apple-Silicon / ARM mesh nodes
-3. **`/status/:code` reason phrase + `/redirect/:n` `X-Redirect-Count`** — cheap echo-fidelity + gateway-observability wins (two small one-PR-each items)
-4. **Forced-encoding trio `/gzip`·`/brotli`·`/deflate`** — highest-value remaining endpoint; drives Kong Response-Transformer decode path; codecs already vendored
-5. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
+1. **Multi-arch Docker image** — small CI change, big UX for Apple-Silicon / ARM mesh nodes
+2. **`/status/:code` reason phrase + `/redirect/:n` `X-Redirect-Count`** — cheap echo-fidelity + gateway-observability wins (two small one-PR-each items)
+3. **Forced-encoding trio `/gzip`·`/brotli`·`/deflate`** — highest-value remaining endpoint; drives Kong Response-Transformer decode path; codecs already vendored
+4. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
+5. **`/cookies/set` attribute flags + `parse_cookies` RFC tolerance** — echo-fidelity cookie correctness
 
-_Done: `windows-latest` CI matrix (PR #136) · "Why rucho?" + Kong upstream/mesh docs (PR #137)._
+_Done: `windows-latest` CI matrix (PR #136) · "Why rucho?" + Kong upstream/mesh docs (PR #137) · `spawn_full_app()` + `build_app`/`ApiDoc` → library (PR #138)._
 
 ---
 
