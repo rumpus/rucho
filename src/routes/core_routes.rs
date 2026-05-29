@@ -314,8 +314,15 @@ pub async fn status_handler(
     axum::extract::Path(code): axum::extract::Path<u16>,
     _method: axum::http::Method,
 ) -> Response {
-    StatusCode::from_u16(code)
-        .unwrap_or(StatusCode::BAD_REQUEST)
+    let status = StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_REQUEST);
+    let reason = status.canonical_reason().unwrap_or("Unknown Status");
+    // Echo the canonical reason phrase in the body (an inspection-fidelity win
+    // over httpbin, which returns an empty body) while the HTTP status line
+    // still carries the requested code.
+    (
+        status,
+        Json(json!({ "status": status.as_u16(), "reason": reason })),
+    )
         .into_response()
 }
 

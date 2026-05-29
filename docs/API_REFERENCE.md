@@ -262,7 +262,7 @@ Returns the specified HTTP status code. Accepts any HTTP method.
 |-----------|------|-------------|
 | `code` | u16 | HTTP status code to return (e.g. `200`, `404`, `503`) |
 
-**Response:** The specified status code with an empty body.
+**Response:** The specified status code, with a JSON body `{ "status": <code>, "reason": "<canonical reason phrase>" }` (e.g. `{ "status": 404, "reason": "Not Found" }`). Unlike httpbin's empty body, the reason phrase is echoed for inspection.
 
 **Error:** `400 Bad Request` if the code is not a valid HTTP status code.
 
@@ -333,7 +333,7 @@ Returns a chain of HTTP 302 redirects that decrements on each hop.
 
 | Status | Condition | Description |
 |--------|-----------|-------------|
-| `302 Found` | `n >= 1` | `Location` header points to `/redirect/{n-1}` or `/get` when `n=1` |
+| `302 Found` | `n >= 1` | `Location` → `/redirect/{n-1}` (or `/get` when `n=1`); `X-Redirect-Count` header carries the remaining hop count |
 | `200 OK` | `n == 0` | Plain text "Redirect complete" |
 | `400 Bad Request` | `n > 20` | Exceeds maximum allowed hops |
 

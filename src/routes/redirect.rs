@@ -2,7 +2,7 @@
 
 use crate::utils::constants::MAX_REDIRECT_HOPS;
 use axum::{
-    http::{header, StatusCode},
+    http::{header, HeaderName, StatusCode},
     response::{IntoResponse, Response},
     routing::any,
     Router,
@@ -52,7 +52,16 @@ pub async fn redirect_handler(axum::extract::Path(n): axum::extract::Path<u32>) 
         format!("/redirect/{}", n - 1)
     };
 
-    (StatusCode::FOUND, [(header::LOCATION, location)]).into_response()
+    // X-Redirect-Count exposes the remaining hop count so a client can observe
+    // chain progress without parsing the Location URL.
+    (
+        StatusCode::FOUND,
+        [
+            (header::LOCATION, location),
+            (HeaderName::from_static("x-redirect-count"), n.to_string()),
+        ],
+    )
+        .into_response()
 }
 
 /// Creates and returns the Axum router for the redirect endpoint.
@@ -82,6 +91,18 @@ mod tests {
             response.headers().get(header::LOCATION).unwrap(),
             "/redirect/2"
         );
+    }
+
+    #[tokio::test]
+    async fn test_redirect_emits_count_header() {
+        let app = router();
+        let response = app
+            .oneshot(Request::get("/redirect/3").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::FOUND);
+        assert_eq!(response.headers().get("x-redirect-count").unwrap(), "3");
     }
 
     #[tokio::test]

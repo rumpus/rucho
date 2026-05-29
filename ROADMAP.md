@@ -57,7 +57,7 @@ Items are tagged **[H]** / **[M]** / **[L]** by priority.
 
 Make request inspection more correct, complete, and honest than httpbin & go-httpbin.
 
-- [ ] **[H]** `/status/:code` returns the canonical reason phrase in the body (e.g. `"Not Found"` for 404) — httpbin-parity; an inspector should report the phrase, not just the number
+- [x] **[H]** `/status/:code` returns `{ "status", "reason" }` JSON carrying the canonical reason phrase (e.g. "Not Found" for 404) while the status line keeps the requested code — httpbin-parity inspection win (PR #140)
 - [ ] **[M]** Echo HTTP version + TLS info in `/get` / `/anything` (`http_version`, negotiated ALPN/cipher, presented client-cert info when available) — go-httpbin omits this; unique inspection value that doubles as gateway-proxy visibility
 - [ ] **[M]** `/cache` + `/cache/:seconds` — emit `ETag` / `Last-Modified` and honor `If-None-Match` / `If-Modified-Since` → `304`; `/cache/:n` sets `Cache-Control: max-age=n`. Framed as *conditional-request fidelity* (the upstream emits the stimulus; lets you watch a gateway/cache react). Model on `range.rs`; no new deps
 - [ ] **[M]** `parse_cookies` tolerates both `;` and `; ` separators (RFC 6265) — correctness; sloppy cookie parsing is a known httbin/go-httpbin pain point (`src/routes/cookies.rs`)
@@ -72,7 +72,7 @@ Controllable upstream knobs to observe Kong Gateway / Kong Mesh behavior the gat
 
 - [ ] **[M]** Forced content-encoding trio `/gzip`, `/deflate`, `/brotli` — return a JSON body compressed with that codec + the matching `Content-Encoding`, *regardless of `Accept-Encoding`*. Tests Kong's Response-Transformer / RT-Advanced decode-and-rewrite path against an already-encoded upstream body (documented breakage: Kong/kong#13741, #1200). `flate2` + `brotli` are already transitive via tower-http → promote to direct deps (near-zero cost). One PR (trio). Fixed paths → no metrics-normalize change
 - [ ] **[M]** `X-Response-Time` response header from `RequestTiming` — matches Kong's own plugin output; lets you compare upstream-measured vs gateway-measured latency
-- [ ] **[M]** `/redirect/:n` emits an `X-Redirect-Count` header — observe hop number without parsing the URL; useful watching Kong follow-redirect behavior
+- [x] **[M]** `/redirect/:n` emits an `X-Redirect-Count` header (remaining hops) on each 302 — observe chain progress without parsing the URL (PR #140)
 - [ ] **[M]** Connection-control knob (e.g. `/anything?connection=close`) — force upstream `Connection: close` per request to observe Kong connection pooling / keep-alive reuse; the gateway cannot self-generate upstream teardown
 - [ ] **[L]** mTLS — `ssl_ca_cert` config so the upstream *requires & verifies a client cert*. This is the way to test Kong's **upstream**-mTLS configuration (the gateway must present a cert the upstream demands). Distinct from mesh mTLS, which the sidecar terminates (see Non-Goals). Low priority — needs rustls client-cert verification
 - [ ] **[L]** Investigate a slow-headers / slow-first-byte knob distinct from `/delay` and `/drip` — to exercise Kong upstream `read_timeout` vs `connect_timeout` separately. *Validate it isn't redundant with `/drip` (inter-byte) before building*
@@ -146,13 +146,13 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **`/status/:code` reason phrase + `/redirect/:n` `X-Redirect-Count`** — cheap echo-fidelity + gateway-observability wins (two small one-PR-each items)
-2. **Forced-encoding trio `/gzip`·`/brotli`·`/deflate`** — highest-value remaining endpoint; drives Kong Response-Transformer decode path; codecs already vendored
-3. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
-4. **`/cookies/set` attribute flags + `parse_cookies` RFC tolerance** — echo-fidelity cookie correctness
-5. **`/healthz/ready` + `/healthz/live` + request-ID middleware** — K8s/mesh probe parity + correlation IDs
+1. **Forced-encoding trio `/gzip`·`/brotli`·`/deflate`** — highest-value remaining endpoint; drives Kong Response-Transformer decode path; codecs already vendored
+2. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
+3. **`/cookies/set` attribute flags + `parse_cookies` RFC tolerance** — echo-fidelity cookie correctness
+4. **`/healthz/ready` + `/healthz/live` + request-ID middleware** — K8s/mesh probe parity + correlation IDs
+5. **`log_format = json` + read-only-FS compat** — structured logging + container/mesh deploy robustness
 
-_Done: `windows-latest` CI matrix (PR #136) · "Why rucho?" + Kong upstream/mesh docs (PR #137) · `spawn_full_app()` + library refactor (PR #138) · multi-arch Docker (PR #139)._
+_Done: `windows-latest` CI matrix (PR #136) · "Why rucho?" + Kong upstream/mesh docs (PR #137) · `spawn_full_app()` + library refactor (PR #138) · multi-arch Docker (PR #139) · `/status` reason phrase + `/redirect` `X-Redirect-Count` (PR #140)._
 
 ---
 

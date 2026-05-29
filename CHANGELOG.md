@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Chaos middleware now uses a per-thread cached RNG (`thread_local!` `StdRng`, seeded once from entropy) instead of constructing and re-seeding a `StdRng` from `thread_rng()` on every request. The v1.4.6 changelog described this optimization, but the implementation had continued to re-seed per request — this lands it for real. Internal only; chaos injection behavior is unchanged.
+- `/status/:code` now returns a JSON body `{ "status", "reason" }` carrying the canonical reason phrase (e.g. `"Not Found"`) instead of an empty body, while the HTTP status line still carries the requested code — an inspection-fidelity improvement over httpbin.
+- `/redirect/:n` now emits an `X-Redirect-Count` response header (remaining hops) on each 302, so clients can observe chain progress without parsing the `Location` URL.
 
 ### Fixed
 - `/anything` handler no longer reads the full request body with `usize::MAX` limit — closes an OOM vector. `anything_handler` now uses the `Bytes` extractor which honors the configured `max_body_size_bytes`.
