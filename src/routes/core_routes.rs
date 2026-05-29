@@ -239,6 +239,11 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         description:
             "Returns a sample image (png, jpeg, svg, webp) with the matching content type.",
     },
+    EndpointInfo {
+        path: "/range/:n",
+        method: "GET",
+        description: "Returns n bytes with Accept-Ranges + Range support (206 partial content).",
+    },
 ];
 
 /// Creates and returns the Axum router for the core API endpoints.

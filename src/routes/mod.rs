@@ -12,6 +12,7 @@
 //! - [`healthz`] - Health check endpoint
 //! - [`image`] - Sample image endpoint (png/jpeg/svg/webp)
 //! - [`metrics`] - Metrics endpoint (JSON)
+//! - [`range`] - Byte-range endpoint (partial content)
 //! - [`redirect`] - Chained redirect endpoint
 //! - [`response_headers`] - Echo query params as response headers
 
@@ -35,6 +36,8 @@ pub mod healthz;
 pub mod image;
 /// Module for the metrics endpoint (`/metrics`).
 pub mod metrics;
+/// Module for the byte-range endpoint (`/range/:n`).
+pub mod range;
 /// Module for the redirect endpoint (`/redirect/:n`).
 pub mod redirect;
 /// Module for the response-headers endpoint (`/response-headers`).

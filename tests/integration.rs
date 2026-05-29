@@ -6,8 +6,8 @@
 
 use axum::{extract::DefaultBodyLimit, middleware, Router};
 use rucho::routes::{
-    base64, bytes, content_types, cookies, core_routes, delay, drip, healthz, image, redirect,
-    response_headers,
+    base64, bytes, content_types, cookies, core_routes, delay, drip, healthz, image, range,
+    redirect, response_headers,
 };
 use rucho::server::timing_layer::timing_middleware;
 use rucho::utils::constants::DEFAULT_MAX_BODY_SIZE_BYTES;
@@ -37,6 +37,7 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
         .merge(response_headers::router())
         .merge(content_types::router())
         .merge(image::router())
+        .merge(range::router())
         .layer(DefaultBodyLimit::max(max_body_size))
         .layer(middleware::from_fn(timing_middleware));
 
@@ -485,4 +486,50 @@ async fn test_image_unsupported_format_returns_400() {
     let base = spawn_app().await;
     let resp = reqwest::get(format!("{base}/image/gif")).await.unwrap();
     assert_eq!(resp.status(), 400);
+}
+
+#[tokio::test]
+async fn test_range_full_body_when_no_range_header() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/range/26")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers().get(reqwest::header::ACCEPT_RANGES).unwrap(),
+        "bytes"
+    );
+    assert_eq!(resp.text().await.unwrap(), "abcdefghijklmnopqrstuvwxyz");
+}
+
+#[tokio::test]
+async fn test_range_partial_content() {
+    let base = spawn_app().await;
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("{base}/range/26"))
+        .header(reqwest::header::RANGE, "bytes=0-4")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 206);
+    assert_eq!(
+        resp.headers().get(reqwest::header::CONTENT_RANGE).unwrap(),
+        "bytes 0-4/26"
+    );
+    assert_eq!(resp.text().await.unwrap(), "abcde");
+}
+
+#[tokio::test]
+async fn test_range_unsatisfiable_returns_416() {
+    let base = spawn_app().await;
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("{base}/range/26"))
+        .header(reqwest::header::RANGE, "bytes=100-200")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 416);
 }

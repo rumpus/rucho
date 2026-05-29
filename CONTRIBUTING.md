@@ -157,6 +157,7 @@ src/
 │   ├── healthz.rs       # /healthz endpoint
 │   ├── image.rs         # /image/:format endpoint
 │   ├── metrics.rs       # /metrics endpoint handler
+│   ├── range.rs         # /range/:n endpoint
 │   ├── redirect.rs      # /redirect/:n endpoint
 │   └── response_headers.rs # /response-headers endpoint
 ├── server/              # Server setup and orchestration

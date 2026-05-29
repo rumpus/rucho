@@ -548,6 +548,27 @@ curl -o sample.png http://localhost:8080/image/png
 curl -i http://localhost:8080/image/svg
 ```
 
+### GET /range/:n
+
+Returns `n` bytes of deterministic content (byte `i` is `a`+`i%26`, a repeating `a`..`z` pattern, so any slice is independently verifiable) with HTTP range-request support. A controllable upstream for testing how a gateway proxies partial-content / resumable downloads.
+
+- **No `Range` header:** `200 OK`, full body, `Accept-Ranges: bytes`.
+- **Satisfiable `Range`** (`bytes=start-end`, `bytes=start-`, `bytes=-suffix`): `206 Partial Content`, the requested slice, `Content-Range: bytes start-end/n`.
+- **Unsatisfiable `Range`:** `416 Range Not Satisfiable`, `Content-Range: bytes */n`.
+
+Only a single range is honored (the first if several are sent). `n` is capped at 10 MiB.
+
+```bash
+# Full body
+curl -i http://localhost:8080/range/26
+
+# First 5 bytes → 206, "abcde"
+curl -i -H 'Range: bytes=0-4' http://localhost:8080/range/26
+
+# Last 3 bytes → 206, "xyz"
+curl -i -H 'Range: bytes=-3' http://localhost:8080/range/26
+```
+
 ---
 
 ## Infrastructure

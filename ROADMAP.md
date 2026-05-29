@@ -87,7 +87,7 @@
 
 ### Streaming & Range
 - [x] `/drip?duration=N&numbytes=M` — emit `numbytes` bytes evenly over `duration` seconds. Optional `code` and `delay` parameters. Caps: numbytes ≤ 10 000, duration/delay ≤ 300 s. Chunk pacing clamped to ~1 ms timer precision. Tests inter-byte (read/send) timeouts and streaming-vs-buffering behavior. (PR #115)
-- [ ] `/range/:n` — return `n` bytes with `Accept-Ranges` support
+- [x] `/range/:n` — return `n` bytes with `Accept-Ranges` support; deterministic content, 206/416 + `Content-Range`, single-range, metrics-normalized (PR #134)
 - [ ] `/links/:n` — return an HTML page with `n` links (crawler testing)
 
 ### Endpoint Enhancements (from review)
