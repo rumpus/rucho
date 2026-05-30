@@ -198,8 +198,8 @@ main()                              src/main.rs
   +-- match args.command
         |
         CliCommand::Start =>
-          +-- handle_start_command()  src/cli/commands.rs
-          |     +-- write_pid_file(pid)
+          +-- handle_start_command(&config.pid_file)  src/cli/commands.rs
+          |     +-- write_pid_file(path, pid)  (non-fatal)
           |
           +-- Metrics::new() (if metrics_enabled)
           +-- build_app(metrics, compression_enabled, chaos, max_body_size_bytes, request_id_enabled)  src/app.rs
@@ -245,29 +245,30 @@ async fn main() {
     // Dispatch command
     match args.command {
         CliCommand::Start {} => {
-            if handle_start_command() {
-                let metrics = if config.metrics_enabled {
-                    tracing::info!("Metrics endpoint enabled at /metrics");
-                    Some(Arc::new(Metrics::new()))
-                } else {
-                    None
-                };
+            // PID-write failure is non-fatal; the server still starts.
+            handle_start_command(&config.pid_file);
 
-                // ... logging omitted for brevity ...
+            let metrics = if config.metrics_enabled {
+                tracing::info!("Metrics endpoint enabled at /metrics");
+                Some(Arc::new(Metrics::new()))
+            } else {
+                None
+            };
 
-                let chaos = Arc::new(config.chaos.clone());
-                let app = build_app(
-                    metrics,
-                    config.compression_enabled,
-                    chaos,
-                    config.max_body_size_bytes,
-                    config.request_id_enabled,
-                );
-                rucho::server::run_server(&config, app).await;
-            }
+            // ... logging omitted for brevity ...
+
+            let chaos = Arc::new(config.chaos.clone());
+            let app = build_app(
+                metrics,
+                config.compression_enabled,
+                chaos,
+                config.max_body_size_bytes,
+                config.request_id_enabled,
+            );
+            rucho::server::run_server(&config, app).await;
         }
-        CliCommand::Stop {} => handle_stop_command(),
-        CliCommand::Status {} => handle_status_command(),
+        CliCommand::Stop {} => handle_stop_command(&config.pid_file),
+        CliCommand::Status {} => handle_status_command(&config.pid_file),
         CliCommand::Version {} => handle_version_command(),
     }
 }
@@ -278,8 +279,9 @@ async fn main() {
 - `Config::load()` happens *before* tracing is initialized — errors from config
   loading go to `eprintln!` (stderr), not tracing.
 - `config.validate()` runs before anything else; exits with code 1 on failure.
-- The `build_app()` call happens *inside* the `Start` branch, after the PID file
-  is written.
+- The `build_app()` call happens *inside* the `Start` branch, after
+  `handle_start_command` (whose PID write is non-fatal — startup continues even
+  if the PID file can't be written).
 
 ---
 
@@ -1290,6 +1292,7 @@ pub struct Config {
     pub server_listen_udp: Option<String>, // e.g., "0.0.0.0:7778"
     pub ssl_cert: Option<String>,          // path to PEM cert
     pub ssl_key: Option<String>,           // path to PEM key
+    pub pid_file: String,                  // PID file path; write is non-fatal
     pub metrics_enabled: bool,
     pub compression_enabled: bool,
     pub request_id_enabled: bool,          // default true
@@ -1332,6 +1335,7 @@ pub struct ChaosConfig {
 | `server_listen_udp` | `Option<String>` | `None` | `server_listen_udp` | `RUCHO_SERVER_LISTEN_UDP` |
 | `ssl_cert` | `Option<String>` | `None` | `ssl_cert` | `RUCHO_SSL_CERT` |
 | `ssl_key` | `Option<String>` | `None` | `ssl_key` | `RUCHO_SSL_KEY` |
+| `pid_file` | `String` | `"/var/run/rucho/rucho.pid"` | `pid_file` | `RUCHO_PID_FILE` |
 | `metrics_enabled` | `bool` | `false` | `metrics_enabled` | `RUCHO_METRICS_ENABLED` |
 | `compression_enabled` | `bool` | `false` | `compression_enabled` | `RUCHO_COMPRESSION_ENABLED` |
 | `request_id_enabled` | `bool` | `true` | `request_id_enabled` | `RUCHO_REQUEST_ID_ENABLED` |
@@ -2082,23 +2086,28 @@ return `Json(snapshot)` directly.
 
 ### PID File Location
 
-The PID file path is hardcoded as a constant:
+The PID file path is configurable via the `pid_file` config field (env
+`RUCHO_PID_FILE`), defaulting to the `PID_FILE_PATH` constant:
 
 ```rust
-// src/utils/constants.rs
+// src/utils/constants.rs — the default
 pub const PID_FILE_PATH: &str = "/var/run/rucho/rucho.pid";
 ```
+
+Writing the PID file is **non-fatal**: if the path is unwritable (read-only
+filesystem, missing parent directory) the server logs a warning and starts
+anyway — point `pid_file` at a writable location (e.g. `/tmp`) under
+`--read-only`.
 
 ### Operations
 
 | Function | Description | Source |
 |----------|------------|--------|
-| `write_pid_file(pid)` | Creates file, writes PID + newline | `pid.rs` |
-| `read_pid_file()` | Reads file, parses as `usize` | `pid.rs` |
-| `remove_pid_file()` | Deletes the PID file | `pid.rs` |
+| `write_pid_file(path, pid)` | Creates file at `path`, writes PID + newline | `pid.rs` |
+| `read_pid_file(path)` | Reads file at `path`, parses as `usize` | `pid.rs` |
+| `remove_pid_file(path)` | Deletes the PID file at `path` | `pid.rs` |
 | `check_process_running(pid)` | Uses `sysinfo` to check if PID exists | `pid.rs` |
 | `stop_process(pid)` | Sends SIGTERM, waits 1s, checks if stopped | `pid.rs` |
-| `pid_file_path()` | Returns `PID_FILE_PATH` | `pid.rs` |
 
 ### Error Types
 
@@ -2154,11 +2163,10 @@ stop_process(pid)
 
 ### CLI Command Handlers
 
-**`handle_start_command()`** (`src/cli/commands.rs`):
+**`handle_start_command(pid_path)`** (`src/cli/commands.rs`):
 1. Gets current PID via `process::id()`.
-2. Writes PID file.
-3. Returns `true` on success (caller proceeds to start server), `false` on
-   failure (caller exits without starting).
+2. Writes the PID file at `pid_path`. A write failure is **non-fatal** — it
+   logs a warning; the caller starts the server regardless.
 
 **`handle_stop_command()`** (`src/cli/commands.rs`):
 1. Reads PID from file.

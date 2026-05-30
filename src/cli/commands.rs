@@ -4,8 +4,8 @@ use clap::Parser;
 use std::process;
 
 use crate::utils::pid::{
-    check_process_running, pid_file_path, read_pid_file, remove_pid_file, stop_process,
-    write_pid_file, PidError, StopResult,
+    check_process_running, read_pid_file, remove_pid_file, stop_process, write_pid_file, PidError,
+    StopResult,
 };
 
 /// Represents the command line arguments passed to the application.
@@ -30,36 +30,35 @@ pub enum CliCommand {
     Version {},
 }
 
-/// Handles the start command by writing the PID file.
+/// Handles the start command by writing the PID file at `pid_path`.
 ///
-/// # Returns
-///
-/// `true` if the PID file was written successfully, `false` otherwise.
-pub fn handle_start_command() -> bool {
+/// A write failure (read-only filesystem, missing parent directory, …) is
+/// **non-fatal**: it logs a warning and the server still starts. The PID file
+/// only backs `rucho stop`/`status`; a containerized server is stopped with a
+/// signal (SIGTERM / Ctrl+C), so a missing PID file is acceptable there.
+pub fn handle_start_command(pid_path: &str) {
     println!("Starting server...");
     let pid = process::id();
 
-    match write_pid_file(pid) {
-        Ok(()) => {
-            println!("Server PID {} written to {}", pid, pid_file_path());
-            true
-        }
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            false
-        }
+    match write_pid_file(pid_path, pid) {
+        Ok(()) => println!("Server PID {} written to {}", pid, pid_path),
+        Err(e) => eprintln!(
+            "Warning: could not write PID file at {}: {}. Starting anyway — \
+             stop the server with a signal (SIGTERM / Ctrl+C) rather than `rucho stop`.",
+            pid_path, e
+        ),
     }
 }
 
-/// Handles the stop command.
-pub fn handle_stop_command() {
-    match read_pid_file() {
+/// Handles the stop command, reading the PID from `pid_path`.
+pub fn handle_stop_command(pid_path: &str) {
+    match read_pid_file(pid_path) {
         Ok(pid_val) => {
             println!("Stopping server (PID: {})...", pid_val);
             match stop_process(pid_val) {
                 StopResult::Stopped => {
                     println!("Server stopped successfully.");
-                    if let Err(e) = remove_pid_file() {
+                    if let Err(e) = remove_pid_file(pid_path) {
                         eprintln!("Warning: {}", e);
                     }
                 }
@@ -78,7 +77,7 @@ pub fn handle_stop_command() {
                         "Process {} not found. It might have already stopped.",
                         pid_val
                     );
-                    if let Err(e) = remove_pid_file() {
+                    if let Err(e) = remove_pid_file(pid_path) {
                         eprintln!("Warning: {}", e);
                     }
                 }
@@ -92,10 +91,7 @@ pub fn handle_stop_command() {
         }
         Err(e) => {
             if matches!(e, PidError::ReadFailed(_)) {
-                println!(
-                    "Server not running (PID file {} not found).",
-                    pid_file_path()
-                );
+                println!("Server not running (PID file {} not found).", pid_path);
             } else {
                 eprintln!("Error: {}", e);
             }
@@ -103,30 +99,26 @@ pub fn handle_stop_command() {
     }
 }
 
-/// Handles the status command.
-pub fn handle_status_command() {
-    match read_pid_file() {
+/// Handles the status command, reading the PID from `pid_path`.
+pub fn handle_status_command(pid_path: &str) {
+    match read_pid_file(pid_path) {
         Ok(pid_val) => {
             if check_process_running(pid_val) {
                 println!("Server is running (PID: {}).", pid_val);
             } else {
                 println!(
                     "Server is stopped (PID file {} found, but process {} not running).",
-                    pid_file_path(),
-                    pid_val
+                    pid_path, pid_val
                 );
                 println!(
                     "Consider running 'rucho stop' to cleanup or manually delete {}.",
-                    pid_file_path()
+                    pid_path
                 );
             }
         }
         Err(e) => {
             if matches!(e, PidError::ReadFailed(_)) {
-                println!(
-                    "Server is stopped (PID file {} not found).",
-                    pid_file_path()
-                );
+                println!("Server is stopped (PID file {} not found).", pid_path);
             } else {
                 eprintln!("Error: {}", e);
             }

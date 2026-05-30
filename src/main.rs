@@ -52,41 +52,43 @@ async fn main() {
     // Dispatch command
     match args.command {
         CliCommand::Start {} => {
-            if handle_start_command() {
-                // Create metrics store if enabled
-                let metrics = if config.metrics_enabled {
-                    tracing::info!("Metrics endpoint enabled at /metrics");
-                    Some(Arc::new(Metrics::new()))
-                } else {
-                    None
-                };
+            // A PID-write failure is non-fatal (read-only FS, missing dir): the
+            // server still starts and can be stopped with a signal.
+            handle_start_command(&config.pid_file);
 
-                tracing::info!(
-                    "Connection settings: TCP keep-alive={}s, TCP nodelay={}, HTTP timeout={}s, header timeout={}s",
-                    config.tcp_keepalive_time,
-                    config.tcp_nodelay,
-                    config.http_keep_alive_timeout,
-                    config.header_read_timeout,
-                );
+            // Create metrics store if enabled
+            let metrics = if config.metrics_enabled {
+                tracing::info!("Metrics endpoint enabled at /metrics");
+                Some(Arc::new(Metrics::new()))
+            } else {
+                None
+            };
 
-                // Log chaos mode if enabled
-                if config.chaos.is_enabled() {
-                    tracing::info!("Chaos mode enabled: {}", config.chaos.modes.join(", "));
-                }
+            tracing::info!(
+                "Connection settings: TCP keep-alive={}s, TCP nodelay={}, HTTP timeout={}s, header timeout={}s",
+                config.tcp_keepalive_time,
+                config.tcp_nodelay,
+                config.http_keep_alive_timeout,
+                config.header_read_timeout,
+            );
 
-                let chaos = Arc::new(config.chaos.clone());
-                let app = build_app(
-                    metrics,
-                    config.compression_enabled,
-                    chaos,
-                    config.max_body_size_bytes,
-                    config.request_id_enabled,
-                );
-                rucho::server::run_server(&config, app).await;
+            // Log chaos mode if enabled
+            if config.chaos.is_enabled() {
+                tracing::info!("Chaos mode enabled: {}", config.chaos.modes.join(", "));
             }
+
+            let chaos = Arc::new(config.chaos.clone());
+            let app = build_app(
+                metrics,
+                config.compression_enabled,
+                chaos,
+                config.max_body_size_bytes,
+                config.request_id_enabled,
+            );
+            rucho::server::run_server(&config, app).await;
         }
-        CliCommand::Stop {} => handle_stop_command(),
-        CliCommand::Status {} => handle_status_command(),
+        CliCommand::Stop {} => handle_stop_command(&config.pid_file),
+        CliCommand::Status {} => handle_status_command(&config.pid_file),
         CliCommand::Version {} => handle_version_command(),
     }
 }

@@ -6,7 +6,7 @@ use crate::utils::constants::{
     DEFAULT_HEADER_READ_TIMEOUT_SECS, DEFAULT_HTTP_KEEP_ALIVE_TIMEOUT_SECS, DEFAULT_LOG_FORMAT,
     DEFAULT_LOG_LEVEL, DEFAULT_MAX_BODY_SIZE_BYTES, DEFAULT_PREFIX, DEFAULT_SERVER_LISTEN_PRIMARY,
     DEFAULT_SERVER_LISTEN_SECONDARY, DEFAULT_TCP_KEEPALIVE_INTERVAL_SECS,
-    DEFAULT_TCP_KEEPALIVE_RETRIES, DEFAULT_TCP_KEEPALIVE_SECS,
+    DEFAULT_TCP_KEEPALIVE_RETRIES, DEFAULT_TCP_KEEPALIVE_SECS, PID_FILE_PATH,
 };
 
 /// Configuration for chaos engineering mode.
@@ -150,6 +150,10 @@ pub struct Config {
     pub ssl_cert: Option<String>,
     /// Optional path to an SSL private key file for HTTPS. Required if any listen address uses "ssl:".
     pub ssl_key: Option<String>,
+    /// Path to the PID file backing `rucho stop`/`status`. A write failure here
+    /// is non-fatal — the server still starts (read-only filesystems, missing
+    /// parent dir). Point it at a writable location (e.g. `/tmp`) if needed.
+    pub pid_file: String,
     /// Enable the /metrics endpoint for request statistics.
     pub metrics_enabled: bool,
     /// Enable response compression (gzip, brotli) based on client Accept-Encoding.
@@ -190,6 +194,7 @@ impl Default for Config {
             server_listen_udp: None,
             ssl_cert: None,
             ssl_key: None,
+            pid_file: PID_FILE_PATH.to_string(),
             metrics_enabled: false,
             compression_enabled: false,
             request_id_enabled: true,
@@ -265,6 +270,7 @@ impl Config {
                     "server_listen_udp" => config.server_listen_udp = Some(value.to_string()),
                     "ssl_cert" => config.ssl_cert = Some(value.to_string()),
                     "ssl_key" => config.ssl_key = Some(value.to_string()),
+                    "pid_file" => config.pid_file = value.to_string(),
                     "metrics_enabled" => {
                         config.metrics_enabled = value.eq_ignore_ascii_case("true") || value == "1"
                     }
@@ -439,6 +445,7 @@ impl Config {
         );
         load_env_var!(config, ssl_cert, "RUCHO_SSL_CERT", env_reader, option);
         load_env_var!(config, ssl_key, "RUCHO_SSL_KEY", env_reader, option);
+        load_env_var!(config, pid_file, "RUCHO_PID_FILE", env_reader);
         load_env_var!(
             config,
             metrics_enabled,
@@ -730,6 +737,7 @@ impl Config {
     /// - `server_listen_udp` (`RUCHO_SERVER_LISTEN_UDP`)
     /// - `ssl_cert` (`RUCHO_SSL_CERT`)
     /// - `ssl_key` (`RUCHO_SSL_KEY`)
+    /// - `pid_file` (`RUCHO_PID_FILE`)
     /// - `metrics_enabled` (`RUCHO_METRICS_ENABLED`)
     /// - `compression_enabled` (`RUCHO_COMPRESSION_ENABLED`)
     /// - `request_id_enabled` (`RUCHO_REQUEST_ID_ENABLED`)
@@ -1267,6 +1275,42 @@ mod tests {
         );
 
         assert_eq!(config.log_format, "json");
+    }
+
+    #[test]
+    fn test_pid_file_default() {
+        let config = Config::default();
+        assert_eq!(config.pid_file, PID_FILE_PATH);
+    }
+
+    #[test]
+    fn test_load_pid_file_from_file() {
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "pid_file = /tmp/custom-rucho.pid");
+
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
+        );
+
+        assert_eq!(config.pid_file, "/tmp/custom-rucho.pid");
+    }
+
+    #[test]
+    fn test_env_overrides_file_for_pid_file() {
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "pid_file = /tmp/from-file.pid");
+
+        let env = mock_env(HashMap::from([("RUCHO_PID_FILE", "/tmp/from-env.pid")]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
+        );
+
+        assert_eq!(config.pid_file, "/tmp/from-env.pid");
     }
 
     // --- Chaos config tests ---

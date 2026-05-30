@@ -19,6 +19,12 @@ log_level = info
 # Example: log_format = json
 log_format = text
 
+# Path to the PID file backing `rucho stop`/`status`. A write failure here is
+# non-fatal — the server still starts (read-only filesystems, missing dir).
+# Point it at a writable location (e.g. /tmp/rucho.pid) under `--read-only`.
+# Example: pid_file = /tmp/rucho.pid
+pid_file = /var/run/rucho/rucho.pid
+
 # Primary server listen address and port.
 # Use 'ssl' suffix to enable TLS, e.g., 0.0.0.0:8043 ssl
 # Example: server_listen_primary = 127.0.0.1:8000
