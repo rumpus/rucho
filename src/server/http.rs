@@ -159,7 +159,12 @@ async fn setup_https_listener(
     {
         Some(rustls_config) => {
             tracing::info!("Starting HTTPS server on https://{}", sock_addr);
-            let mut server = axum_server::bind_rustls(sock_addr, rustls_config);
+            // Use a TLS-info-injecting acceptor (instead of `bind_rustls`) so the
+            // negotiated TLS parameters reach the `/get` and `/anything` handlers
+            // as a request extension. ALPN/HTTP-2 and graceful shutdown are
+            // unaffected — the wrapper delegates the handshake to `RustlsAcceptor`.
+            let acceptor = crate::server::tls::TlsInfoAcceptor::new(rustls_config);
+            let mut server = axum_server::Server::bind(sock_addr).acceptor(acceptor);
             configure_http_builder(&mut server, config);
             let server_future = server
                 .handle(handle)

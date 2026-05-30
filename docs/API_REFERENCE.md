@@ -23,7 +23,7 @@ Complete reference for all Rucho HTTP endpoints.
 
 ## Echo Endpoints
 
-Core echo handlers that reflect request details back to the caller. All echo responses include an `http_version` field and a `timing` object with processing duration.
+Core echo handlers that reflect request details back to the caller. All echo responses include an `http_version` field and a `timing` object with processing duration. Over **HTTPS**, `/get` and `/anything` additionally include a `tls` object describing the negotiated connection (see [GET /get](#get-get)).
 
 ### GET /get
 
@@ -34,8 +34,10 @@ Echo request details (method, headers, timing).
 | Field | Type | Description |
 |-------|------|-------------|
 | `method` | string | `"GET"` |
+| `http_version` | string | HTTP version (e.g. `"HTTP/1.1"`, `"HTTP/2.0"`) |
 | `headers` | object | All request headers as key-value pairs |
 | `timing.duration_ms` | number | Processing time in milliseconds |
+| `tls` | object | **HTTPS only** — negotiated TLS connection info (omitted on plain HTTP) |
 
 ```json
 {
@@ -51,6 +53,28 @@ Echo request details (method, headers, timing).
   }
 }
 ```
+
+**Over HTTPS** the response additionally carries a `tls` object reporting what the connection negotiated — a fidelity win over httpbin/go-httpbin, and a way to confirm exactly what TLS an upstream negotiated behind a gateway:
+
+```json
+{
+  "tls": {
+    "version": "TLSv1.3",
+    "cipher_suite": "TLS13_AES_256_GCM_SHA384",
+    "alpn": "h2",
+    "client_cert_present": false,
+    "client_certs": []
+  }
+}
+```
+
+| `tls` field | Type | Description |
+|-------------|------|-------------|
+| `version` | string \| null | Negotiated protocol version, e.g. `"TLSv1.3"` |
+| `cipher_suite` | string \| null | Negotiated cipher suite, e.g. `"TLS13_AES_256_GCM_SHA384"` |
+| `alpn` | string \| null | Negotiated ALPN protocol (`"h2"` / `"http/1.1"`), or `null` if none |
+| `client_cert_present` | bool | Whether the client presented a certificate (only under mTLS) |
+| `client_certs` | array | Per-cert `{ "der_length": n }`, leaf-first; empty unless mTLS is configured |
 
 ### HEAD /get
 
@@ -292,6 +316,7 @@ Echo any request regardless of HTTP method. Returns method, path, query string, 
 | `headers` | object | All request headers |
 | `body` | string | Raw request body as a string |
 | `timing.duration_ms` | number | Processing time in milliseconds |
+| `tls` | object | **HTTPS only** — negotiated TLS connection info (same shape as [GET /get](#get-get); omitted on plain HTTP) |
 
 ```json
 {

@@ -112,6 +112,7 @@ rucho (crate root)
   |   +-- metrics_layer.rs   # Metrics recording middleware
   |   +-- timing_layer.rs    # Request timing middleware
   |   +-- request_id.rs      # X-Request-Id correlation middleware
+  |   +-- tls.rs             # TlsInfoAcceptor + TlsConnectionInfo (HTTPS tls echo)
   |
   +-- tcp_udp_handlers.rs    # Raw TCP/UDP echo handlers
   |
@@ -1626,7 +1627,10 @@ run_server()
           +-- if is_ssl:
           |     setup_https_listener()  src/server/http.rs
           |       +-- try_load_rustls_config()  load TLS certs
-          |       +-- axum_server::bind_rustls()
+          |       +-- Server::bind().acceptor(TlsInfoAcceptor::new(cfg))
+          |       |     wraps axum_server's RustlsAcceptor; reads the handshaken
+          |       |     ServerConnection and injects a TlsConnectionInfo extension
+          |       |     so /get & /anything can echo `tls` (src/server/tls.rs)
           |       +-- configure_http_builder()
           |       +-- tokio::spawn(server_future)
           |
@@ -1767,6 +1771,22 @@ Returns `None` in three cases:
 1. Either path is `None`.
 2. Files don't exist on disk.
 3. `RustlsConfig::from_pem_file()` fails (invalid PEM, etc.).
+
+**TLS-info echo (`TlsInfoAcceptor`, `src/server/tls.rs`).** `setup_https_listener`
+does not hand the loaded `RustlsConfig` to `axum_server::bind_rustls` directly;
+it wraps it in a `TlsInfoAcceptor` via
+`Server::bind(addr).acceptor(TlsInfoAcceptor::new(config))`. `TlsInfoAcceptor`
+implements axum-server's `Accept` trait by delegating to an inner
+`RustlsAcceptor` (so the handshake, ALPN, and graceful-shutdown semantics are
+unchanged), then — because the inner acceptor resolves to a fully-handshaken
+`tokio_rustls::server::TlsStream` — reads `tls_stream.get_ref().1`
+(`&rustls::ServerConnection`) and builds a `TlsConnectionInfo` (negotiated
+version, cipher suite, ALPN, client certs). That value is layered onto the
+per-connection service as a request extension (`tower_http`'s `AddExtension`),
+which the `/get` and `/anything` handlers extract as
+`Option<Extension<Arc<TlsConnectionInfo>>>` and echo under the `tls` key. This
+is the only way to surface the rustls connection to handlers — `bind_rustls`
+otherwise hides it.
 
 ---
 
@@ -2454,8 +2474,8 @@ Key external crates and their role in the application:
 | `serde_json` | 1.0 | JSON serialization, `json!()` macro, `Value` type |
 | `tracing` | 0.1 | Structured logging facade |
 | `tracing-subscriber` | 0.3 | Logging output layer (console formatting) |
-| `rustls` | 0.23 | Modern TLS library (replaces OpenSSL) |
-| `tokio-rustls` | 0.25 | Tokio integration for rustls |
+| `rustls` | 0.23 | Modern TLS library (replaces OpenSSL); `ServerConnection` is read for the `tls` echo |
+| `tokio-rustls` | 0.26 | Tokio integration for rustls (aligned with axum-server's rustls 0.23) |
 | `rustls-pemfile` | 2.2 | PEM file parsing for certificates and keys |
 | `socket2` | 0.5 | Low-level socket options (keepalive, nodelay) via `SockRef` |
 | `utoipa` | 4 | OpenAPI spec generation from code annotations |

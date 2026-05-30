@@ -62,7 +62,7 @@ Make request inspection more correct, complete, and honest than httpbin & go-htt
 
 - [x] **[H]** `/status/:code` returns `{ "status", "reason" }` JSON carrying the canonical reason phrase (e.g. "Not Found" for 404) while the status line keeps the requested code — httpbin-parity inspection win (PR #140)
 - [x] **[M]** Echo HTTP version (`http_version`) in all echo handlers (`/get`, `/anything`, `/post`, `/put`, `/patch`, `/delete`) — go-httpbin omits this; unique inspection value that doubles as gateway-proxy visibility (PR #151)
-- [ ] **[M]** Echo TLS info in `/get` / `/anything` (negotiated version/ALPN/cipher, presented client-cert when available) — needs the HTTPS listener reworked: `axum_server::bind_rustls` doesn't surface the rustls connection to handlers, so this requires a custom tokio-rustls accept loop that injects TLS params into request extensions (bigger, HTTPS-path-only lift)
+- [x] **[M]** Echo TLS info in `/get` / `/anything` (negotiated version/ALPN/cipher, presented client-cert when available) — a `TlsInfoAcceptor` wraps axum-server's `RustlsAcceptor` to read the handshaken `rustls::ServerConnection` (which `bind_rustls` hides) and inject a `TlsConnectionInfo` request extension; handlers echo it under `tls` over HTTPS, omit it on plain HTTP. HTTP/2 ALPN + graceful shutdown preserved (PR #155)
 - [x] **[M]** `/cache` + `/cache/:n` — `/cache` returns `304` on `If-None-Match`/`If-Modified-Since`, else `200` + stable `ETag` + `Last-Modified`; `/cache/:n` sets `Cache-Control: public, max-age=n`. Conditional-request fidelity for watching a gateway/cache plugin react; no new deps (PR #144)
 - [x] **[M]** `parse_cookies` tolerates both `;` and `; ` separators (RFC 6265) — now splits on `;` with whitespace trimming (PR #145)
 - [x] **[M]** `/cookies/set` accepts attribute flags (`secure`, `httponly`, `samesite`, `max_age`, plus `path`/`domain`) via reserved query params — richer `Set-Cookie` fidelity for session inspection (PR #145)
@@ -152,9 +152,9 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **Echo TLS info in `/get`/`/anything`** — bigger lift: needs the HTTPS accept loop reworked to surface rustls connection params (see T1). The high-value, low-cost Priority Order items are now shipped; remaining work is this TLS rework plus the T4 (testing) / T6 (documentation) tiers
+The high-value, low-cost Priority Order items are all shipped, and the TLS-info echo — the last big T1 lift — landed in #155. Remaining work is the **T4 (Testing & Quality)** and **T6 (Documentation)** tiers, plus scattered low-priority cleanups across T2/T3/T5 (each tagged **[L]** in its tier). No single item now dominates payoff; pick from T4/T6 next.
 
-_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148) · `log_format=json` (#149) · read-only-FS PID compat (#150) · `http_version` echo (#151) · `X-Response-Time` header (#152) · MSRV alignment (#153)._
+_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148) · `log_format=json` (#149) · read-only-FS PID compat (#150) · `http_version` echo (#151) · `X-Response-Time` header (#152) · MSRV alignment (#153) · TLS-info echo (#155)._
 
 ---
 

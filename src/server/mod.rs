@@ -10,6 +10,7 @@ pub mod request_id;
 pub mod shutdown;
 pub mod tcp;
 pub mod timing_layer;
+pub mod tls;
 pub mod udp;
 
 use axum::Router;
