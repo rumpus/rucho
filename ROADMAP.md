@@ -116,7 +116,7 @@ Docker/release ergonomics at **single-maintainer scope** — explicitly *not* pr
 - [x] **[H]** Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` + QEMU — `release.yml` pushes a multi-arch manifest at release time; PR CI does a fast amd64-only sanity build (arm64 validated at release, so PRs stay fast) (PRs #139, #141)
 - [x] **[H]** SIGTERM graceful-shutdown handler — `shutdown.rs` now races `ctrl_c` with `tokio::signal::unix` `SignalKind::terminate()`, so Docker/K8s/Kong-Mesh SIGTERM drains in-flight requests (5s grace) instead of hard-killing. Unix-gated; non-Unix keeps SIGINT-only (PR #148)
 - [x] **[M]** Request-ID middleware — sets `X-Request-Id` on every response (propagates a non-blank inbound id, else mints UUID v4; outermost layer; set-if-absent so handlers like `/response-headers` win). `request_id_enabled` toggle, default on (PR #147)
-- [ ] **[M]** `log_format = json` config — `tracing_subscriber::fmt().json()` for structured-logging mesh deployments (Loki/Datadog/ELK)
+- [x] **[M]** `log_format = json` config — `tracing_subscriber::fmt().json()` for structured-logging mesh deployments (Loki/Datadog/ELK); `text` default, unknown value warns and falls back (PR #149)
 - [ ] **[M]** Read-only-filesystem compatibility — PID path `/var/run/rucho` may break under `--read-only` Docker; make it tolerant/configurable (also the likely source of the stray `C:\var\run` artifact on Windows)
 - [ ] **[M]** Auto-generated self-signed TLS certs (`ssl_auto_cert = true`, ephemeral in-memory via `rcgen`) — zero-setup HTTPS for dev/test; a test-ergonomics win, not gateway-redundant
 - [ ] **[L]** Alpine image variant (smaller image)
@@ -151,11 +151,11 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **`log_format = json` + read-only-FS PID compat** — structured logging + `--read-only` container/mesh robustness (one config-surface PR)
+1. **Read-only-FS PID compat** — make the PID path configurable + non-fatal so `--read-only` containers start (the `log_format = json` half shipped in #149)
 2. **Echo HTTP version + TLS info in `/get`/`/anything`** — inspection fidelity beyond go-httpbin
 3. **`X-Response-Time` header from `RequestTiming`** — compare upstream- vs gateway-measured latency
 
-_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148)._
+_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148) · `log_format=json` (#149)._
 
 ---
 
