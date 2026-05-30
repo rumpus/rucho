@@ -64,6 +64,34 @@ jobs:
       - name: Cargo check
         run: cargo check --all-targets --all-features
 
+  msrv:
+    name: MSRV (1.84)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Pin the declared MSRV (rust-version = "1.84" in Cargo.toml) so a break
+      # — e.g. from a dependency bump or a newer std/edition API — fails here at
+      # PR time instead of only at the rust:1.84 release Docker build. Checks the
+      # shipped crate (lib + bins); dev-deps (criterion/proptest/reqwest) are
+      # excluded since their MSRVs aren't part of rucho's contract.
+      - name: Install Rust 1.84
+        uses: dtolnay/rust-toolchain@1.84.0
+
+      - name: Cache cargo registry
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-msrv-
+
+      - name: Cargo check on MSRV
+        run: cargo check --all-features
+
   test:
     name: Test
     runs-on: ubuntu-latest

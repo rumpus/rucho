@@ -106,7 +106,7 @@ Coverage that backs the "more robust than httpbin" claim, and CI that catches th
 - [x] **[M]** Integration-test gaps — added `/delay` fires (≥1 s) + over-cap 400, `HEAD /get` empty body, response compression (gzip via a compression-enabled app), `/endpoints` shape, malformed-JSON → 400, and fuller `/status/:code` reason-phrase coverage (404/500/200, not just 418) (PR #156)
 - [x] **[M]** Property tests (`proptest`) — chaos roll stays in `[0,1)` and a `0.0` rate never fires; `/redirect/:n` points exactly one hop closer for all in-range `n` (so the chain is exactly `n` hops); `parse_cookies` never panics and never yields an empty cookie name (PR #157)
 - [x] **[M]** Benchmark gaps — added `POST /anything` (with body), cookies set+read roundtrip, `GET /redirect/3`, `GET /get` through the full middleware stack (vs the bare handler, to quantify overhead), and a 4-task concurrent `Metrics::record_request` contention bench (the baseline a DashMap/sharded swap would beat) (PR #158)
-- [ ] **[L]** MSRV CI job pinning `rust-version` from `Cargo.toml` (the CONTRIBUTING-vs-Dockerfile mismatch was resolved in #153 and `rust-version = "1.84"` is now declared; a dedicated CI job that builds on exactly 1.84 is the remaining piece)
+- [x] **[L]** MSRV CI job — a dedicated `MSRV (1.84)` job (`dtolnay/rust-toolchain@1.84.0` + `cargo check --all-features`, lib+bins only so dev-dep MSRVs don't leak in) now fails an MSRV break at PR time instead of only at the `rust:1.84` release Docker build. Verified the shipped crate compiles on 1.84.0 locally before adding (PR #159)
 
 ---
 
