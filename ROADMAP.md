@@ -115,7 +115,7 @@ Docker/release ergonomics at **single-maintainer scope** — explicitly *not* pr
 
 - [x] **[H]** Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` + QEMU — `release.yml` pushes a multi-arch manifest at release time; PR CI does a fast amd64-only sanity build (arm64 validated at release, so PRs stay fast) (PRs #139, #141)
 - [ ] **[H]** SIGTERM graceful-shutdown handler — `shutdown.rs` handles only SIGINT (`ctrl_c`); Docker/K8s/Kong-Mesh terminate with **SIGTERM**, which currently bypasses the graceful drain. Race `ctrl_c` with `tokio::signal::unix` `SignalKind::terminate()`. (Audit finding; the "Completed" SIGINT/SIGTERM claim was corrected.)
-- [ ] **[M]** Request-ID middleware — generate & return `X-Request-Id` on every response (pairs with gateway/mesh tracing as a correlation ID)
+- [x] **[M]** Request-ID middleware — sets `X-Request-Id` on every response (propagates a non-blank inbound id, else mints UUID v4; outermost layer; set-if-absent so handlers like `/response-headers` win). `request_id_enabled` toggle, default on (PR #147)
 - [ ] **[M]** `log_format = json` config — `tracing_subscriber::fmt().json()` for structured-logging mesh deployments (Loki/Datadog/ELK)
 - [ ] **[M]** Read-only-filesystem compatibility — PID path `/var/run/rucho` may break under `--read-only` Docker; make it tolerant/configurable (also the likely source of the stray `C:\var\run` artifact on Windows)
 - [ ] **[M]** Auto-generated self-signed TLS certs (`ssl_auto_cert = true`, ephemeral in-memory via `rcgen`) — zero-setup HTTPS for dev/test; a test-ergonomics win, not gateway-redundant
@@ -151,13 +151,12 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **Request-ID middleware (`X-Request-Id`)** — correlation IDs that pair with gateway/mesh tracing; clean self-contained tower layer
-2. **SIGTERM graceful-shutdown handler** — a shipped-but-broken Completed claim: Docker/K8s/Kong-Mesh send SIGTERM, which bypasses the current SIGINT-only drain. Small fix, high deploy-realism payoff
-3. **`log_format = json` + read-only-FS PID compat** — structured logging + `--read-only` container/mesh robustness (one config-surface PR)
-4. **Echo HTTP version + TLS info in `/get`/`/anything`** — inspection fidelity beyond go-httpbin
-5. **`X-Response-Time` header from `RequestTiming`** — compare upstream- vs gateway-measured latency
+1. **SIGTERM graceful-shutdown handler** — a shipped-but-broken Completed claim: Docker/K8s/Kong-Mesh send SIGTERM, which bypasses the current SIGINT-only drain. Small fix, high deploy-realism payoff
+2. **`log_format = json` + read-only-FS PID compat** — structured logging + `--read-only` container/mesh robustness (one config-surface PR)
+3. **Echo HTTP version + TLS info in `/get`/`/anything`** — inspection fidelity beyond go-httpbin
+4. **`X-Response-Time` header from `RequestTiming`** — compare upstream- vs gateway-measured latency
 
-_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145)._
+_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147)._
 
 ---
 

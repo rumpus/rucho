@@ -21,6 +21,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::openapi::ApiDoc;
 use crate::server::chaos_layer::chaos_middleware;
 use crate::server::metrics_layer::metrics_middleware;
+use crate::server::request_id::request_id_middleware;
 use crate::server::timing_layer::timing_middleware;
 use crate::utils::config::ChaosConfig;
 use crate::utils::metrics::Metrics;
@@ -31,12 +32,15 @@ use crate::utils::metrics::Metrics;
 /// middleware. If `compression_enabled` is true, enables gzip/brotli response
 /// compression. If chaos mode is enabled, adds chaos middleware for resilience
 /// testing. `max_body_size_bytes` caps request body size via `DefaultBodyLimit`;
-/// requests with larger bodies receive 413 Payload Too Large.
+/// requests with larger bodies receive 413 Payload Too Large. If
+/// `request_id_enabled` is true, adds the outermost request-id middleware that
+/// stamps an `X-Request-Id` correlation header on every response.
 pub fn build_app(
     metrics: Option<Arc<Metrics>>,
     compression_enabled: bool,
     chaos: Arc<ChaosConfig>,
     max_body_size_bytes: usize,
+    request_id_enabled: bool,
 ) -> Router {
     let mut app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
@@ -70,7 +74,7 @@ pub fn build_app(
     }
 
     // Middleware order (innermost to outermost):
-    // routes → chaos → timing → trace → compression → cors → normalize-path
+    // routes → chaos → timing → trace → compression → cors → normalize-path → request-id
     // Chaos sits inside timing so duration_ms honestly reflects chaos delays.
     let app = if chaos.is_enabled() {
         app.layer(middleware::from_fn(move |req, next| {
@@ -96,6 +100,15 @@ pub fn build_app(
         app
     };
 
-    app.layer(CorsLayer::permissive())
-        .layer(NormalizePathLayer::trim_trailing_slash())
+    let app = app
+        .layer(CorsLayer::permissive())
+        .layer(NormalizePathLayer::trim_trailing_slash());
+
+    // Request-id is outermost (when enabled) so every response — including 404s,
+    // 413s, and CORS preflights — carries an X-Request-Id correlation header.
+    if request_id_enabled {
+        app.layer(middleware::from_fn(request_id_middleware))
+    } else {
+        app
+    }
 }

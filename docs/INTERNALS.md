@@ -111,6 +111,7 @@ rucho (crate root)
   |   +-- chaos_layer.rs     # Chaos engineering middleware
   |   +-- metrics_layer.rs   # Metrics recording middleware
   |   +-- timing_layer.rs    # Request timing middleware
+  |   +-- request_id.rs      # X-Request-Id correlation middleware
   |
   +-- tcp_udp_handlers.rs    # Raw TCP/UDP echo handlers
   |
@@ -138,6 +139,7 @@ src/main.rs
   +-- rucho::server::chaos_layer  (chaos_middleware)
   +-- rucho::server::metrics_layer  (metrics_middleware)
   +-- rucho::server::timing_layer  (timing_middleware)
+  +-- rucho::server::request_id  (request_id_middleware)
   +-- rucho::utils::config  (Config, ChaosConfig)
   +-- rucho::utils::metrics  (Metrics)
   +-- rucho::server  (run_server)
@@ -200,7 +202,7 @@ main()                              src/main.rs
           |     +-- write_pid_file(pid)
           |
           +-- Metrics::new() (if metrics_enabled)
-          +-- build_app(metrics, compression_enabled, chaos)  src/main.rs
+          +-- build_app(metrics, compression_enabled, chaos, max_body_size_bytes, request_id_enabled)  src/app.rs
           +-- run_server(&config, app)  src/server/mod.rs
 ```
 
@@ -244,7 +246,13 @@ async fn main() {
                 // ... logging omitted for brevity ...
 
                 let chaos = Arc::new(config.chaos.clone());
-                let app = build_app(metrics, config.compression_enabled, chaos);
+                let app = build_app(
+                    metrics,
+                    config.compression_enabled,
+                    chaos,
+                    config.max_body_size_bytes,
+                    config.request_id_enabled,
+                );
                 rucho::server::run_server(&config, app).await;
             }
         }
@@ -321,7 +329,12 @@ an inbound request is:
                               |
                               v
   +------------------------------------------------------+
-  |  NormalizePathLayer  (trim trailing slashes)          |  outermost
+  |  request_id_middleware  (set X-Request-Id, if on)     |  outermost
+  +------------------------------------------------------+
+                              |
+                              v
+  +------------------------------------------------------+
+  |  NormalizePathLayer  (trim trailing slashes)          |
   +------------------------------------------------------+
                               |
                               v
@@ -371,13 +384,16 @@ an inbound request is:
 - Metrics sits innermost (closest to the handler) so it records the actual
   status code returned by the handler (or chaos failure).
 - Compression wraps everything so the final response body gets compressed.
-- NormalizePath is outermost so `/get/` becomes `/get` before any routing.
+- NormalizePath rewrites `/get/` to `/get` before any routing.
+- Request-id is the true outermost layer (when `request_id_enabled`), so
+  *every* response — including 404s, body-limit 413s, and CORS preflights —
+  carries an `X-Request-Id` correlation header.
 
-The relevant code from `build_app()` (`src/main.rs`):
+The relevant code from `build_app()` (`src/app.rs`):
 
 ```rust
 // Middleware order (innermost to outermost):
-// routes -> chaos -> timing -> trace -> compression -> cors -> normalize-path
+// routes -> chaos -> timing -> trace -> compression -> cors -> normalize-path -> request-id
 let app = if chaos.is_enabled() {
     app.layer(middleware::from_fn(move |req, next| {
         let chaos = chaos.clone();
@@ -400,8 +416,16 @@ let app = if compression_enabled {
     app
 };
 
-app.layer(CorsLayer::permissive())
-    .layer(NormalizePathLayer::trim_trailing_slash())
+let app = app
+    .layer(CorsLayer::permissive())
+    .layer(NormalizePathLayer::trim_trailing_slash());
+
+// Request-id outermost (when enabled): every response gets X-Request-Id.
+if request_id_enabled {
+    app.layer(middleware::from_fn(request_id_middleware))
+} else {
+    app
+}
 ```
 
 ---
@@ -1257,6 +1281,7 @@ pub struct Config {
     pub ssl_key: Option<String>,           // path to PEM key
     pub metrics_enabled: bool,
     pub compression_enabled: bool,
+    pub request_id_enabled: bool,          // default true
     pub http_keep_alive_timeout: u64,      // seconds
     pub tcp_keepalive_time: u64,           // seconds
     pub tcp_keepalive_interval: u64,       // seconds
@@ -1297,6 +1322,7 @@ pub struct ChaosConfig {
 | `ssl_key` | `Option<String>` | `None` | `ssl_key` | `RUCHO_SSL_KEY` |
 | `metrics_enabled` | `bool` | `false` | `metrics_enabled` | `RUCHO_METRICS_ENABLED` |
 | `compression_enabled` | `bool` | `false` | `compression_enabled` | `RUCHO_COMPRESSION_ENABLED` |
+| `request_id_enabled` | `bool` | `true` | `request_id_enabled` | `RUCHO_REQUEST_ID_ENABLED` |
 | `http_keep_alive_timeout` | `u64` | `75` | `http_keep_alive_timeout` | `RUCHO_HTTP_KEEP_ALIVE_TIMEOUT` |
 | `tcp_keepalive_time` | `u64` | `60` | `tcp_keepalive_time` | `RUCHO_TCP_KEEPALIVE_TIME` |
 | `tcp_keepalive_interval` | `u64` | `15` | `tcp_keepalive_interval` | `RUCHO_TCP_KEEPALIVE_INTERVAL` |

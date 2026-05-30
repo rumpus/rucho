@@ -46,6 +46,12 @@ metrics_enabled = false
 # Example: compression_enabled = true
 compression_enabled = false
 
+# Set an X-Request-Id correlation header on every response (default on).
+# Propagates a non-blank inbound X-Request-Id (e.g. from a mesh sidecar),
+# otherwise mints a UUID v4. Disable to test an upstream that sends none.
+# Example: request_id_enabled = false
+request_id_enabled = true
+
 # --- Connection Keep-Alive Tuning ---
 # These settings control TCP and HTTP connection behavior for performance
 # and resource management. Defaults are suitable for most deployments.
