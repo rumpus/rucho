@@ -529,11 +529,13 @@ recorded *after* the handler returns.
 
 ```rust
 pub async fn get_handler(
+    version: axum::http::Version,
     headers: HeaderMap,
     timing: Option<Extension<RequestTiming>>,
 ) -> Response {
     let payload = json!({
         "method": "GET",
+        "http_version": http_version_str(version),
         "headers": serialize_headers(&headers),
     });
     let duration_ms = timing.map(|t| t.elapsed_ms());
@@ -627,6 +629,7 @@ The response travels back up through each middleware layer:
 ```json
 {
   "method": "GET",
+  "http_version": "HTTP/1.1",
   "headers": {
     "host": "localhost:8080",
     "user-agent": "curl/7.88.1",

@@ -71,6 +71,7 @@ console.log(data);
 ```json
 {
   "method": "GET",
+  "http_version": "HTTP/1.1",
   "headers": {
     "host": "localhost:8080",
     "user-agent": "curl/8.7.1",

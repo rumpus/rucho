@@ -40,6 +40,7 @@ Echo request details (method, headers, timing).
 ```json
 {
   "method": "GET",
+  "http_version": "HTTP/1.1",
   "headers": {
     "host": "localhost:8080",
     "user-agent": "curl/8.0",
