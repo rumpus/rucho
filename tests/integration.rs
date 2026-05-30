@@ -823,3 +823,123 @@ async fn test_cache_seconds_sets_cache_control() {
         "public, max-age=120"
     );
 }
+
+// --- TLS-info echo (real HTTPS via the TlsInfoAcceptor) ---
+
+/// Spawns the REAL `build_app()` over HTTPS using `TlsInfoAcceptor` and a
+/// committed self-signed fixture cert, returning the `https://127.0.0.1:PORT`
+/// base URL. Exercises the same acceptor the binary's HTTPS listener uses, so
+/// the negotiated TLS parameters genuinely flow through to the handlers.
+async fn spawn_https_app() -> String {
+    let manifest = env!("CARGO_MANIFEST_DIR");
+    let cert = format!("{manifest}/tests/fixtures/tls/cert.pem");
+    let key = format!("{manifest}/tests/fixtures/tls/key.pem");
+
+    let rustls_config =
+        rucho::utils::server_config::try_load_rustls_config(Some(&cert), Some(&key))
+            .await
+            .expect("load self-signed TLS fixture");
+    let acceptor = rucho::server::tls::TlsInfoAcceptor::new(rustls_config);
+
+    let config = rucho::utils::config::Config::default();
+    let metrics = Some(std::sync::Arc::new(rucho::utils::metrics::Metrics::new()));
+    let chaos = std::sync::Arc::new(config.chaos.clone());
+    let app = rucho::app::build_app(
+        metrics,
+        config.compression_enabled,
+        chaos,
+        config.max_body_size_bytes,
+        config.request_id_enabled,
+    );
+
+    let handle = axum_server::Handle::new();
+    let bind_handle = handle.clone();
+    tokio::spawn(async move {
+        axum_server::Server::bind("127.0.0.1:0".parse().unwrap())
+            .acceptor(acceptor)
+            .handle(bind_handle)
+            .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>())
+            .await
+            .unwrap()
+    });
+
+    let addr = handle.listening().await.expect("HTTPS listener bound");
+    format!("https://{addr}")
+}
+
+/// A reqwest client that trusts the self-signed fixture cert.
+fn insecure_https_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .unwrap()
+}
+
+#[tokio::test]
+async fn test_get_echoes_tls_info_over_https() {
+    let base = spawn_https_app().await;
+    let client = insecure_https_client();
+
+    let resp = client.get(format!("{base}/get")).send().await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+
+    let tls = &body["tls"];
+    assert!(tls.is_object(), "expected a tls object, got: {body}");
+    assert!(
+        tls["version"].as_str().unwrap_or("").starts_with("TLSv1."),
+        "unexpected tls.version: {:?}",
+        tls["version"]
+    );
+    assert!(
+        tls["cipher_suite"].is_string(),
+        "expected a cipher_suite string, got: {:?}",
+        tls["cipher_suite"]
+    );
+    // ALPN is negotiated (reqwest offers h2/http1.1); allow null defensively.
+    assert!(tls["alpn"].is_string() || tls["alpn"].is_null());
+    // No mTLS configured → no client cert.
+    assert_eq!(tls["client_cert_present"], false);
+    assert_eq!(tls["client_certs"].as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn test_anything_echoes_tls_info_over_https() {
+    let base = spawn_https_app().await;
+    let client = insecure_https_client();
+
+    let body: serde_json::Value = client
+        .post(format!("{base}/anything"))
+        .body("hello over tls")
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    assert_eq!(body["body"], "hello over tls");
+    assert!(
+        body["tls"]["version"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("TLSv1."),
+        "expected tls.version on /anything, got: {body}"
+    );
+}
+
+#[tokio::test]
+async fn test_get_omits_tls_info_over_plain_http() {
+    // Over plain HTTP the extension is absent, so the `tls` key must not appear.
+    let base = spawn_full_app().await;
+    let body: serde_json::Value = reqwest::get(format!("{base}/get"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        body.get("tls").is_none(),
+        "plain HTTP must omit tls, got: {body}"
+    );
+}

@@ -83,6 +83,36 @@ console.log(data);
 }
 ```
 
+#### Inspecting the negotiated TLS connection
+
+When rucho is reached over **HTTPS**, `/get` (and `/anything`) add a `tls` object
+reporting what the connection negotiated — handy for confirming exactly what TLS
+version/cipher an upstream negotiated behind a gateway. It is omitted on plain HTTP.
+
+```bash
+# -k because the dev cert is self-signed; --http2 so ALPN negotiates h2
+curl -k --http2 https://localhost:8443/get
+```
+
+```json
+{
+  "method": "GET",
+  "http_version": "HTTP/2.0",
+  "headers": { "...": "..." },
+  "tls": {
+    "version": "TLSv1.3",
+    "cipher_suite": "TLS13_AES_256_GCM_SHA384",
+    "alpn": "h2",
+    "client_cert_present": false,
+    "client_certs": []
+  },
+  "timing": { "duration_ms": 0.087 }
+}
+```
+
+`client_cert_present`/`client_certs` populate only when client-cert auth (mTLS) is
+configured; otherwise they are `false`/empty.
+
 ### POST /post
 
 Echo a JSON body back.

@@ -18,8 +18,8 @@ serde_json = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 sysinfo = "0.30"
 tower = "0.5"        
-tower-http = { version = "0.6", features = ["trace", "cors", "normalize-path", "compression-gzip", "compression-br"] }  
-tokio-rustls = "0.25"
+tower-http = { version = "0.6", features = ["trace", "cors", "normalize-path", "compression-gzip", "compression-br", "add-extension"] }
+tokio-rustls = "0.26"
 rustls = "0.23"
 rustls-pemfile = "2.2"
 hyper = { version = "1.0", features = ["server"] }

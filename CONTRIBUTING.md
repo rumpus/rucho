@@ -170,6 +170,8 @@ src/
 │   ├── tcp.rs           # TCP echo listener
 │   ├── timing_layer.rs  # Request timing middleware
 │   ├── udp.rs           # UDP echo listener
+│   ├── request_id.rs    # X-Request-Id correlation middleware
+│   ├── tls.rs           # TLS-info acceptor (HTTPS `tls` echo)
 │   └── shutdown.rs      # Graceful shutdown handling
 ├── tcp_udp_handlers.rs  # TCP/UDP echo protocol handlers
 └── utils/               # Utility modules

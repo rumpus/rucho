@@ -1,3 +1,4 @@
+use crate::server::tls::TlsConnectionInfo;
 use crate::utils::{
     error_response::format_error_response, json_response::format_json_response_with_timing,
     timing::RequestTiming,
@@ -390,7 +391,7 @@ pub async fn status_handler(
     get, post, put, patch, delete, options, head, // Indicates this path works for all these methods
     path = "/anything",
     responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
+        (status = 200, description = "Echoes request details (includes a `tls` object over HTTPS)", body = serde_json::Value)
     )
 )]
 pub async fn anything_handler(
@@ -399,9 +400,10 @@ pub async fn anything_handler(
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     headers: HeaderMap,
     timing: Option<Extension<RequestTiming>>,
+    tls: Option<Extension<std::sync::Arc<TlsConnectionInfo>>>,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
-    let resp = json!({
+    let mut resp = json!({
         "method": method.to_string(),
         "http_version": http_version_str(version),
         "path": uri.path(),
@@ -409,6 +411,14 @@ pub async fn anything_handler(
         "headers": serialize_headers(&headers),
         "body": String::from_utf8_lossy(&body),
     });
+
+    // Over HTTPS the TlsInfoAcceptor injects negotiated TLS parameters; echo
+    // them under `tls`. Absent (and so omitted) on plain HTTP.
+    if let Some(Extension(tls)) = tls {
+        if let Some(obj) = resp.as_object_mut() {
+            obj.insert("tls".to_string(), tls.to_json());
+        }
+    }
 
     let duration_ms = timing.map(|t| t.elapsed_ms());
     format_json_response_with_timing(resp, duration_ms)
@@ -489,19 +499,27 @@ pub async fn root_handler() -> &'static str {
     get,
     path = "/get",
     responses(
-        (status = 200, description = "Echoes request details", body = serde_json::Value)
+        (status = 200, description = "Echoes request details (includes a `tls` object over HTTPS)", body = serde_json::Value)
     )
 )]
 pub async fn get_handler(
     version: axum::http::Version,
     headers: HeaderMap,
     timing: Option<Extension<RequestTiming>>,
+    tls: Option<Extension<std::sync::Arc<TlsConnectionInfo>>>,
 ) -> Response {
-    let payload = json!({
+    let mut payload = json!({
         "method": "GET",
         "http_version": http_version_str(version),
         "headers": serialize_headers(&headers),
     });
+    // Over HTTPS the TlsInfoAcceptor injects negotiated TLS parameters; echo
+    // them under `tls`. Absent (and so omitted) on plain HTTP.
+    if let Some(Extension(tls)) = tls {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("tls".to_string(), tls.to_json());
+        }
+    }
     let duration_ms = timing.map(|t| t.elapsed_ms());
     format_json_response_with_timing(payload, duration_ms)
 }
