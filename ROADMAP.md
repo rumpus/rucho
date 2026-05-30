@@ -103,7 +103,7 @@ Coverage that backs the "more robust than httpbin" claim, and CI that catches th
 
 - [x] **[H]** Add `windows-latest` to the CI matrix for `cargo check` — catches platform-gated drift; Rucho confirmed to compile cleanly on Windows (PR #136)
 - [x] **[H]** `spawn_full_app()` test helper using the real `build_app()` — exposed `build_app`→`src/app.rs` and `ApiDoc`→`src/openapi.rs` in the library; 3 full-stack regression tests incl. one proving the metrics middleware records requests (PR #138)
-- [ ] **[M]** Integration-test gaps — `/delay` fires (≥1 s), `HEAD /get`, response compression, `/endpoints` shape, malformed-JSON → 400. (`/metrics` enabled is already covered by the `spawn_full_app` tests; `/status/:code` only partially — just 418 is asserted.)
+- [x] **[M]** Integration-test gaps — added `/delay` fires (≥1 s) + over-cap 400, `HEAD /get` empty body, response compression (gzip via a compression-enabled app), `/endpoints` shape, malformed-JSON → 400, and fuller `/status/:code` reason-phrase coverage (404/500/200, not just 418) (PR #156)
 - [ ] **[M]** Property tests — chaos probabilities stay within bounds; `/redirect/:n` yields exactly `n` hops; `parse_cookies` never panics on any byte sequence
 - [ ] **[M]** Benchmark gaps — `/anything` with a body, cookies roundtrip, metrics-contention concurrency, full middleware stack vs bare handler; benchmark `/redirect`
 - [ ] **[L]** MSRV CI job pinning `rust-version` from `Cargo.toml` (the CONTRIBUTING-vs-Dockerfile mismatch was resolved in #153 and `rust-version = "1.84"` is now declared; a dedicated CI job that builds on exactly 1.84 is the remaining piece)

@@ -943,3 +943,158 @@ async fn test_get_omits_tls_info_over_plain_http() {
         "plain HTTP must omit tls, got: {body}"
     );
 }
+
+// --- Coverage-gap tests (T4) ---
+
+/// Like `spawn_full_app` but with response compression enabled, for exercising
+/// the `CompressionLayer` (which `Config::default()` leaves off).
+async fn spawn_app_with_compression() -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let config = rucho::utils::config::Config::default();
+    let metrics = Some(std::sync::Arc::new(rucho::utils::metrics::Metrics::new()));
+    let chaos = std::sync::Arc::new(config.chaos.clone());
+    let app = rucho::app::build_app(
+        metrics,
+        true, // compression_enabled
+        chaos,
+        config.max_body_size_bytes,
+        config.request_id_enabled,
+    );
+
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .unwrap()
+    });
+
+    format!("http://{addr}")
+}
+
+#[tokio::test]
+async fn test_delay_fires() {
+    let base = spawn_app().await;
+    let start = std::time::Instant::now();
+    let resp = reqwest::get(format!("{base}/delay/1")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert!(
+        start.elapsed() >= std::time::Duration::from_secs(1),
+        "/delay/1 should block for at least one second"
+    );
+    assert_eq!(resp.text().await.unwrap(), "Response delayed by 1 seconds");
+}
+
+#[tokio::test]
+async fn test_delay_exceeds_max_returns_400() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/delay/301")).await.unwrap();
+    assert_eq!(resp.status(), 400);
+}
+
+#[tokio::test]
+async fn test_head_get_returns_no_body() {
+    let base = spawn_app().await;
+    let resp = reqwest::Client::new()
+        .head(format!("{base}/get"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert!(
+        resp.bytes().await.unwrap().is_empty(),
+        "HEAD /get must return an empty body"
+    );
+}
+
+#[tokio::test]
+async fn test_endpoints_shape() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/endpoints")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let endpoints = body["endpoints"]
+        .as_array()
+        .expect("`endpoints` should be an array");
+    assert!(!endpoints.is_empty());
+    for e in endpoints {
+        assert!(e["path"].is_string(), "each entry needs a path: {e}");
+        assert!(e["method"].is_string(), "each entry needs a method: {e}");
+        assert!(
+            e["description"].is_string(),
+            "each entry needs a description: {e}"
+        );
+    }
+    assert!(
+        endpoints.iter().any(|e| e["path"] == "/get"),
+        "/get should be listed in /endpoints"
+    );
+}
+
+#[tokio::test]
+async fn test_post_malformed_json_returns_400() {
+    let base = spawn_app().await;
+    let resp = reqwest::Client::new()
+        .post(format!("{base}/post"))
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body("{not valid json")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+}
+
+#[tokio::test]
+async fn test_status_code_carries_reason_phrase() {
+    let base = spawn_app().await;
+    // Beyond the 418 case already covered: assert the canonical reason phrase
+    // travels in the body while the status line carries the requested code.
+    for (code, reason) in [
+        (404u16, "Not Found"),
+        (500, "Internal Server Error"),
+        (200, "OK"),
+    ] {
+        let resp = reqwest::get(format!("{base}/status/{code}")).await.unwrap();
+        assert_eq!(resp.status(), code);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(body["status"], code);
+        assert_eq!(body["reason"], reason);
+    }
+}
+
+#[tokio::test]
+async fn test_response_compression_gzip() {
+    use std::io::Read;
+    let base = spawn_app_with_compression().await;
+
+    let resp = reqwest::Client::new()
+        .get(format!("{base}/get"))
+        .header(reqwest::header::ACCEPT_ENCODING, "gzip")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers()
+            .get(reqwest::header::CONTENT_ENCODING)
+            .map(|v| v.to_str().unwrap()),
+        Some("gzip"),
+        "CompressionLayer should gzip /get when Accept-Encoding: gzip and compression is enabled"
+    );
+
+    // The test reqwest client has no gzip feature, so decompress the raw bytes.
+    let raw = resp.bytes().await.unwrap();
+    let mut s = String::new();
+    flate2::read::GzDecoder::new(&raw[..])
+        .read_to_string(&mut s)
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_str(&s).unwrap();
+    assert_eq!(body["method"], "GET");
+}
