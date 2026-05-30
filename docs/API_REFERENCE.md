@@ -571,6 +571,28 @@ curl -i -H 'Range: bytes=-3' http://localhost:8080/range/26
 
 ---
 
+## Forced Content Encodings
+
+### GET /gzip · /deflate · /brotli
+
+Each returns a JSON echo of the request (`{ "<codec>": true, "method", "headers" }`) compressed with that codec and the matching `Content-Encoding`, **regardless of the request's `Accept-Encoding`** — the upstream *forces* the encoding. A controllable upstream for testing how a gateway handles an already-encoded body (e.g. Kong's Response-Transformer decode-and-rewrite path). The optional response-compression layer does **not** re-compress these (it skips bodies that already carry a `Content-Encoding`).
+
+| Path | `Content-Encoding` | Body flag |
+|------|--------------------|-----------|
+| `/gzip` | `gzip` | `"gzipped": true` |
+| `/deflate` | `deflate` (zlib) | `"deflated": true` |
+| `/brotli` | `br` | `"brotli": true` |
+
+```bash
+# Fetch and decompress the gzip echo
+curl -s http://localhost:8080/gzip | gunzip
+
+# Confirm the Content-Encoding header (don't auto-decompress)
+curl -s -D - -o /dev/null http://localhost:8080/brotli | grep -i content-encoding
+```
+
+---
+
 ## Infrastructure
 
 ### GET /healthz

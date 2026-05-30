@@ -93,6 +93,7 @@ rucho (crate root)
   |   +-- core_routes.rs     # 16 route handlers + router()
   |   +-- delay.rs           # /delay/:n handler + router()
   |   +-- drip.rs            # /drip handler + router() (slow-streaming)
+  |   +-- encoding.rs        # /gzip, /deflate, /brotli handlers + router() (forced Content-Encoding)
   |   +-- healthz.rs         # /healthz handler + router()
   |   +-- image.rs           # /image/:format handler + router() (embedded sample images)
   |   +-- metrics.rs         # /metrics handler (stateful)
@@ -640,6 +641,9 @@ The response travels back up through each middleware layer:
 | 30 | `/html` | GET | `html_handler` | `content_types.rs` |
 | 31 | `/image/:format` | GET | `image_handler` | `image.rs` |
 | 32 | `/range/:n` | GET | `range_handler` | `range.rs` |
+| 33 | `/gzip` | GET | `gzip_handler` | `encoding.rs` |
+| 34 | `/deflate` | GET | `deflate_handler` | `encoding.rs` |
+| 35 | `/brotli` | GET | `brotli_handler` | `encoding.rs` |
 
 ### 5.2 Echo Handlers
 
@@ -754,7 +758,7 @@ for HEAD requests, but this handler explicitly returns an empty body.)
 
 **`endpoints_handler`** (`src/routes/core_routes.rs`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs` and lists all 31 endpoints with their
+at `src/routes/core_routes.rs` and lists all 34 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
@@ -965,6 +969,15 @@ Generates `n` bytes of deterministic content (`b'a' + i % 26`) and honors the
 `Accept-Ranges` with no `Range`, `206` + `Content-Range` for a satisfiable
 range, or `416` + `Content-Range: bytes */n` otherwise. Capped at
 `MAX_BYTES_RESPONSE_SIZE`; metrics-normalized to `/range/:n`.
+
+**`gzip_handler` / `deflate_handler` / `brotli_handler`** (`src/routes/encoding.rs`):
+Each builds a JSON echo (`{ "<codec>": true, "method", "headers" }`, reusing
+`core_routes::serialize_headers`), compresses it with the codec (`flate2`'s
+`GzEncoder`/`ZlibEncoder`; `brotli::BrotliCompress`), and returns it with
+`Content-Type: application/json` + the matching `Content-Encoding`
+(`gzip`/`deflate`/`br`) — *regardless* of `Accept-Encoding`. Compression happens
+in the handler, not via `CompressionLayer` (which only fires on client
+negotiation and correctly skips an already-encoded body — no double-encoding).
 
 ---
 
@@ -2352,6 +2365,8 @@ Key external crates and their role in the application:
 | `rand` | 0.8 | Random number generation for chaos middleware and `/bytes/:n` |
 | `base64` | 0.22 | URL-safe + standard base64 decode for `/base64/:encoded` |
 | `futures-util` | 0.3 | `stream::unfold` for the `/drip` chunked-streaming body |
+| `flate2` | 1 | gzip + deflate (zlib) encoding for `/gzip`, `/deflate` |
+| `brotli` | 8 | brotli encoding for `/brotli` |
 | `sysinfo` | 0.30 | Process inspection for PID management (`kill`, `process`) |
 | `http` | 1.0 | HTTP types (`StatusCode`, `HeaderMap`, etc.) |
 | `tempfile` | 3.8 | *(dev only)* Temporary directories for config tests |
@@ -2380,6 +2395,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/routes/core_routes.rs` | 16 route handlers, `router()`, `EndpointInfo`, `API_ENDPOINTS` |
 | `src/routes/delay.rs` | `/delay/:n` handler and router |
 | `src/routes/drip.rs` | `/drip` handler, streaming body builder, and router |
+| `src/routes/encoding.rs` | `/gzip`, `/deflate`, `/brotli` forced-encoding handlers and router |
 | `src/routes/healthz.rs` | `/healthz` handler and router |
 | `src/routes/image.rs` | `/image/:format` handler and router (embedded sample images) |
 | `src/routes/metrics.rs` | `/metrics` handler (stateful, `State<Arc<Metrics>>`) |

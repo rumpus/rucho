@@ -6,8 +6,8 @@
 
 use axum::{extract::DefaultBodyLimit, middleware, Router};
 use rucho::routes::{
-    base64, bytes, content_types, cookies, core_routes, delay, drip, healthz, image, range,
-    redirect, response_headers,
+    base64, bytes, content_types, cookies, core_routes, delay, drip, encoding, healthz, image,
+    range, redirect, response_headers,
 };
 use rucho::server::timing_layer::timing_middleware;
 use rucho::utils::constants::DEFAULT_MAX_BODY_SIZE_BYTES;
@@ -34,6 +34,7 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
         .merge(base64::router())
         .merge(bytes::router())
         .merge(drip::router())
+        .merge(encoding::router())
         .merge(response_headers::router())
         .merge(content_types::router())
         .merge(image::router())
@@ -626,4 +627,28 @@ async fn test_full_app_echo_works_through_full_stack() {
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["method"], "GET");
+}
+
+#[tokio::test]
+async fn test_gzip_endpoint_forces_encoding() {
+    use std::io::Read;
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/gzip")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers()
+            .get(reqwest::header::CONTENT_ENCODING)
+            .unwrap(),
+        "gzip"
+    );
+    // The test reqwest client has no gzip decompression feature, so we get the
+    // raw gzip bytes and gunzip them ourselves.
+    let raw = resp.bytes().await.unwrap();
+    let mut s = String::new();
+    flate2::read::GzDecoder::new(&raw[..])
+        .read_to_string(&mut s)
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_str(&s).unwrap();
+    assert_eq!(body["gzipped"], true);
 }
