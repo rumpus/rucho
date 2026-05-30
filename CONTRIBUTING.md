@@ -19,7 +19,7 @@ Thank you for your interest in contributing to Rucho! This document provides gui
 
 ### Prerequisites
 
-- Rust 1.70+ (install via [rustup](https://rustup.rs/))
+- Rust 1.84+ (install via [rustup](https://rustup.rs/)) — the declared MSRV (`rust-version` in `Cargo.toml`), matching the release Docker image (`rust:1.84`)
 - Cargo (comes with Rust)
 
 ### Building

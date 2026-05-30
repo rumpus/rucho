@@ -106,7 +106,7 @@ Coverage that backs the "more robust than httpbin" claim, and CI that catches th
 - [ ] **[M]** Integration-test gaps — `/delay` fires (≥1 s), `HEAD /get`, response compression, `/endpoints` shape, malformed-JSON → 400. (`/metrics` enabled is already covered by the `spawn_full_app` tests; `/status/:code` only partially — just 418 is asserted.)
 - [ ] **[M]** Property tests — chaos probabilities stay within bounds; `/redirect/:n` yields exactly `n` hops; `parse_cookies` never panics on any byte sequence
 - [ ] **[M]** Benchmark gaps — `/anything` with a body, cookies roundtrip, metrics-contention concurrency, full middleware stack vs bare handler; benchmark `/redirect`
-- [ ] **[L]** MSRV CI job pinning `rust-version` from `Cargo.toml` (resolve the CONTRIBUTING "1.70" vs Dockerfile "1.84" mismatch first — see T6)
+- [ ] **[L]** MSRV CI job pinning `rust-version` from `Cargo.toml` (the CONTRIBUTING-vs-Dockerfile mismatch was resolved in #153 and `rust-version = "1.84"` is now declared; a dedicated CI job that builds on exactly 1.84 is the remaining piece)
 
 ---
 
@@ -138,7 +138,7 @@ Tell the dual-mission story and end the doc sprawl.
 - [ ] **[M]** Deduplicate the project-structure block (one canonical source; README/CONTRIBUTING/INTERNALS currently triplicate it — this ROADMAP no longer renders it either)
 - [ ] **[M]** Deduplicate config-field tables — canonical source is `config_samples/rucho.conf.default`; link, don't re-render
 - [ ] **[M]** Replace `docs/API_REFERENCE.md` with a one-pager linking `/swagger-ui` as canonical + 3–4 example responses (the hand-written table caused the v1.4.4 missing-endpoint fix)
-- [ ] **[M]** Align MSRV — CONTRIBUTING says "Rust 1.70+", Dockerfile pins 1.84. Set `rust-version` in `Cargo.toml` and verify, or update the doc
+- [x] **[M]** Align MSRV — set `rust-version = "1.84"` in `Cargo.toml` (the `rust:1.84` release Docker image builds the project, verifying it compiles) and updated CONTRIBUTING from the stale "1.70+" to "1.84+" (PR #153)
 - [ ] **[L]** Group README features under sub-headers (Protocol / Resilience / Observability / Deployment); explain why `compression_enabled` defaults off; mention the gitignored `tasks/` convention
 - [ ] **[L]** Consolidate USAGE_EXAMPLES curl/Python/JS triplets (curl canonical; others in `<details>`)
 - [ ] **[L]** Add `SECURITY.md` (disclosure + supported versions) and a lightweight `ARCHITECTURE.md`
