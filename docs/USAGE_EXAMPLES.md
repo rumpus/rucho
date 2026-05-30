@@ -639,6 +639,15 @@ curl -L -c - http://localhost:8080/cookies/set?session=abc123&theme=dark
 }
 ```
 
+### Set cookie attributes
+
+```bash
+# Reserved keys (secure, httponly, samesite, max_age, path, domain) become
+# Set-Cookie attributes; every other param is a cookie name=value pair.
+curl -i 'http://localhost:8080/cookies/set?session=abc&secure&httponly&samesite=Strict&max_age=3600'
+# → Set-Cookie: session=abc; Path=/; Max-Age=3600; SameSite=Strict; Secure; HttpOnly
+```
+
 ### Full cookie roundtrip: set → inspect → delete → verify
 
 **curl:**

@@ -840,7 +840,7 @@ pub async fn cookies_handler(
 ```
 
 Parses the `Cookie` header into a `HashMap<String, String>` using the helper
-`parse_cookies()`, which splits on `; ` then on `=`. Returns a JSON object with
+`parse_cookies()`, which splits on `;` (whitespace-tolerant) then on `=`. Returns a JSON object with
 a `cookies` key containing all cookie name-value pairs. Supports timing.
 
 **`set_cookies_handler`** (`src/routes/cookies.rs`):

@@ -60,8 +60,8 @@ Make request inspection more correct, complete, and honest than httpbin & go-htt
 - [x] **[H]** `/status/:code` returns `{ "status", "reason" }` JSON carrying the canonical reason phrase (e.g. "Not Found" for 404) while the status line keeps the requested code — httpbin-parity inspection win (PR #140)
 - [ ] **[M]** Echo HTTP version + TLS info in `/get` / `/anything` (`http_version`, negotiated ALPN/cipher, presented client-cert info when available) — go-httpbin omits this; unique inspection value that doubles as gateway-proxy visibility
 - [x] **[M]** `/cache` + `/cache/:n` — `/cache` returns `304` on `If-None-Match`/`If-Modified-Since`, else `200` + stable `ETag` + `Last-Modified`; `/cache/:n` sets `Cache-Control: public, max-age=n`. Conditional-request fidelity for watching a gateway/cache plugin react; no new deps (PR #144)
-- [ ] **[M]** `parse_cookies` tolerates both `;` and `; ` separators (RFC 6265) — correctness; sloppy cookie parsing is a known httbin/go-httpbin pain point (`src/routes/cookies.rs`)
-- [ ] **[M]** `/cookies/set` accepts attribute flags (`secure`, `httponly`, `samesite`, `max_age`) via query params — richer `Set-Cookie` fidelity for session inspection
+- [x] **[M]** `parse_cookies` tolerates both `;` and `; ` separators (RFC 6265) — now splits on `;` with whitespace trimming (PR #145)
+- [x] **[M]** `/cookies/set` accepts attribute flags (`secure`, `httponly`, `samesite`, `max_age`, plus `path`/`domain`) via reserved query params — richer `Set-Cookie` fidelity for session inspection (PR #145)
 - [ ] **[L]** Support `DELETE` on `/cookies` — API symmetry with `GET /cookies/delete`
 
 ---
@@ -146,13 +146,13 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **`/cookies/set` attribute flags + `parse_cookies` RFC tolerance** — echo-fidelity cookie correctness
-2. **`/healthz/ready` + `/healthz/live` + request-ID middleware** — K8s/mesh probe parity + correlation IDs
-3. **`log_format = json` + read-only-FS compat** — structured logging + container/mesh deploy robustness
-4. **Echo HTTP version + TLS info in `/get`/`/anything`** — inspection fidelity beyond go-httpbin
-5. **Auto self-signed TLS certs (`ssl_auto_cert`, `rcgen`)** — zero-setup HTTPS for dev/test
+1. **`/healthz/ready` + `/healthz/live` + request-ID middleware** — K8s/mesh probe parity + correlation IDs
+2. **`log_format = json` + read-only-FS compat** — structured logging + container/mesh deploy robustness
+3. **Echo HTTP version + TLS info in `/get`/`/anything`** — inspection fidelity beyond go-httpbin
+4. **Auto self-signed TLS certs (`ssl_auto_cert`, `rcgen`)** — zero-setup HTTPS for dev/test
+5. **`X-Response-Time` header from `RequestTiming`** — compare upstream- vs gateway-measured latency
 
-_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144)._
+_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145)._
 
 ---
 
