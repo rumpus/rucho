@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/redirect/:n` now emits an `X-Redirect-Count` response header (remaining hops) on each 302, so clients can observe chain progress without parsing the `Location` URL.
 
 ### Fixed
+- Metrics path normalization now bounds cardinality: unknown `/cookies/{action}` collapse to `/cookies/other`, and any unmatched path (404s, crawler/fuzzer noise) collapses to `/other`, instead of each becoming a permanent metric key. Also added the missing `/base64/:encoded` normalization, and `normalize_path` is now fully zero-allocation.
 - `/anything` handler no longer reads the full request body with `usize::MAX` limit — closes an OOM vector. `anything_handler` now uses the `Bytes` extractor which honors the configured `max_body_size_bytes`.
 - `/ip` no longer returns `"unknown"` when a request arrives without `X-Forwarded-For` or `X-Real-IP` headers. The server now binds with `into_make_service_with_connect_info::<SocketAddr>()`, letting `ip_handler` fall back to the peer address from the TCP connection.
 - `/endpoints` runtime list now includes `/base64`, `/bytes/:n`, `/response-headers`, and `/drip`. These had been missing from the `API_ENDPOINTS` static since each endpoint was added, so the runtime discoverability layer lagged the actual router.

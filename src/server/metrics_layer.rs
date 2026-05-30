@@ -33,32 +33,78 @@ pub async fn metrics_middleware(
     response
 }
 
-/// Normalizes a path for metrics collection by collapsing path parameters.
+/// Static (non-parameterized) routes that each get their own metrics bucket.
+/// Anything not listed here and not matched by a parameterized arm in
+/// [`normalize_path`] collapses to `/other`, so arbitrary or unmatched paths
+/// (404s from a crawler/fuzzer, Swagger assets, etc.) can't grow the metrics
+/// map without bound. Add new *static* endpoints here.
+const KNOWN_STATIC_PATHS: &[&str] = &[
+    "/",
+    "/get",
+    "/post",
+    "/put",
+    "/patch",
+    "/delete",
+    "/options",
+    "/healthz",
+    "/endpoints",
+    "/uuid",
+    "/ip",
+    "/user-agent",
+    "/headers",
+    "/anything",
+    "/cookies",
+    "/response-headers",
+    "/xml",
+    "/html",
+    "/drip",
+    "/gzip",
+    "/deflate",
+    "/brotli",
+    "/metrics",
+];
+
+/// Normalizes a path for metrics collection by collapsing path parameters and
+/// bucketing unknown paths.
 ///
 /// Examples:
 /// - `/status/404` -> `/status/:code`
 /// - `/delay/5` -> `/delay/:n`
 /// - `/anything/foo/bar` -> `/anything/*path`
+/// - `/cookies/whatever` -> `/cookies/other`
+/// - `/totally/unknown` -> `/other` (bounds cardinality)
 fn normalize_path(path: &str) -> Cow<'static, str> {
     let segments: Vec<&str> = path.split('/').collect();
 
-    if segments.len() >= 2 {
+    // Parameterized routes collapse to their registered pattern.
+    if segments.len() >= 3 {
         match segments.get(1) {
-            Some(&"status") if segments.len() >= 3 => Cow::Borrowed("/status/:code"),
-            Some(&"delay") if segments.len() >= 3 => Cow::Borrowed("/delay/:n"),
-            Some(&"redirect") if segments.len() >= 3 => Cow::Borrowed("/redirect/:n"),
-            Some(&"bytes") if segments.len() >= 3 => Cow::Borrowed("/bytes/:n"),
-            Some(&"image") if segments.len() >= 3 => Cow::Borrowed("/image/:format"),
-            Some(&"range") if segments.len() >= 3 => Cow::Borrowed("/range/:n"),
-            Some(&"cookies") if segments.len() >= 3 => {
-                let action = segments.get(2).unwrap_or(&"");
-                Cow::Owned(format!("/cookies/{action}"))
+            Some(&"status") => return Cow::Borrowed("/status/:code"),
+            Some(&"delay") => return Cow::Borrowed("/delay/:n"),
+            Some(&"redirect") => return Cow::Borrowed("/redirect/:n"),
+            Some(&"bytes") => return Cow::Borrowed("/bytes/:n"),
+            Some(&"base64") => return Cow::Borrowed("/base64/:encoded"),
+            Some(&"image") => return Cow::Borrowed("/image/:format"),
+            Some(&"range") => return Cow::Borrowed("/range/:n"),
+            Some(&"anything") => return Cow::Borrowed("/anything/*path"),
+            Some(&"cookies") => {
+                // Only set/delete are real sub-routes; bucket anything else.
+                return match segments.get(2) {
+                    Some(&"set") => Cow::Borrowed("/cookies/set"),
+                    Some(&"delete") => Cow::Borrowed("/cookies/delete"),
+                    _ => Cow::Borrowed("/cookies/other"),
+                };
             }
-            Some(&"anything") if segments.len() >= 3 => Cow::Borrowed("/anything/*path"),
-            _ => Cow::Owned(path.to_owned()),
+            _ => {}
         }
-    } else {
-        Cow::Owned(path.to_owned())
+    }
+
+    // A known static route keeps its own bucket; everything else collapses to
+    // `/other` to bound the number of distinct metric keys. Returning the
+    // `&'static` match (not `path.to_owned()`) keeps every arm zero-alloc.
+    match KNOWN_STATIC_PATHS.iter().find(|&&known| known == path) {
+        Some(&known) => Cow::Borrowed(known),
+        None => Cow::Borrowed("/other"),
     }
 }
 
@@ -114,6 +160,18 @@ mod tests {
     }
 
     #[test]
+    fn test_normalize_cookies_unknown_action_buckets() {
+        assert_eq!(normalize_path("/cookies/foo"), "/cookies/other");
+        assert_eq!(normalize_path("/cookies/12345"), "/cookies/other");
+    }
+
+    #[test]
+    fn test_normalize_base64_path() {
+        assert_eq!(normalize_path("/base64/SGVsbG8="), "/base64/:encoded");
+        assert_eq!(normalize_path("/base64/anything"), "/base64/:encoded");
+    }
+
+    #[test]
     fn test_normalize_anything_path() {
         assert_eq!(normalize_path("/anything/foo"), "/anything/*path");
         assert_eq!(normalize_path("/anything/foo/bar/baz"), "/anything/*path");
@@ -131,5 +189,13 @@ mod tests {
     fn test_normalize_anything_root() {
         // /anything without additional path segments stays as is
         assert_eq!(normalize_path("/anything"), "/anything");
+    }
+
+    #[test]
+    fn test_normalize_unknown_paths_bucket_to_other() {
+        // Arbitrary/unmatched paths must not each become a distinct metric key.
+        assert_eq!(normalize_path("/random123"), "/other");
+        assert_eq!(normalize_path("/foo/bar"), "/other");
+        assert_eq!(normalize_path("/swagger-ui/index.html"), "/other");
     }
 }
