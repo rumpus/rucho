@@ -47,7 +47,7 @@ It's also purpose-built as a **controllable testing upstream behind [Kong Gatewa
 - CLI for server management (start, stop, status)
 - Configuration via files and environment variables
 - Docker and systemd support
-- Graceful shutdown handling
+- Graceful shutdown on SIGINT + SIGTERM (drains in-flight requests; container/mesh-friendly)
 
 ## Quick Start
 

@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/anything` handler no longer reads the full request body with `usize::MAX` limit — closes an OOM vector. `anything_handler` now uses the `Bytes` extractor which honors the configured `max_body_size_bytes`.
 - `/ip` no longer returns `"unknown"` when a request arrives without `X-Forwarded-For` or `X-Real-IP` headers. The server now binds with `into_make_service_with_connect_info::<SocketAddr>()`, letting `ip_handler` fall back to the peer address from the TCP connection.
 - `/endpoints` runtime list now includes `/base64`, `/bytes/:n`, `/response-headers`, and `/drip`. These had been missing from the `API_ENDPOINTS` static since each endpoint was added, so the runtime discoverability layer lagged the actual router.
+- Graceful shutdown now also triggers on **SIGTERM** (Unix), not just SIGINT/Ctrl+C. Container runtimes (Docker, Kubernetes, Kong Mesh / Kuma) stop a process with SIGTERM; previously that bypassed the graceful drain and hard-killed in-flight requests. `shutdown_signal` now races `ctrl_c` with `tokio::signal::unix` `SignalKind::terminate()` and logs which signal fired. Non-Unix targets keep SIGINT-only behavior (the SIGTERM branch is compiled out).
 
 ## [1.4.6] - 2026-02-17
 

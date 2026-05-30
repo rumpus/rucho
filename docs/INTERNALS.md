@@ -107,7 +107,7 @@ rucho (crate root)
   |   +-- http.rs            # HTTP/HTTPS listener setup, TCP/HTTP config
   |   +-- tcp.rs             # TCP echo listener setup
   |   +-- udp.rs             # UDP echo listener setup
-  |   +-- shutdown.rs        # Ctrl+C graceful shutdown
+  |   +-- shutdown.rs        # SIGINT/SIGTERM graceful shutdown
   |   +-- chaos_layer.rs     # Chaos engineering middleware
   |   +-- metrics_layer.rs   # Metrics recording middleware
   |   +-- timing_layer.rs    # Request timing middleware
@@ -2251,22 +2251,42 @@ become `"<invalid utf8>"`.
 
 ## 13. Graceful Shutdown
 
-**File:** `src/server/shutdown.rs` (17 lines total)
+**File:** `src/server/shutdown.rs`
 
 ```rust
 pub async fn shutdown_signal(handle: Handle) {
-    signal::ctrl_c()
-        .await
-        .expect("failed to install Ctrl+C handler");
-    tracing::info!("Signal received, starting graceful shutdown");
-    handle.graceful_shutdown(Some(Duration::from_secs(5)));
+    let ctrl_c = async {
+        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    let signal = tokio::select! {
+        _ = ctrl_c => "SIGINT",
+        _ = terminate => "SIGTERM",
+    };
+
+    tracing::info!("{signal} received, starting graceful shutdown");
+    handle.graceful_shutdown(Some(SHUTDOWN_GRACE)); // 5s
 }
 ```
 
 **Behavior:**
 
-1. `signal::ctrl_c().await` — blocks until Ctrl+C is received.
-2. Calls `handle.graceful_shutdown(Some(Duration::from_secs(5)))` on the
+1. Races two signal futures with `tokio::select!` — **SIGINT** (Ctrl+C) and,
+   on Unix, **SIGTERM**. Container runtimes (Docker, Kubernetes, Kong Mesh /
+   Kuma) stop a process with SIGTERM, so handling it is what makes the drain
+   fire under `docker stop` / pod eviction. On non-Unix targets the SIGTERM
+   branch is a never-ready `pending()` future and is effectively compiled out.
+2. Calls `handle.graceful_shutdown(Some(SHUTDOWN_GRACE))` (5s) on the
    shared `axum_server::Handle`.
 3. This tells all HTTP/HTTPS servers sharing this handle to:
    - Stop accepting new connections.
@@ -2441,7 +2461,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/server/http.rs` | HTTP/HTTPS listener setup, TCP socket config, HTTP builder config |
 | `src/server/tcp.rs` | TCP echo listener setup (accept loop) |
 | `src/server/udp.rs` | UDP socket binding and listener setup |
-| `src/server/shutdown.rs` | `shutdown_signal()` — Ctrl+C with 5s grace period |
+| `src/server/shutdown.rs` | `shutdown_signal()` — SIGINT/SIGTERM with 5s grace period |
 | `src/server/chaos_layer.rs` | Chaos engineering middleware (failure/delay/corruption) |
 | `src/server/metrics_layer.rs` | Metrics recording middleware + path normalization |
 | `src/server/timing_layer.rs` | Request timing middleware |
