@@ -161,6 +161,8 @@ Rucho loads configuration in this order (later overrides earlier):
 | `max_body_size_bytes`       | `2097152` (2 MiB)    | `RUCHO_MAX_BODY_SIZE_BYTES`    | Max request body size in bytes (global limit; 413 if exceeded) |
 | `chaos_mode`                | (none)               | `RUCHO_CHAOS_MODE`             | Enable [chaos types](#chaos-engineering-mode) |
 
+> The `chaos_*` knobs have their own table under [Chaos Engineering Mode](#chaos-engineering-mode). For a ready-to-edit file listing every key with its default, see [`config_samples/rucho.conf.default`](config_samples/rucho.conf.default).
+
 ### HTTPS Configuration
 
 To enable HTTPS, add `ssl` suffix to the listen address:
