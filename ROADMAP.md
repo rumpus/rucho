@@ -75,7 +75,7 @@ Make request inspection more correct, complete, and honest than httpbin & go-htt
 Controllable upstream knobs to observe Kong Gateway / Kong Mesh behavior the gateway/mesh cannot self-generate.
 
 - [x] **[M]** Forced content-encoding trio `/gzip`, `/deflate`, `/brotli` — JSON echo compressed with each codec + matching `Content-Encoding`, regardless of `Accept-Encoding` (tests Kong's Response-Transformer decode path). `flate2`+`brotli` promoted to direct deps; `CompressionLayer` verified not to double-encode (PR #142)
-- [ ] **[M]** `X-Response-Time` response header from `RequestTiming` — matches Kong's own plugin output; lets you compare upstream-measured vs gateway-measured latency
+- [x] **[M]** `X-Response-Time` response header from `RequestTiming` (e.g. `1.234ms`, always on) — matches Kong's own plugin output; lets you compare upstream-measured vs gateway-measured latency (PR #152)
 - [x] **[M]** `/redirect/:n` emits an `X-Redirect-Count` header (remaining hops) on each 302 — observe chain progress without parsing the URL (PR #140)
 - [ ] **[M]** Connection-control knob (e.g. `/anything?connection=close`) — force upstream `Connection: close` per request to observe Kong connection pooling / keep-alive reuse; the gateway cannot self-generate upstream teardown
 - [ ] **[L]** mTLS — `ssl_ca_cert` config so the upstream *requires & verifies a client cert*. This is the way to test Kong's **upstream**-mTLS configuration (the gateway must present a cert the upstream demands). Distinct from mesh mTLS, which the sidecar terminates (see Non-Goals). Low priority — needs rustls client-cert verification
@@ -152,10 +152,9 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **`X-Response-Time` header from `RequestTiming`** — compare upstream- vs gateway-measured latency (the `http_version` half of the old #1 shipped in #151)
-2. **Echo TLS info in `/get`/`/anything`** — bigger lift: needs the HTTPS accept loop reworked to surface rustls connection params (see T1)
+1. **Echo TLS info in `/get`/`/anything`** — bigger lift: needs the HTTPS accept loop reworked to surface rustls connection params (see T1). The high-value, low-cost Priority Order items are now shipped; remaining work is this TLS rework plus the T4 (testing) / T6 (documentation) tiers
 
-_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148) · `log_format=json` (#149) · read-only-FS PID compat (#150) · `http_version` echo (#151)._
+_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148) · `log_format=json` (#149) · read-only-FS PID compat (#150) · `http_version` echo (#151) · `X-Response-Time` header (#152)._
 
 ---
 

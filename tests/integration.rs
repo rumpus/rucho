@@ -109,6 +109,23 @@ async fn test_get_echo() {
 }
 
 #[tokio::test]
+async fn test_x_response_time_header() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/get")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let rt = resp
+        .headers()
+        .get("x-response-time")
+        .expect("every response must carry x-response-time")
+        .to_str()
+        .unwrap();
+    assert!(rt.ends_with("ms"), "expected a <n>ms value, got: {rt}");
+    let ms: f64 = rt.trim_end_matches("ms").parse().expect("numeric ms");
+    assert!(ms >= 0.0);
+}
+
+#[tokio::test]
 async fn test_get_echoes_http_version() {
     // reqwest speaks HTTP/1.1 over plaintext, so the echo must reflect that.
     let base = spawn_app().await;

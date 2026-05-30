@@ -41,7 +41,7 @@ It's also purpose-built as a **controllable testing upstream behind [Kong Gatewa
 - Response compression (gzip, brotli) - optional, client-negotiated
 - Connection keep-alive tuning (TCP keep-alive, TCP_NODELAY, header timeout)
 - Chaos engineering mode for resilience testing
-- Request timing in JSON responses (`timing.duration_ms`)
+- Request timing — `timing.duration_ms` in JSON responses and an `X-Response-Time` header on every response
 - `X-Request-Id` correlation header on every response — propagates a non-blank inbound id (e.g. from a mesh sidecar), else mints a UUID v4 (`request_id_enabled`, default on)
 - OpenAPI/Swagger documentation
 - CLI for server management (start, stop, status)
