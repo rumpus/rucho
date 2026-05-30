@@ -9,6 +9,9 @@ pub const DEFAULT_PREFIX: &str = "/usr/local/rucho";
 /// Default log level for the application.
 pub const DEFAULT_LOG_LEVEL: &str = "info";
 
+/// Default log output format (`"text"` for human-readable, `"json"` for structured).
+pub const DEFAULT_LOG_FORMAT: &str = "text";
+
 /// Default primary server listen address.
 pub const DEFAULT_SERVER_LISTEN_PRIMARY: &str = "0.0.0.0:8080";
 

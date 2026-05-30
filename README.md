@@ -140,6 +140,7 @@ Rucho loads configuration in this order (later overrides earlier):
 |-----------------------------|----------------------|--------------------------------|--------------------------------|
 | `prefix`                    | `/usr/local/rucho`   | `RUCHO_PREFIX`                 | Installation prefix            |
 | `log_level`                 | `info`               | `RUCHO_LOG_LEVEL`              | Log level (trace/debug/info/warn/error) |
+| `log_format`                | `text`               | `RUCHO_LOG_FORMAT`            | Log output: `text` or `json` (structured) |
 | `server_listen_primary`     | `0.0.0.0:8080`       | `RUCHO_SERVER_LISTEN_PRIMARY`  | Primary HTTP listener          |
 | `server_listen_secondary`   | `0.0.0.0:9090`       | `RUCHO_SERVER_LISTEN_SECONDARY`| Secondary HTTP listener        |
 | `server_listen_tcp`         | (none)               | `RUCHO_SERVER_LISTEN_TCP`      | TCP echo listener address      |

@@ -230,7 +230,17 @@ async fn main() {
             );
             Level::INFO
         });
-    tracing_subscriber::fmt().with_max_level(log_level).init();
+    // `log_format = json` selects structured output (the SubscriberBuilder
+    // changes type per arm, so each arm calls `.init()` itself).
+    let builder = tracing_subscriber::fmt().with_max_level(log_level);
+    match config.log_format.to_lowercase().as_str() {
+        "json" => builder.json().init(),
+        "text" => builder.init(),
+        other => {
+            eprintln!("Warning: Invalid log_format '{other}' in config, defaulting to text.");
+            builder.init();
+        }
+    }
 
     // Dispatch command
     match args.command {
@@ -1273,6 +1283,7 @@ seeding, while keeping the resulting `StdRng` `Send`-safe across `.await` points
 pub struct Config {
     pub prefix: String,                    // Installation prefix path
     pub log_level: String,                 // "info", "debug", "warn", "error"
+    pub log_format: String,                // "text" (default) or "json"
     pub server_listen_primary: String,     // e.g., "0.0.0.0:8080"
     pub server_listen_secondary: String,   // e.g., "0.0.0.0:9090"
     pub server_listen_tcp: Option<String>, // e.g., "0.0.0.0:7777"
@@ -1314,6 +1325,7 @@ pub struct ChaosConfig {
 |-------|------|---------|-----------|---------|
 | `prefix` | `String` | `"/usr/local/rucho"` | `prefix` | `RUCHO_PREFIX` |
 | `log_level` | `String` | `"info"` | `log_level` | `RUCHO_LOG_LEVEL` |
+| `log_format` | `String` | `"text"` | `log_format` | `RUCHO_LOG_FORMAT` |
 | `server_listen_primary` | `String` | `"0.0.0.0:8080"` | `server_listen_primary` | `RUCHO_SERVER_LISTEN_PRIMARY` |
 | `server_listen_secondary` | `String` | `"0.0.0.0:9090"` | `server_listen_secondary` | `RUCHO_SERVER_LISTEN_SECONDARY` |
 | `server_listen_tcp` | `Option<String>` | `None` | `server_listen_tcp` | `RUCHO_SERVER_LISTEN_TCP` |

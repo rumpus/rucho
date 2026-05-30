@@ -14,6 +14,11 @@ prefix = /usr/local/rucho
 # Example: log_level = info
 log_level = info
 
+# Log output format: "text" (human-readable, default) or "json" (structured,
+# for mesh/aggregator deployments like Loki/Datadog/ELK).
+# Example: log_format = json
+log_format = text
+
 # Primary server listen address and port.
 # Use 'ssl' suffix to enable TLS, e.g., 0.0.0.0:8043 ssl
 # Example: server_listen_primary = 127.0.0.1:8000

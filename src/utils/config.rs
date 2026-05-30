@@ -3,8 +3,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::utils::constants::{
-    DEFAULT_HEADER_READ_TIMEOUT_SECS, DEFAULT_HTTP_KEEP_ALIVE_TIMEOUT_SECS, DEFAULT_LOG_LEVEL,
-    DEFAULT_MAX_BODY_SIZE_BYTES, DEFAULT_PREFIX, DEFAULT_SERVER_LISTEN_PRIMARY,
+    DEFAULT_HEADER_READ_TIMEOUT_SECS, DEFAULT_HTTP_KEEP_ALIVE_TIMEOUT_SECS, DEFAULT_LOG_FORMAT,
+    DEFAULT_LOG_LEVEL, DEFAULT_MAX_BODY_SIZE_BYTES, DEFAULT_PREFIX, DEFAULT_SERVER_LISTEN_PRIMARY,
     DEFAULT_SERVER_LISTEN_SECONDARY, DEFAULT_TCP_KEEPALIVE_INTERVAL_SECS,
     DEFAULT_TCP_KEEPALIVE_RETRIES, DEFAULT_TCP_KEEPALIVE_SECS,
 };
@@ -135,6 +135,9 @@ pub struct Config {
     pub prefix: String,
     /// Logging level for the application (e.g., "info", "debug", "warn", "error").
     pub log_level: String,
+    /// Log output format: `"text"` (human-readable, default) or `"json"`
+    /// (structured, for mesh/aggregator deployments like Loki/Datadog/ELK).
+    pub log_format: String,
     /// Primary listen address and port for the server (e.g., "0.0.0.0:8080" or "ssl:0.0.0.0:8443").
     pub server_listen_primary: String,
     /// Secondary listen address and port for the server (e.g., "0.0.0.0:9090" or "ssl:0.0.0.0:9443"). Can be empty.
@@ -180,6 +183,7 @@ impl Default for Config {
         Config {
             prefix: DEFAULT_PREFIX.to_string(),
             log_level: DEFAULT_LOG_LEVEL.to_string(),
+            log_format: DEFAULT_LOG_FORMAT.to_string(),
             server_listen_primary: DEFAULT_SERVER_LISTEN_PRIMARY.to_string(),
             server_listen_secondary: DEFAULT_SERVER_LISTEN_SECONDARY.to_string(),
             server_listen_tcp: None,
@@ -254,6 +258,7 @@ impl Config {
                 match key {
                     "prefix" => config.prefix = value.to_string(),
                     "log_level" => config.log_level = value.to_string(),
+                    "log_format" => config.log_format = value.to_string(),
                     "server_listen_primary" => config.server_listen_primary = value.to_string(),
                     "server_listen_secondary" => config.server_listen_secondary = value.to_string(),
                     "server_listen_tcp" => config.server_listen_tcp = Some(value.to_string()),
@@ -405,6 +410,7 @@ impl Config {
         // 4. Override with environment variables
         load_env_var!(config, prefix, "RUCHO_PREFIX", env_reader);
         load_env_var!(config, log_level, "RUCHO_LOG_LEVEL", env_reader);
+        load_env_var!(config, log_format, "RUCHO_LOG_FORMAT", env_reader);
         load_env_var!(
             config,
             server_listen_primary,
@@ -717,6 +723,7 @@ impl Config {
     /// Supported keys in config files and corresponding environment variables:
     /// - `prefix` (`RUCHO_PREFIX`)
     /// - `log_level` (`RUCHO_LOG_LEVEL`)
+    /// - `log_format` (`RUCHO_LOG_FORMAT`)
     /// - `server_listen_primary` (`RUCHO_SERVER_LISTEN_PRIMARY`)
     /// - `server_listen_secondary` (`RUCHO_SERVER_LISTEN_SECONDARY`)
     /// - `server_listen_tcp` (`RUCHO_SERVER_LISTEN_TCP`)
@@ -1219,6 +1226,47 @@ mod tests {
         );
 
         assert!(!config.request_id_enabled);
+    }
+
+    #[test]
+    fn test_log_format_default_text() {
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(PathBuf::from("/tmp/non_existent_log_format_etc.conf")),
+            Some(PathBuf::from("/tmp/non_existent_log_format_cwd.conf")),
+            &env,
+        );
+        assert_eq!(config.log_format, "text");
+    }
+
+    #[test]
+    fn test_load_log_format_from_file() {
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "log_format = json");
+
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
+        );
+
+        assert_eq!(config.log_format, "json");
+    }
+
+    #[test]
+    fn test_env_overrides_file_for_log_format() {
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "log_format = text");
+
+        let env = mock_env(HashMap::from([("RUCHO_LOG_FORMAT", "json")]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
+        );
+
+        assert_eq!(config.log_format, "json");
     }
 
     // --- Chaos config tests ---
