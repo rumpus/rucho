@@ -40,6 +40,7 @@ brotli = "8"
 tempfile = "3.8.0"
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 reqwest = { version = "0.12", features = ["cookies", "json"] }
+proptest = "1"
 
 [[bench]]
 name = "response_benchmarks"
