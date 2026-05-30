@@ -741,6 +741,14 @@ impl Config {
     /// - `metrics_enabled` (`RUCHO_METRICS_ENABLED`)
     /// - `compression_enabled` (`RUCHO_COMPRESSION_ENABLED`)
     /// - `request_id_enabled` (`RUCHO_REQUEST_ID_ENABLED`)
+    /// - `http_keep_alive_timeout` (`RUCHO_HTTP_KEEP_ALIVE_TIMEOUT`)
+    /// - `tcp_keepalive_time` (`RUCHO_TCP_KEEPALIVE_TIME`)
+    /// - `tcp_keepalive_interval` (`RUCHO_TCP_KEEPALIVE_INTERVAL`)
+    /// - `tcp_keepalive_retries` (`RUCHO_TCP_KEEPALIVE_RETRIES`)
+    /// - `tcp_nodelay` (`RUCHO_TCP_NODELAY`)
+    /// - `header_read_timeout` (`RUCHO_HEADER_READ_TIMEOUT`)
+    /// - `max_body_size_bytes` (`RUCHO_MAX_BODY_SIZE_BYTES`)
+    /// - chaos keys (`RUCHO_CHAOS_*`) — see `config_samples/rucho.conf.default`
     pub fn load() -> Self {
         Self::load_from_paths(None, None)
     }

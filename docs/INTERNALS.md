@@ -1369,6 +1369,7 @@ pub struct ChaosConfig {
 | `tcp_keepalive_retries` | `u32` | `5` | `tcp_keepalive_retries` | `RUCHO_TCP_KEEPALIVE_RETRIES` |
 | `tcp_nodelay` | `bool` | `true` | `tcp_nodelay` | `RUCHO_TCP_NODELAY` |
 | `header_read_timeout` | `u64` | `30` | `header_read_timeout` | `RUCHO_HEADER_READ_TIMEOUT` |
+| `max_body_size_bytes` | `usize` | `2097152` | `max_body_size_bytes` | `RUCHO_MAX_BODY_SIZE_BYTES` |
 | `chaos.modes` | `Vec<String>` | `[]` | `chaos_mode` | `RUCHO_CHAOS_MODE` |
 | `chaos.failure_rate` | `f64` | `0.0` | `chaos_failure_rate` | `RUCHO_CHAOS_FAILURE_RATE` |
 | `chaos.failure_codes` | `Vec<u16>` | `[]` | `chaos_failure_codes` | `RUCHO_CHAOS_FAILURE_CODES` |

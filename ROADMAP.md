@@ -154,7 +154,7 @@ Ranked by payoff for the dual mission:
 
 1. **Echo TLS info in `/get`/`/anything`** — bigger lift: needs the HTTPS accept loop reworked to surface rustls connection params (see T1). The high-value, low-cost Priority Order items are now shipped; remaining work is this TLS rework plus the T4 (testing) / T6 (documentation) tiers
 
-_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148) · `log_format=json` (#149) · read-only-FS PID compat (#150) · `http_version` echo (#151) · `X-Response-Time` header (#152)._
+_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148) · `log_format=json` (#149) · read-only-FS PID compat (#150) · `http_version` echo (#151) · `X-Response-Time` header (#152) · MSRV alignment (#153)._
 
 ---
 
