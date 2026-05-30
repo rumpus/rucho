@@ -47,6 +47,27 @@ pub(crate) fn serialize_headers(headers: &HeaderMap) -> serde_json::Value {
         .into()
 }
 
+/// Maps an [`axum::http::Version`] to its canonical wire string (e.g.
+/// `"HTTP/1.1"`, `"HTTP/2.0"`). Returned as `&'static str` so echo handlers add
+/// no per-request allocation; ordered by likelihood. `axum::http::Version` is
+/// not directly matchable in a `match`, hence the equality chain.
+pub(crate) fn http_version_str(version: axum::http::Version) -> &'static str {
+    use axum::http::Version;
+    if version == Version::HTTP_2 {
+        "HTTP/2.0"
+    } else if version == Version::HTTP_11 {
+        "HTTP/1.1"
+    } else if version == Version::HTTP_10 {
+        "HTTP/1.0"
+    } else if version == Version::HTTP_3 {
+        "HTTP/3.0"
+    } else if version == Version::HTTP_09 {
+        "HTTP/0.9"
+    } else {
+        "unknown"
+    }
+}
+
 /// Represents information about an API endpoint.
 #[derive(Serialize, Debug, Clone, Copy, ToSchema)]
 pub struct EndpointInfo {
@@ -373,6 +394,7 @@ pub async fn status_handler(
     )
 )]
 pub async fn anything_handler(
+    version: axum::http::Version,
     method: axum::http::Method,
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     headers: HeaderMap,
@@ -381,6 +403,7 @@ pub async fn anything_handler(
 ) -> impl IntoResponse {
     let resp = json!({
         "method": method.to_string(),
+        "http_version": http_version_str(version),
         "path": uri.path(),
         "query": uri.query().unwrap_or(""),
         "headers": serialize_headers(&headers),
@@ -469,9 +492,14 @@ pub async fn root_handler() -> &'static str {
         (status = 200, description = "Echoes request details", body = serde_json::Value)
     )
 )]
-pub async fn get_handler(headers: HeaderMap, timing: Option<Extension<RequestTiming>>) -> Response {
+pub async fn get_handler(
+    version: axum::http::Version,
+    headers: HeaderMap,
+    timing: Option<Extension<RequestTiming>>,
+) -> Response {
     let payload = json!({
         "method": "GET",
+        "http_version": http_version_str(version),
         "headers": serialize_headers(&headers),
     });
     let duration_ms = timing.map(|t| t.elapsed_ms());
@@ -687,6 +715,7 @@ pub async fn headers_handler(
     )
 )]
 pub async fn post_handler(
+    version: axum::http::Version,
     headers: HeaderMap,
     timing: Option<Extension<RequestTiming>>,
     body: Result<Json<serde_json::Value>, axum::extract::rejection::JsonRejection>,
@@ -695,6 +724,7 @@ pub async fn post_handler(
         Ok(Json(payload_value)) => {
             let response_payload = json!({
                 "method": "POST",
+                "http_version": http_version_str(version),
                 "headers": serialize_headers(&headers),
                 "body": payload_value,
             });
@@ -730,6 +760,7 @@ pub async fn post_handler(
     )
 )]
 pub async fn put_handler(
+    version: axum::http::Version,
     headers: HeaderMap,
     timing: Option<Extension<RequestTiming>>,
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
@@ -738,6 +769,7 @@ pub async fn put_handler(
         Ok(Json(Payload(body_json))) => {
             let payload = json!({
                 "method": "PUT",
+                "http_version": http_version_str(version),
                 "headers": serialize_headers(&headers),
                 "body": body_json,
             });
@@ -773,6 +805,7 @@ pub async fn put_handler(
     )
 )]
 pub async fn patch_handler(
+    version: axum::http::Version,
     headers: HeaderMap,
     timing: Option<Extension<RequestTiming>>,
     body: Result<Json<Payload>, axum::extract::rejection::JsonRejection>,
@@ -781,6 +814,7 @@ pub async fn patch_handler(
         Ok(Json(Payload(body_json))) => {
             let payload = json!({
                 "method": "PATCH",
+                "http_version": http_version_str(version),
                 "headers": serialize_headers(&headers),
                 "body": body_json,
             });
@@ -814,6 +848,7 @@ pub async fn patch_handler(
     )
 )]
 pub async fn delete_handler(
+    version: axum::http::Version,
     headers: HeaderMap,
     timing: Option<Extension<RequestTiming>>,
     // Axum's Json extractor requires the body to be valid JSON if Content-Type: application/json is sent.
@@ -827,6 +862,7 @@ pub async fn delete_handler(
         Ok(Json(Payload(body_json))) => {
             let payload = json!({
                 "method": "DELETE",
+                "http_version": http_version_str(version),
                 "headers": serialize_headers(&headers),
                 "body": body_json,
             });
@@ -835,6 +871,7 @@ pub async fn delete_handler(
         Err(_) => {
             let payload = json!({
                 "method": "DELETE",
+                "http_version": http_version_str(version),
                 "headers": serialize_headers(&headers),
                 "body": serde_json::Value::Null,
             });
@@ -871,4 +908,19 @@ pub async fn options_handler() -> impl IntoResponse {
         )
         .body(axum::body::Body::empty())
         .unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::http_version_str;
+    use axum::http::Version;
+
+    #[test]
+    fn http_version_str_maps_known_versions() {
+        assert_eq!(http_version_str(Version::HTTP_09), "HTTP/0.9");
+        assert_eq!(http_version_str(Version::HTTP_10), "HTTP/1.0");
+        assert_eq!(http_version_str(Version::HTTP_11), "HTTP/1.1");
+        assert_eq!(http_version_str(Version::HTTP_2), "HTTP/2.0");
+        assert_eq!(http_version_str(Version::HTTP_3), "HTTP/3.0");
+    }
 }

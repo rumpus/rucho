@@ -61,7 +61,8 @@ Items are tagged **[H]** / **[M]** / **[L]** by priority.
 Make request inspection more correct, complete, and honest than httpbin & go-httpbin.
 
 - [x] **[H]** `/status/:code` returns `{ "status", "reason" }` JSON carrying the canonical reason phrase (e.g. "Not Found" for 404) while the status line keeps the requested code — httpbin-parity inspection win (PR #140)
-- [ ] **[M]** Echo HTTP version + TLS info in `/get` / `/anything` (`http_version`, negotiated ALPN/cipher, presented client-cert info when available) — go-httpbin omits this; unique inspection value that doubles as gateway-proxy visibility
+- [x] **[M]** Echo HTTP version (`http_version`) in all echo handlers (`/get`, `/anything`, `/post`, `/put`, `/patch`, `/delete`) — go-httpbin omits this; unique inspection value that doubles as gateway-proxy visibility (PR #151)
+- [ ] **[M]** Echo TLS info in `/get` / `/anything` (negotiated version/ALPN/cipher, presented client-cert when available) — needs the HTTPS listener reworked: `axum_server::bind_rustls` doesn't surface the rustls connection to handlers, so this requires a custom tokio-rustls accept loop that injects TLS params into request extensions (bigger, HTTPS-path-only lift)
 - [x] **[M]** `/cache` + `/cache/:n` — `/cache` returns `304` on `If-None-Match`/`If-Modified-Since`, else `200` + stable `ETag` + `Last-Modified`; `/cache/:n` sets `Cache-Control: public, max-age=n`. Conditional-request fidelity for watching a gateway/cache plugin react; no new deps (PR #144)
 - [x] **[M]** `parse_cookies` tolerates both `;` and `; ` separators (RFC 6265) — now splits on `;` with whitespace trimming (PR #145)
 - [x] **[M]** `/cookies/set` accepts attribute flags (`secure`, `httponly`, `samesite`, `max_age`, plus `path`/`domain`) via reserved query params — richer `Set-Cookie` fidelity for session inspection (PR #145)
@@ -151,10 +152,10 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **Echo HTTP version + TLS info in `/get`/`/anything`** — inspection fidelity beyond go-httpbin
-2. **`X-Response-Time` header from `RequestTiming`** — compare upstream- vs gateway-measured latency
+1. **`X-Response-Time` header from `RequestTiming`** — compare upstream- vs gateway-measured latency (the `http_version` half of the old #1 shipped in #151)
+2. **Echo TLS info in `/get`/`/anything`** — bigger lift: needs the HTTPS accept loop reworked to surface rustls connection params (see T1)
 
-_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148) · `log_format=json` (#149) · read-only-FS PID compat (#150)._
+_Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145) · ROADMAP reconcile (#146) · request-id middleware (#147) · SIGTERM shutdown (#148) · `log_format=json` (#149) · read-only-FS PID compat (#150) · `http_version` echo (#151)._
 
 ---
 

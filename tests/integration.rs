@@ -109,6 +109,43 @@ async fn test_get_echo() {
 }
 
 #[tokio::test]
+async fn test_get_echoes_http_version() {
+    // reqwest speaks HTTP/1.1 over plaintext, so the echo must reflect that.
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/get")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["http_version"], "HTTP/1.1");
+}
+
+#[tokio::test]
+async fn test_anything_echoes_http_version() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/anything")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["method"], "GET");
+    assert_eq!(body["http_version"], "HTTP/1.1");
+}
+
+#[tokio::test]
+async fn test_post_echoes_http_version() {
+    let base = spawn_app().await;
+    let resp = reqwest::Client::new()
+        .post(format!("{base}/post"))
+        .json(&serde_json::json!({"k": "v"}))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["http_version"], "HTTP/1.1");
+}
+
+#[tokio::test]
 async fn test_post_echo() {
     let base = spawn_app().await;
     let client = reqwest::Client::new();
