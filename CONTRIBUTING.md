@@ -131,60 +131,11 @@ Closes #42
 
 ## Project Structure
 
-```
-benches/                         # Criterion benchmarks (cargo bench)
-├── response_benchmarks.rs       # Response building microbenchmarks
-└── endpoint_benchmarks.rs       # Full request cycle benchmarks
-debian/man/                      # Debian package extras
-└── rucho.1                      # Man page (man rucho)
-tests/                           # Integration tests (cargo test)
-└── integration.rs               # HTTP integration tests (reqwest)
-src/
-├── main.rs              # Application entrypoint
-├── lib.rs               # Library exports
-├── cli/                 # CLI argument parsing and commands
-│   ├── mod.rs
-│   └── commands.rs      # start, stop, status, version handlers
-├── routes/              # HTTP route handlers
-│   ├── mod.rs
-│   ├── base64.rs        # /base64/:encoded endpoint
-│   ├── bytes.rs         # /bytes/:n endpoint
-│   ├── cache.rs         # /cache + /cache/:n endpoints
-│   ├── content_types.rs # /xml + /html endpoints
-│   ├── cookies.rs       # /cookies endpoints
-│   ├── core_routes.rs   # Core echo + utility endpoints
-│   ├── delay.rs         # /delay/:n endpoint
-│   ├── drip.rs          # /drip slow-streaming endpoint
-│   ├── encoding.rs      # /gzip + /deflate + /brotli endpoints
-│   ├── healthz.rs       # /healthz endpoint
-│   ├── image.rs         # /image/:format endpoint
-│   ├── metrics.rs       # /metrics endpoint handler
-│   ├── range.rs         # /range/:n endpoint
-│   ├── redirect.rs      # /redirect/:n endpoint
-│   └── response_headers.rs # /response-headers endpoint
-├── server/              # Server setup and orchestration
-│   ├── mod.rs
-│   ├── chaos_layer.rs   # Chaos engineering middleware
-│   ├── http.rs          # HTTP/HTTPS listener setup
-│   ├── metrics_layer.rs # Metrics collection middleware
-│   ├── tcp.rs           # TCP echo listener
-│   ├── timing_layer.rs  # Request timing middleware
-│   ├── udp.rs           # UDP echo listener
-│   ├── request_id.rs    # X-Request-Id correlation middleware
-│   ├── tls.rs           # TLS-info acceptor (HTTPS `tls` echo)
-│   └── shutdown.rs      # Graceful shutdown handling
-├── tcp_udp_handlers.rs  # TCP/UDP echo protocol handlers
-└── utils/               # Utility modules
-    ├── mod.rs
-    ├── config.rs        # Configuration loading
-    ├── constants.rs     # Centralized constants
-    ├── error_response.rs
-    ├── json_response.rs
-    ├── metrics.rs       # Metrics data structures
-    ├── pid.rs           # PID file management
-    ├── server_config.rs # Listener and TLS configuration
-    └── timing.rs        # Timing utilities
-```
+The canonical project layout lives in the **[Project Structure section of the
+README](README.md#project-structure)** — see it for the annotated `src/` tree.
+For a deeper, architecture-oriented walkthrough of the same layout (module
+responsibilities, the request lifecycle, the middleware stack), see
+[`docs/INTERNALS.md`](docs/INTERNALS.md).
 
 ## Releasing
 

@@ -135,7 +135,7 @@ Tell the dual-mission story and end the doc sprawl.
 - [x] **[H]** "Why rucho?" section at the top of the README — vs httpbin / go-httpbin (speed, robustness, TCP/UDP, TLS, chaos) + the Kong-upstream pitch (PR #137)
 - [x] **[H]** "Using rucho as a Kong upstream" section + a declarative `kong.yaml` snippet (PR #137)
 - [x] **[M]** "Using rucho in Kong Mesh" snippet — Kuma sidecar injection + a MeshRetry example (PR #137)
-- [ ] **[M]** Deduplicate the project-structure block (one canonical source; README/CONTRIBUTING/INTERNALS currently triplicate it — this ROADMAP no longer renders it either)
+- [x] **[M]** Deduplicate the project-structure block — README's tree is now the single canonical source; CONTRIBUTING points to it instead of carrying an identical copy. INTERNALS keeps its deeper architecture-oriented tree (a distinct artifact, not a verbatim dup) (PR #160)
 - [ ] **[M]** Deduplicate config-field tables — canonical source is `config_samples/rucho.conf.default`; link, don't re-render
 - [ ] **[M]** Replace `docs/API_REFERENCE.md` with a one-pager linking `/swagger-ui` as canonical + 3–4 example responses (the hand-written table caused the v1.4.4 missing-endpoint fix)
 - [x] **[M]** Align MSRV — set `rust-version = "1.84"` in `Cargo.toml` (the `rust:1.84` release Docker image builds the project, verifying it compiles) and updated CONTRIBUTING from the stale "1.70+" to "1.84+" (PR #153)
