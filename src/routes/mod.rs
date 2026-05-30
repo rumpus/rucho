@@ -4,6 +4,7 @@
 //!
 //! - [`base64`] - Base64 decoding endpoint
 //! - [`bytes`] - Random bytes endpoint
+//! - [`cache`] - Cache / conditional-request endpoints (/cache, /cache/:n)
 //! - [`content_types`] - XML and HTML document endpoints (non-JSON content types)
 //! - [`cookies`] - Cookie inspection and manipulation endpoints
 //! - [`core_routes`] - Main API endpoints (GET, POST, PUT, PATCH, DELETE, etc.)
@@ -21,6 +22,8 @@
 pub mod base64;
 /// Module for the random-bytes endpoint (`/bytes/:n`).
 pub mod bytes;
+/// Module for the cache / conditional-request endpoints (`/cache`, `/cache/:n`).
+pub mod cache;
 /// Module for the XML/HTML document endpoints (`/xml`, `/html`).
 pub mod content_types;
 /// Module for the cookie inspection and manipulation endpoints (`/cookies`).

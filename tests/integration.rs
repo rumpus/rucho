@@ -6,8 +6,8 @@
 
 use axum::{extract::DefaultBodyLimit, middleware, Router};
 use rucho::routes::{
-    base64, bytes, content_types, cookies, core_routes, delay, drip, encoding, healthz, image,
-    range, redirect, response_headers,
+    base64, bytes, cache, content_types, cookies, core_routes, delay, drip, encoding, healthz,
+    image, range, redirect, response_headers,
 };
 use rucho::server::timing_layer::timing_middleware;
 use rucho::utils::constants::DEFAULT_MAX_BODY_SIZE_BYTES;
@@ -33,6 +33,7 @@ async fn spawn_app_with_body_limit(max_body_size: usize) -> String {
         .merge(cookies::router())
         .merge(base64::router())
         .merge(bytes::router())
+        .merge(cache::router())
         .merge(drip::router())
         .merge(encoding::router())
         .merge(response_headers::router())
@@ -651,4 +652,41 @@ async fn test_gzip_endpoint_forces_encoding() {
         .unwrap();
     let body: serde_json::Value = serde_json::from_str(&s).unwrap();
     assert_eq!(body["gzipped"], true);
+}
+
+#[tokio::test]
+async fn test_cache_conditional_request() {
+    let base = spawn_app().await;
+
+    // No conditional header → 200 with validators.
+    let resp = reqwest::get(format!("{base}/cache")).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    assert!(resp.headers().get(reqwest::header::ETAG).is_some());
+    assert!(resp.headers().get(reqwest::header::LAST_MODIFIED).is_some());
+
+    // With If-None-Match → 304 Not Modified.
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("{base}/cache"))
+        .header(reqwest::header::IF_NONE_MATCH, "\"rucho-cache-v1\"")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 304);
+}
+
+#[tokio::test]
+async fn test_cache_seconds_sets_cache_control() {
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/cache/120")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers()
+            .get(reqwest::header::CACHE_CONTROL)
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "public, max-age=120"
+    );
 }

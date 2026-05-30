@@ -47,6 +47,7 @@ pub fn build_app(
         .merge(crate::routes::cookies::router())
         .merge(crate::routes::base64::router())
         .merge(crate::routes::bytes::router())
+        .merge(crate::routes::cache::router())
         .merge(crate::routes::drip::router())
         .merge(crate::routes::encoding::router())
         .merge(crate::routes::response_headers::router())

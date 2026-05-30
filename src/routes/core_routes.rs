@@ -260,6 +260,17 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         method: "GET",
         description: "Returns a brotli-encoded JSON echo of the request (forced Content-Encoding).",
     },
+    EndpointInfo {
+        path: "/cache",
+        method: "GET",
+        description:
+            "Conditional-request cache: 304 if If-None-Match/If-Modified-Since, else ETag + Last-Modified.",
+    },
+    EndpointInfo {
+        path: "/cache/:n",
+        method: "GET",
+        description: "Returns Cache-Control: public, max-age=n.",
+    },
 ];
 
 /// Creates and returns the Axum router for the core API endpoints.

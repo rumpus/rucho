@@ -29,6 +29,7 @@ All examples assume rucho is running at `http://localhost:8080` (the default).
 - [Sample Images](#sample-images)
 - [Byte Ranges](#byte-ranges)
 - [Forced Content Encodings](#forced-content-encodings)
+- [Conditional Caching](#conditional-caching)
 - [Chaos Engineering](#chaos-engineering)
 - [Health Checks & Monitoring](#health-checks--monitoring)
 - [Using rucho as a Kong Upstream](#using-rucho-as-a-kong-upstream)
@@ -1027,6 +1028,30 @@ curl -s -D - -o /dev/null http://localhost:8080/deflate | grep -i content-encodi
 # Point Kong's response-transformer at /brotli and watch whether it can
 # decode + re-encode the brotli body (a known RT-Advanced failure mode):
 curl -i http://gateway/brotli
+```
+
+---
+
+## Conditional Caching
+
+`/cache` returns `304 Not Modified` when the request carries `If-None-Match` or `If-Modified-Since`, otherwise `200` with `ETag` + `Last-Modified` so a client can revalidate. `/cache/:n` sets `Cache-Control: public, max-age=n`. A controllable upstream for testing how a gateway proxies a revalidating upstream (Kong's `proxy-cache` doesn't model 304 revalidation itself).
+
+```bash
+# Initial fetch sets the validators
+curl -i http://localhost:8080/cache
+
+# Revalidate — server replies 304 Not Modified
+curl -i -H 'If-None-Match: "rucho-cache-v1"' http://localhost:8080/cache
+
+# Freshness lifetime
+curl -i http://localhost:8080/cache/300
+```
+
+### Through a gateway: does the cache plugin honor upstream freshness?
+
+```bash
+# With Kong proxy-cache in front, a max-age upstream should be cached:
+curl -i http://gateway/cache/300
 ```
 
 ---
