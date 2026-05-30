@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `request_id_enabled` config field (env: `RUCHO_REQUEST_ID_ENABLED`, default: on) and request-id middleware — sets an `X-Request-Id` header on every response for correlation with distributed tracing. Propagates a non-blank inbound `X-Request-Id` (Envoy / Kong Mesh (Kuma) sidecars set this header natively) unchanged, otherwise mints a UUID v4. Applied as the outermost layer so 404s, body-limit 413s, and CORS preflights are all covered; set only when a handler hasn't already set one, so `/response-headers?x-request-id=…` still wins. The request is never modified, so echo endpoints reflect exactly what the client sent.
 - `log_format` config field (env: `RUCHO_LOG_FORMAT`, default: `text`) — set to `json` for structured (`tracing_subscriber` JSON) log output suited to mesh/aggregator deployments (Loki, Datadog, ELK); `text` keeps the human-readable default. An unrecognized value warns and falls back to `text`.
+- `pid_file` config field (env: `RUCHO_PID_FILE`, default: `/var/run/rucho/rucho.pid`) — point the PID file at a writable location (e.g. `/tmp/rucho.pid`) for `--read-only` containers or non-root deployments.
 
 ### Changed
 - Chaos middleware now uses a per-thread cached RNG (`thread_local!` `StdRng`, seeded once from entropy) instead of constructing and re-seeding a `StdRng` from `thread_rng()` on every request. The v1.4.6 changelog described this optimization, but the implementation had continued to re-seed per request — this lands it for real. Internal only; chaos injection behavior is unchanged.
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/redirect/:n` now emits an `X-Redirect-Count` response header (remaining hops) on each 302, so clients can observe chain progress without parsing the `Location` URL.
 
 ### Fixed
+- Server no longer refuses to start when the PID file can't be written (read-only filesystem, missing parent directory). `handle_start_command` now logs a warning and continues instead of returning failure and aborting startup — so `--read-only` containers run. The PID file only backs `rucho stop`/`status`; signal-based shutdown (SIGTERM / Ctrl+C) is unaffected.
 - `parse_cookies` now tolerates a missing space after the `;` separator (parses `a=1;b=2` as well as `a=1; b=2`), matching RFC 6265's lenient cookie parsing.
 - Metrics path normalization now bounds cardinality: unknown `/cookies/{action}` collapse to `/cookies/other`, and any unmatched path (404s, crawler/fuzzer noise) collapses to `/other`, instead of each becoming a permanent metric key. Also added the missing `/base64/:encoded` normalization, and `normalize_path` is now fully zero-allocation.
 - `/anything` handler no longer reads the full request body with `usize::MAX` limit — closes an OOM vector. `anything_handler` now uses the `Bytes` extractor which honors the configured `max_body_size_bytes`.

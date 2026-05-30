@@ -8,8 +8,6 @@ use std::fs;
 use std::io::Write;
 use sysinfo::{Pid, Signal, System};
 
-use crate::utils::constants::PID_FILE_PATH;
-
 /// Errors that can occur during PID file operations.
 #[derive(Debug)]
 pub enum PidError {
@@ -45,42 +43,44 @@ impl std::fmt::Display for PidError {
 
 impl std::error::Error for PidError {}
 
-/// Writes the current process PID to the PID file.
+/// Writes the current process PID to the PID file at `path`.
 ///
 /// # Arguments
 ///
+/// * `path` - Filesystem path to write the PID file to
 /// * `pid` - The process ID to write
 ///
 /// # Returns
 ///
-/// `Ok(())` on success, or a `PidError` if the operation fails.
-pub fn write_pid_file(pid: u32) -> Result<(), PidError> {
-    let mut file = fs::File::create(PID_FILE_PATH).map_err(PidError::CreateFailed)?;
+/// `Ok(())` on success, or a `PidError` if the operation fails (e.g. the path
+/// is on a read-only filesystem or its parent directory does not exist).
+pub fn write_pid_file(path: &str, pid: u32) -> Result<(), PidError> {
+    let mut file = fs::File::create(path).map_err(PidError::CreateFailed)?;
     writeln!(file, "{}", pid).map_err(PidError::WriteFailed)?;
     Ok(())
 }
 
-/// Reads the PID from the PID file.
+/// Reads the PID from the PID file at `path`.
 ///
 /// # Returns
 ///
 /// `Ok(pid)` if successful, or `Err(PidError)` if the file doesn't exist,
 /// can't be read, or contains an invalid format.
-pub fn read_pid_file() -> Result<usize, PidError> {
-    let contents = fs::read_to_string(PID_FILE_PATH).map_err(PidError::ReadFailed)?;
+pub fn read_pid_file(path: &str) -> Result<usize, PidError> {
+    let contents = fs::read_to_string(path).map_err(PidError::ReadFailed)?;
     contents
         .trim()
         .parse::<usize>()
         .map_err(|_| PidError::InvalidFormat)
 }
 
-/// Removes the PID file.
+/// Removes the PID file at `path`.
 ///
 /// # Returns
 ///
 /// `Ok(())` on success, or a `PidError` if removal fails.
-pub fn remove_pid_file() -> Result<(), PidError> {
-    fs::remove_file(PID_FILE_PATH).map_err(PidError::RemoveFailed)
+pub fn remove_pid_file(path: &str) -> Result<(), PidError> {
+    fs::remove_file(path).map_err(PidError::RemoveFailed)
 }
 
 /// Checks if a process with the given PID is running.
@@ -151,7 +151,51 @@ pub fn stop_process(pid_val: usize) -> StopResult {
     }
 }
 
-/// Returns the path to the PID file.
-pub fn pid_file_path() -> &'static str {
-    PID_FILE_PATH
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process;
+    use tempfile::TempDir;
+
+    #[test]
+    fn write_then_read_roundtrips() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("rucho.pid");
+        let path = path.to_str().unwrap();
+
+        write_pid_file(path, 4242).expect("write should succeed in a writable dir");
+        assert_eq!(read_pid_file(path).unwrap(), 4242);
+
+        remove_pid_file(path).expect("remove should succeed");
+        assert!(read_pid_file(path).is_err(), "file should be gone");
+    }
+
+    #[test]
+    fn read_missing_file_errors() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("absent.pid");
+        assert!(matches!(
+            read_pid_file(path.to_str().unwrap()),
+            Err(PidError::ReadFailed(_))
+        ));
+    }
+
+    #[test]
+    fn read_invalid_contents_errors() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("bad.pid");
+        std::fs::write(&path, "not-a-pid").unwrap();
+        assert!(matches!(
+            read_pid_file(path.to_str().unwrap()),
+            Err(PidError::InvalidFormat)
+        ));
+    }
+
+    #[test]
+    fn write_to_unwritable_path_errors_without_panicking() {
+        // Parent directory does not exist (stands in for a read-only FS): the
+        // function must return an error, not panic — callers stay tolerant.
+        let result = write_pid_file("/nonexistent-rucho-dir/sub/rucho.pid", process::id());
+        assert!(matches!(result, Err(PidError::CreateFailed(_))));
+    }
 }
