@@ -76,7 +76,50 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::http::Request;
+    use proptest::prelude::*;
     use tower::ServiceExt;
+
+    proptest! {
+        // Only 20 distinct values, so a small case count fully covers the range.
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        /// For every in-range `n`, the redirect points exactly one hop closer
+        /// (to `/redirect/{n-1}`, or `/get` at `n == 1`) and reports the
+        /// remaining count — so following the chain from `n` takes exactly `n`
+        /// hops to reach `/get`.
+        #[test]
+        fn redirect_points_exactly_one_hop_closer(n in 1u32..=MAX_REDIRECT_HOPS) {
+            // The handler is async but does no real awaiting; a current-thread
+            // runtime drives it to completion synchronously.
+            let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+            let resp = rt.block_on(redirect_handler(axum::extract::Path(n)));
+
+            prop_assert_eq!(resp.status(), StatusCode::FOUND);
+
+            let count = resp
+                .headers()
+                .get("x-redirect-count")
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+            prop_assert_eq!(count, n.to_string());
+
+            let location = resp
+                .headers()
+                .get(header::LOCATION)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+            let expected = if n == 1 {
+                "/get".to_string()
+            } else {
+                format!("/redirect/{}", n - 1)
+            };
+            prop_assert_eq!(location, expected);
+        }
+    }
 
     #[tokio::test]
     async fn test_redirect_decrements() {

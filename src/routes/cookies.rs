@@ -183,7 +183,21 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::http::Request;
+    use proptest::prelude::*;
     use tower::ServiceExt;
+
+    proptest! {
+        /// `parse_cookies` must never panic on any header-valid input, and every
+        /// name it returns must be non-empty (empty-name pairs are dropped).
+        #[test]
+        fn parse_cookies_never_panics_and_keys_are_nonempty(s in "[\\x20-\\x7e]{0,100}") {
+            let mut headers = HeaderMap::new();
+            // Every byte in the charset above is a valid header value byte.
+            headers.insert(header::COOKIE, axum::http::HeaderValue::from_str(&s).unwrap());
+            let cookies = parse_cookies(&headers);
+            prop_assert!(cookies.keys().all(|k| !k.is_empty()));
+        }
+    }
 
     #[tokio::test]
     async fn test_cookies_empty() {

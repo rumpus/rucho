@@ -151,6 +151,7 @@ pub async fn chaos_middleware(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn roll_probability_stays_in_unit_interval() {
@@ -159,6 +160,20 @@ mod tests {
         for _ in 0..1000 {
             let p = roll_probability();
             assert!((0.0..1.0).contains(&p), "probability out of range: {p}");
+        }
+    }
+
+    proptest! {
+        /// Whatever rate is configured, the chaos roll stays in `[0, 1)` (so the
+        /// `roll < rate` gate is well-defined), and a `0.0` rate never trips it.
+        #[test]
+        fn chaos_roll_is_bounded_and_zero_rate_never_fires(rate in 0.0f64..=1.0) {
+            let roll = roll_probability();
+            prop_assert!((0.0..1.0).contains(&roll), "roll out of range: {}", roll);
+            if rate == 0.0 {
+                // Gate fires on `roll < rate`; `roll >= rate` means it does not.
+                prop_assert!(roll >= rate, "a 0% rate must never inject chaos");
+            }
         }
     }
 }
