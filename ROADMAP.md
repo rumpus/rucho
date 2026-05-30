@@ -110,7 +110,7 @@ Coverage that backs the "more robust than httpbin" claim, and CI that catches th
 
 Docker/release ergonomics at **single-maintainer scope** — explicitly *not* production-team tooling (see `feedback_side_project_tooling_scope.md`).
 
-- [x] **[H]** Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` + QEMU — release pushes a multi-arch manifest; CI builds both platforms (no push) to catch arm64 breakage on PRs (PR #139)
+- [x] **[H]** Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` + QEMU — `release.yml` pushes a multi-arch manifest at release time; PR CI does a fast amd64-only sanity build (arm64 validated at release, so PRs stay fast) (PRs #139, #141)
 - [ ] **[M]** `/healthz/ready` + `/healthz/live` — distinct K8s/mesh readiness vs liveness probes
 - [ ] **[M]** Request-ID middleware — generate & return `X-Request-Id` on every response (pairs with gateway/mesh tracing as a correlation ID)
 - [ ] **[M]** `log_format = json` config — `tracing_subscriber::fmt().json()` for structured-logging mesh deployments (Loki/Datadog/ELK)
