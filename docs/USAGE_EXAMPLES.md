@@ -124,6 +124,7 @@ console.log(data);
 ```json
 {
   "method": "POST",
+  "http_version": "HTTP/1.1",
   "headers": {
     "host": "localhost:8080",
     "content-type": "application/json",
@@ -442,6 +443,7 @@ console.log(data);
 ```json
 {
   "method": "POST",
+  "http_version": "HTTP/1.1",
   "path": "/anything/my/custom/path",
   "query": "debug=true&level=5",
   "headers": {

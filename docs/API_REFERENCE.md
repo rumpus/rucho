@@ -23,7 +23,7 @@ Complete reference for all Rucho HTTP endpoints.
 
 ## Echo Endpoints
 
-Core echo handlers that reflect request details back to the caller. All echo responses include a `timing` object with processing duration.
+Core echo handlers that reflect request details back to the caller. All echo responses include an `http_version` field and a `timing` object with processing duration.
 
 ### GET /get
 
@@ -78,6 +78,7 @@ Echo request details including the parsed JSON body.
 ```json
 {
   "method": "POST",
+  "http_version": "HTTP/1.1",
   "headers": { "content-type": "application/json", "..." : "..." },
   "body": { "key": "value" },
   "timing": {
@@ -117,6 +118,7 @@ Echo request details. Body is optional — if a JSON body is sent it is echoed; 
 | Field | Type | Description |
 |-------|------|-------------|
 | `method` | string | `"DELETE"` |
+| `http_version` | string | HTTP version (e.g. `"HTTP/1.1"`, `"HTTP/2.0"`) |
 | `headers` | object | All request headers |
 | `body` | any \| null | Parsed JSON body, or `null` if none sent |
 | `timing.duration_ms` | number | Processing time in milliseconds |
@@ -294,6 +296,7 @@ Echo any request regardless of HTTP method. Returns method, path, query string, 
 ```json
 {
   "method": "PUT",
+  "http_version": "HTTP/1.1",
   "path": "/anything",
   "query": "foo=bar",
   "headers": { "..." : "..." },
@@ -627,6 +630,15 @@ curl -i http://localhost:8080/cache/60
 ---
 
 ## Infrastructure
+
+### Response Headers
+
+Set on every response by the middleware stack:
+
+| Header | Description |
+|--------|-------------|
+| `X-Request-Id` | Correlation ID. Propagates a non-blank inbound `X-Request-Id`, otherwise mints a UUID v4. Toggle with `request_id_enabled` (default on). |
+| `X-Response-Time` | Upstream processing time, e.g. `1.234ms` — the same value as the body's `timing.duration_ms`. |
 
 ### GET /healthz
 

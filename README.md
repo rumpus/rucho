@@ -150,13 +150,14 @@ Rucho loads configuration in this order (later overrides earlier):
 | `ssl_key`                   | (none)               | `RUCHO_SSL_KEY`                | Path to SSL private key        |
 | `metrics_enabled`           | `false`              | `RUCHO_METRICS_ENABLED`        | Enable /metrics endpoint       |
 | `compression_enabled`       | `false`              | `RUCHO_COMPRESSION_ENABLED`    | Enable gzip/brotli compression |
-| `request_id_enabled`        | `true`               | `RUCHO_REQUEST_ID_ENABLED`     | X-Request-Id header on responses |
+| `request_id_enabled`        | `true`               | `RUCHO_REQUEST_ID_ENABLED`     | X-Request-Id correlation header (propagates inbound, else mints UUID v4) |
 | `http_keep_alive_timeout`   | `75`                 | `RUCHO_HTTP_KEEP_ALIVE_TIMEOUT`| HTTP idle connection timeout (seconds) |
 | `tcp_keepalive_time`        | `60`                 | `RUCHO_TCP_KEEPALIVE_TIME`     | TCP keepalive idle time (seconds) |
 | `tcp_keepalive_interval`    | `15`                 | `RUCHO_TCP_KEEPALIVE_INTERVAL` | TCP keepalive probe interval (seconds) |
 | `tcp_keepalive_retries`     | `5`                  | `RUCHO_TCP_KEEPALIVE_RETRIES`  | TCP keepalive probe retries (1-10) |
 | `tcp_nodelay`               | `true`               | `RUCHO_TCP_NODELAY`            | Disable Nagle's algorithm |
 | `header_read_timeout`       | `30`                 | `RUCHO_HEADER_READ_TIMEOUT`    | Max time to read request headers (seconds) |
+| `max_body_size_bytes`       | `2097152` (2 MiB)    | `RUCHO_MAX_BODY_SIZE_BYTES`    | Max request body size in bytes (global limit; 413 if exceeded) |
 | `chaos_mode`                | (none)               | `RUCHO_CHAOS_MODE`             | Enable [chaos types](#chaos-engineering-mode) |
 
 ### HTTPS Configuration
