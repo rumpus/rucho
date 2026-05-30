@@ -480,11 +480,11 @@ pub async fn metrics_middleware(
 ```
 
 Normalizes the path directly from the request URI (no intermediate `String`
-allocation). `normalize_path()` returns `Cow<'static, str>` — parameterized
-routes like `/status/*`, `/delay/*`, `/redirect/*`, and `/anything/*` resolve
-to static `Cow::Borrowed` strings (zero heap allocation). Passthrough paths
-like `/get` produce a `Cow::Owned`. The status code is recorded *after* the
-handler returns.
+allocation). `normalize_path()` returns `Cow<'static, str>` and is now **fully
+zero-allocation**: parameterized routes collapse to their pattern, known static
+routes (e.g. `/get`) keep their own `Cow::Borrowed` bucket, and any unmatched
+path collapses to `/other` to bound metric cardinality. The status code is
+recorded *after* the handler returns.
 
 ### Step 9: Route Handler — `get_handler()`
 
@@ -1050,27 +1050,32 @@ pub async fn metrics_middleware(
 
 **Path normalization** (`src/server/metrics_layer.rs`):
 
-Returns `Cow<'static, str>` — parameterized routes resolve to zero-allocation
-`Cow::Borrowed` static strings, while passthrough paths and `/cookies/{action}`
-produce `Cow::Owned`.
+Returns `Cow<'static, str>`, **fully zero-allocation** — every arm yields a
+`Cow::Borrowed` `&'static str`. Parameterized routes collapse to their pattern
+(`/status/:code`, `/bytes/:n`, `/base64/:encoded`, …); `/cookies/{action}` keeps
+`set`/`delete` and buckets anything else to `/cookies/other`; and any path that
+is neither a known parameterized route nor in the `KNOWN_STATIC_PATHS` whitelist
+(unmatched 404s, Swagger assets, crawler noise) collapses to `/other` — bounding
+the number of distinct metric keys.
 
 ```rust
 fn normalize_path(path: &str) -> Cow<'static, str> {
     let segments: Vec<&str> = path.split('/').collect();
-    if segments.len() >= 2 {
+    if segments.len() >= 3 {
         match segments.get(1) {
-            Some(&"status") if segments.len() >= 3 => Cow::Borrowed("/status/:code"),
-            Some(&"delay") if segments.len() >= 3  => Cow::Borrowed("/delay/:n"),
-            Some(&"redirect") if segments.len() >= 3 => Cow::Borrowed("/redirect/:n"),
-            Some(&"cookies") if segments.len() >= 3 => {
-                let action = segments.get(2).unwrap_or(&"");
-                Cow::Owned(format!("/cookies/{action}"))
-            }
-            Some(&"anything") if segments.len() >= 3 => Cow::Borrowed("/anything/*path"),
-            _ => Cow::Owned(path.to_owned()),
+            Some(&"status") => return Cow::Borrowed("/status/:code"),
+            // … /delay, /redirect, /bytes, /base64, /image, /range, /anything …
+            Some(&"cookies") => return match segments.get(2) {
+                Some(&"set") => Cow::Borrowed("/cookies/set"),
+                Some(&"delete") => Cow::Borrowed("/cookies/delete"),
+                _ => Cow::Borrowed("/cookies/other"),
+            },
+            _ => {}
         }
-    } else {
-        Cow::Owned(path.to_owned())
+    }
+    match KNOWN_STATIC_PATHS.iter().find(|&&p| p == path) {
+        Some(&known) => Cow::Borrowed(known),
+        None => Cow::Borrowed("/other"),
     }
 }
 ```

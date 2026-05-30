@@ -83,7 +83,7 @@ Controllable upstream knobs to observe Kong Gateway / Kong Mesh behavior the gat
 
 Keep the "fast, robust Rust" promise — hot-path correctness over premature optimization.
 
-- [ ] **[M]** Metrics cardinality cap — bucket unknown `/cookies/{action}` (and any unmatched path) to a catch-all so a crawler/fuzzer can't grow the metrics map unbounded; mirrors existing `/delay`,`/bytes`,`/image`,`/range` normalization (`src/server/metrics_layer.rs`)
+- [x] **[M]** Metrics cardinality cap — `normalize_path` now buckets unknown `/cookies/{action}` → `/cookies/other` and any unmatched path → `/other` (via a `KNOWN_STATIC_PATHS` whitelist); also added the missing `/base64` arm and made every arm zero-allocation (PR #143)
 - [ ] **[M]** Metrics lock contention — swap `RwLock<HashMap>` for `DashMap` / sharded atomics. Only matters past ~10k rps; do it when a benchmark says so (`src/utils/metrics.rs`)
 - [ ] **[L]** Replace `RwLock<usize>` around `current_bucket_idx` with `AtomicUsize` (`src/utils/metrics.rs`)
 - [ ] **[L]** Replace `.unwrap()` in `head_handler` / `options_handler` response builders with `.expect("infallible: …")` — CLAUDE.md "no unwrap in production"
@@ -146,7 +146,7 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
+1. **`/cache` + `/cache/:n` conditional requests** — `ETag`/`Last-Modified` + `If-None-Match`/`If-Modified-Since` → 304; `Cache-Control: max-age` (metrics cardinality cap landed in #143)
 2. **`/cookies/set` attribute flags + `parse_cookies` RFC tolerance** — echo-fidelity cookie correctness
 3. **`/healthz/ready` + `/healthz/live` + request-ID middleware** — K8s/mesh probe parity + correlation IDs
 4. **`log_format = json` + read-only-FS compat** — structured logging + container/mesh deploy robustness
