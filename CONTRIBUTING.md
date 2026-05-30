@@ -149,6 +149,7 @@ src/
 │   ├── mod.rs
 │   ├── base64.rs        # /base64/:encoded endpoint
 │   ├── bytes.rs         # /bytes/:n endpoint
+│   ├── cache.rs         # /cache + /cache/:n endpoints
 │   ├── content_types.rs # /xml + /html endpoints
 │   ├── cookies.rs       # /cookies endpoints
 │   ├── core_routes.rs   # Core echo + utility endpoints

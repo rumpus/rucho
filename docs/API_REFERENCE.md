@@ -593,6 +593,29 @@ curl -s -D - -o /dev/null http://localhost:8080/brotli | grep -i content-encodin
 
 ---
 
+## Conditional Caching
+
+### GET /cache
+
+Returns `304 Not Modified` if the request carries `If-None-Match` or `If-Modified-Since`; otherwise `200` with `ETag` + `Last-Modified` (and a JSON echo), so a client can revalidate on the next request. The validators are fixed/stable, so revalidation is deterministic.
+
+### GET /cache/:n
+
+Returns `200` with `Cache-Control: public, max-age=n` (seconds) and a JSON echo.
+
+A controllable upstream for testing how a gateway proxies a *revalidating* upstream — Kong's `proxy-cache` plugin doesn't itself model 304/conditional revalidation, so it has to originate here.
+
+```bash
+# First request → 200 with ETag + Last-Modified
+curl -i http://localhost:8080/cache
+# Revalidate → 304 Not Modified
+curl -i -H 'If-None-Match: "rucho-cache-v1"' http://localhost:8080/cache
+# Freshness lifetime
+curl -i http://localhost:8080/cache/60
+```
+
+---
+
 ## Infrastructure
 
 ### GET /healthz

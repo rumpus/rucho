@@ -35,6 +35,8 @@ use crate::routes::core_routes::EndpointInfo;
         crate::routes::cookies::delete_cookies_handler,
         crate::routes::base64::base64_handler,
         crate::routes::bytes::bytes_handler,
+        crate::routes::cache::cache_handler,
+        crate::routes::cache::cache_seconds_handler,
         crate::routes::drip::drip_handler,
         crate::routes::encoding::gzip_handler,
         crate::routes::encoding::deflate_handler,

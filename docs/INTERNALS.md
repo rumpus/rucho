@@ -88,6 +88,7 @@ rucho (crate root)
   |   +-- mod.rs             # Re-exports submodules
   |   +-- base64.rs          # /base64/:encoded handler + router()
   |   +-- bytes.rs           # /bytes/:n handler + router()
+  |   +-- cache.rs           # /cache + /cache/:n handlers + router() (conditional requests)
   |   +-- content_types.rs   # /xml + /html handlers + router() (non-JSON)
   |   +-- cookies.rs         # /cookies, /cookies/set, /cookies/delete handlers + router()
   |   +-- core_routes.rs     # 16 route handlers + router()
@@ -644,6 +645,8 @@ The response travels back up through each middleware layer:
 | 33 | `/gzip` | GET | `gzip_handler` | `encoding.rs` |
 | 34 | `/deflate` | GET | `deflate_handler` | `encoding.rs` |
 | 35 | `/brotli` | GET | `brotli_handler` | `encoding.rs` |
+| 36 | `/cache` | GET | `cache_handler` | `cache.rs` |
+| 37 | `/cache/:n` | GET | `cache_seconds_handler` | `cache.rs` |
 
 ### 5.2 Echo Handlers
 
@@ -758,7 +761,7 @@ for HEAD requests, but this handler explicitly returns an empty body.)
 
 **`endpoints_handler`** (`src/routes/core_routes.rs`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs` and lists all 34 endpoints with their
+at `src/routes/core_routes.rs` and lists all 36 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
@@ -2395,6 +2398,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/routes/mod.rs` | Routes module re-exports |
 | `src/routes/base64.rs` | `/base64/:encoded` handler and router |
 | `src/routes/bytes.rs` | `/bytes/:n` handler and router |
+| `src/routes/cache.rs` | `/cache` + `/cache/:n` conditional-request handlers and router |
 | `src/routes/content_types.rs` | `/xml` and `/html` handlers and router (non-JSON content types) |
 | `src/routes/cookies.rs` | `/cookies`, `/cookies/set`, `/cookies/delete` handlers and router |
 | `src/routes/core_routes.rs` | 16 route handlers, `router()`, `EndpointInfo`, `API_ENDPOINTS` |

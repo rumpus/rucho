@@ -30,6 +30,7 @@ It's also purpose-built as a **controllable testing upstream behind [Kong Gatewa
 - Sample images (`/image/:format` — png, jpeg, svg, webp) for testing gateway binary/image handling
 - Byte-range requests (`/range/:n` — `Accept-Ranges`, 206 partial content) for testing gateway range/resumable-download handling
 - Forced content encodings (`/gzip`, `/deflate`, `/brotli`) — return a body in that `Content-Encoding` regardless of `Accept-Encoding`, for testing gateway decode/transform behavior
+- Conditional caching (`/cache` → `ETag`/`Last-Modified` + `304`; `/cache/:n` → `Cache-Control: max-age`) for testing gateway cache behavior
 - Gateway plugin-testing trio:
   - `/response-headers?key=value` — echo query params as response headers
   - `/bytes/:n` — random bytes as `application/octet-stream` (max 10 MiB)
@@ -106,6 +107,8 @@ rucho version  # Display version
 | GET     | `/gzip`           | gzip-encoded JSON echo (forced `Content-Encoding`)   |
 | GET     | `/deflate`        | deflate-encoded JSON echo (forced encoding)          |
 | GET     | `/brotli`         | brotli-encoded JSON echo (forced encoding)           |
+| GET     | `/cache`          | 304 on conditional req; else ETag + Last-Modified    |
+| GET     | `/cache/:n`       | `Cache-Control: public, max-age=n`                   |
 | GET     | `/uuid`           | Random UUID v4                                       |
 | GET     | `/ip`             | Client IP address                                    |
 | GET     | `/user-agent`     | User-Agent header echo                               |
@@ -200,6 +203,7 @@ src/
 │   ├── mod.rs
 │   ├── base64.rs        # /base64/:encoded endpoint
 │   ├── bytes.rs         # /bytes/:n endpoint
+│   ├── cache.rs         # /cache + /cache/:n endpoints
 │   ├── content_types.rs # /xml + /html endpoints
 │   ├── cookies.rs       # /cookies endpoints
 │   ├── core_routes.rs   # Core echo + utility endpoints

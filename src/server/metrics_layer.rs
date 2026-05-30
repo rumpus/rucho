@@ -54,6 +54,7 @@ const KNOWN_STATIC_PATHS: &[&str] = &[
     "/headers",
     "/anything",
     "/cookies",
+    "/cache",
     "/response-headers",
     "/xml",
     "/html",
@@ -83,6 +84,7 @@ fn normalize_path(path: &str) -> Cow<'static, str> {
             Some(&"delay") => return Cow::Borrowed("/delay/:n"),
             Some(&"redirect") => return Cow::Borrowed("/redirect/:n"),
             Some(&"bytes") => return Cow::Borrowed("/bytes/:n"),
+            Some(&"cache") => return Cow::Borrowed("/cache/:n"),
             Some(&"base64") => return Cow::Borrowed("/base64/:encoded"),
             Some(&"image") => return Cow::Borrowed("/image/:format"),
             Some(&"range") => return Cow::Borrowed("/range/:n"),
@@ -169,6 +171,12 @@ mod tests {
     fn test_normalize_base64_path() {
         assert_eq!(normalize_path("/base64/SGVsbG8="), "/base64/:encoded");
         assert_eq!(normalize_path("/base64/anything"), "/base64/:encoded");
+    }
+
+    #[test]
+    fn test_normalize_cache_path() {
+        assert_eq!(normalize_path("/cache"), "/cache");
+        assert_eq!(normalize_path("/cache/60"), "/cache/:n");
     }
 
     #[test]
