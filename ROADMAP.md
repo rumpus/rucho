@@ -20,7 +20,7 @@ Items are tagged **[H]** / **[M]** / **[L]** by priority.
 - [x] `/healthz` — health check
 - [x] `/endpoints` — self-documenting endpoint list
 - [x] `/uuid`, `/ip` (peer-address fallback), `/user-agent`, `/headers`
-- [x] Pretty-printed JSON output; graceful shutdown (SIGINT/SIGTERM); CLI (start/stop/status/version)
+- [x] Pretty-printed JSON output; graceful shutdown on **SIGINT** (SIGTERM handler pending — see T5); CLI (start/stop/status/version)
 
 ### Endpoints (echo-fidelity + upstream behaviors)
 - [x] `/redirect/:n` — chained 302 redirects (max 20 hops)
@@ -32,21 +32,24 @@ Items are tagged **[H]** / **[M]** / **[L]** by priority.
 - [x] `/xml`, `/html` — non-JSON content types (PR #132)
 - [x] `/image/:format` — sample png/jpeg/svg/webp (PR #133)
 - [x] `/range/:n` — `Accept-Ranges` / 206 partial content / 416 (PR #134)
+- [x] `/gzip`, `/deflate`, `/brotli` — forced `Content-Encoding` JSON echo (PR #142)
+- [x] `/cache` + `/cache/:n` — conditional requests (304 / `ETag` / `Last-Modified` / `Cache-Control`) (PR #144)
 
 ### Protocol support
 - [x] HTTP/1.1, HTTP/2 (with TLS), HTTPS via Rustls, TCP echo, UDP echo
 
 ### Performance & resilience
 - [x] Response compression (gzip, brotli) — toggleable
-- [x] Connection keep-alive + TCP socket tuning; zero-copy responses
+- [x] Connection keep-alive + TCP socket tuning (HTTP listener; HTTPS/`bind_rustls` tuning pending — see T5); zero-copy responses
+- [x] Slowloris protection — `header_read_timeout` config caps time to read request headers
 - [x] Benchmark suite; zero-alloc metrics path normalization (`Cow<'static, str>`); thread-local chaos RNG (PR #131)
 - [x] Chaos engineering mode (failure / delay / corruption injection)
-- [x] Body-size cap on `/anything` (`max_body_size_bytes`, default 2 MiB) — closes OOM vector (PR #109)
+- [x] Global request body-size cap — `DefaultBodyLimit` (`max_body_size_bytes`, default 2 MiB) on the whole router; closes the OOM vector (PR #109)
 
 ### Infrastructure
 - [x] Docker, Docker Compose, systemd, optimized multi-stage Dockerfile (189 MB), Docker Hub publishing
 - [x] OpenAPI/Swagger UI; config files + env vars; PID file; GitHub Actions CI; permissive CORS
-- [x] `/metrics` (JSON, toggleable); request tracing; request/response timing in echo responses
+- [x] `/metrics` (JSON, toggleable — not annotated in OpenAPI/`/endpoints` since it's toggle-gated; see T5); request tracing; request/response timing in echo responses
 
 ### Docs
 - [x] Usage examples, man page (.deb), API reference, INTERNALS deep-dive (line-refs stripped, PR #108)
@@ -99,7 +102,7 @@ Coverage that backs the "more robust than httpbin" claim, and CI that catches th
 
 - [x] **[H]** Add `windows-latest` to the CI matrix for `cargo check` — catches platform-gated drift; Rucho confirmed to compile cleanly on Windows (PR #136)
 - [x] **[H]** `spawn_full_app()` test helper using the real `build_app()` — exposed `build_app`→`src/app.rs` and `ApiDoc`→`src/openapi.rs` in the library; 3 full-stack regression tests incl. one proving the metrics middleware records requests (PR #138)
-- [ ] **[M]** Integration-test gaps — `/delay` fires (≥1 s), `HEAD /get`, `/status/500`, response compression, `/metrics` enabled, `/endpoints` shape, malformed-JSON → 400
+- [ ] **[M]** Integration-test gaps — `/delay` fires (≥1 s), `HEAD /get`, response compression, `/endpoints` shape, malformed-JSON → 400. (`/metrics` enabled is already covered by the `spawn_full_app` tests; `/status/:code` only partially — just 418 is asserted.)
 - [ ] **[M]** Property tests — chaos probabilities stay within bounds; `/redirect/:n` yields exactly `n` hops; `parse_cookies` never panics on any byte sequence
 - [ ] **[M]** Benchmark gaps — `/anything` with a body, cookies roundtrip, metrics-contention concurrency, full middleware stack vs bare handler; benchmark `/redirect`
 - [ ] **[L]** MSRV CI job pinning `rust-version` from `Cargo.toml` (resolve the CONTRIBUTING "1.70" vs Dockerfile "1.84" mismatch first — see T6)
@@ -111,7 +114,7 @@ Coverage that backs the "more robust than httpbin" claim, and CI that catches th
 Docker/release ergonomics at **single-maintainer scope** — explicitly *not* production-team tooling (see `feedback_side_project_tooling_scope.md`).
 
 - [x] **[H]** Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` + QEMU — `release.yml` pushes a multi-arch manifest at release time; PR CI does a fast amd64-only sanity build (arm64 validated at release, so PRs stay fast) (PRs #139, #141)
-- [ ] **[M]** `/healthz/ready` + `/healthz/live` — distinct K8s/mesh readiness vs liveness probes
+- [ ] **[H]** SIGTERM graceful-shutdown handler — `shutdown.rs` handles only SIGINT (`ctrl_c`); Docker/K8s/Kong-Mesh terminate with **SIGTERM**, which currently bypasses the graceful drain. Race `ctrl_c` with `tokio::signal::unix` `SignalKind::terminate()`. (Audit finding; the "Completed" SIGINT/SIGTERM claim was corrected.)
 - [ ] **[M]** Request-ID middleware — generate & return `X-Request-Id` on every response (pairs with gateway/mesh tracing as a correlation ID)
 - [ ] **[M]** `log_format = json` config — `tracing_subscriber::fmt().json()` for structured-logging mesh deployments (Loki/Datadog/ELK)
 - [ ] **[M]** Read-only-filesystem compatibility — PID path `/var/run/rucho` may break under `--read-only` Docker; make it tolerant/configurable (also the likely source of the stray `C:\var\run` artifact on Windows)
@@ -119,6 +122,8 @@ Docker/release ergonomics at **single-maintainer scope** — explicitly *not* pr
 - [ ] **[L]** Alpine image variant (smaller image)
 - [ ] **[L]** Parallelize CI `deb` + `docker` jobs (both depend only on `build`)
 - [ ] **[L]** Attach `SHA256SUMS` to GitHub releases — lightweight integrity, no recurring cost
+- [ ] **[L]** Apply TCP socket tuning to the HTTPS listener too — `configure_tcp_socket` currently runs only on the HTTP path, not the `bind_rustls` HTTPS listener (audit finding)
+- [ ] **[L]** Annotate `/metrics` with `#[utoipa::path]` (and optionally list it in `/endpoints`) so it's discoverable in Swagger when enabled — currently invisible in both (audit finding)
 
 ---
 
@@ -146,10 +151,10 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **`/healthz/ready` + `/healthz/live` + request-ID middleware** — K8s/mesh probe parity + correlation IDs
-2. **`log_format = json` + read-only-FS compat** — structured logging + container/mesh deploy robustness
-3. **Echo HTTP version + TLS info in `/get`/`/anything`** — inspection fidelity beyond go-httpbin
-4. **Auto self-signed TLS certs (`ssl_auto_cert`, `rcgen`)** — zero-setup HTTPS for dev/test
+1. **Request-ID middleware (`X-Request-Id`)** — correlation IDs that pair with gateway/mesh tracing; clean self-contained tower layer
+2. **SIGTERM graceful-shutdown handler** — a shipped-but-broken Completed claim: Docker/K8s/Kong-Mesh send SIGTERM, which bypasses the current SIGINT-only drain. Small fix, high deploy-realism payoff
+3. **`log_format = json` + read-only-FS PID compat** — structured logging + `--read-only` container/mesh robustness (one config-surface PR)
+4. **Echo HTTP version + TLS info in `/get`/`/anything`** — inspection fidelity beyond go-httpbin
 5. **`X-Response-Time` header from `RequestTiming`** — compare upstream- vs gateway-measured latency
 
 _Done: `windows-latest` CI (#136) · "Why rucho?" + Kong docs (#137) · `spawn_full_app()` + lib refactor (#138) · multi-arch Docker (#139) · `/status` + `/redirect` (#140) · amd64-only PR CI (#141) · forced-encoding trio (#142) · metrics cardinality cap (#143) · `/cache` (#144) · cookie fidelity (#145)._
@@ -178,6 +183,7 @@ Out of scope to keep focus on the dual mission. Most are things **Kong Gateway o
 - HSTS header — a gateway/edge security-posture concern (set via a gateway policy), not an upstream test stimulus
 - Mesh mTLS termination — the Kong Mesh (Kuma) sidecar handles mTLS between services; duplicating it in the upstream adds nothing *(distinct from the optional upstream-mTLS test knob in T2, which targets Kong **Gateway** → upstream client-cert config)*
 - Prometheus exposition for `/metrics` — Kong's Prometheus plugin + mesh observability cover gateway/mesh metrics; the JSON `/metrics` stays for quick introspection
+- `/healthz/ready` + `/healthz/live` split — for a stateless echo server, readiness and liveness are identical aliases of `/healthz`; the split adds surface without distinct semantics. Point both K8s/mesh probes at `/healthz`
 
 **Supply-chain / production-team tooling (wrong scale for a single-maintainer test target):**
 - Dependabot — tried (PR #117) and reverted (PR #129); within hours it opened 5 PRs, 3 needing triage for ecosystem incompatibilities. Quarterly manual `cargo update` is the right scale
