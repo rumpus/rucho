@@ -42,6 +42,7 @@ It's also purpose-built as a **controllable testing upstream behind [Kong Gatewa
 - Connection keep-alive tuning (TCP keep-alive, TCP_NODELAY, header timeout)
 - Chaos engineering mode for resilience testing
 - Request timing in JSON responses (`timing.duration_ms`)
+- `X-Request-Id` correlation header on every response — propagates a non-blank inbound id (e.g. from a mesh sidecar), else mints a UUID v4 (`request_id_enabled`, default on)
 - OpenAPI/Swagger documentation
 - CLI for server management (start, stop, status)
 - Configuration via files and environment variables
@@ -147,6 +148,7 @@ Rucho loads configuration in this order (later overrides earlier):
 | `ssl_key`                   | (none)               | `RUCHO_SSL_KEY`                | Path to SSL private key        |
 | `metrics_enabled`           | `false`              | `RUCHO_METRICS_ENABLED`        | Enable /metrics endpoint       |
 | `compression_enabled`       | `false`              | `RUCHO_COMPRESSION_ENABLED`    | Enable gzip/brotli compression |
+| `request_id_enabled`        | `true`               | `RUCHO_REQUEST_ID_ENABLED`     | X-Request-Id header on responses |
 | `http_keep_alive_timeout`   | `75`                 | `RUCHO_HTTP_KEEP_ALIVE_TIMEOUT`| HTTP idle connection timeout (seconds) |
 | `tcp_keepalive_time`        | `60`                 | `RUCHO_TCP_KEEPALIVE_TIME`     | TCP keepalive idle time (seconds) |
 | `tcp_keepalive_interval`    | `15`                 | `RUCHO_TCP_KEEPALIVE_INTERVAL` | TCP keepalive probe interval (seconds) |

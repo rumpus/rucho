@@ -151,6 +151,9 @@ pub struct Config {
     pub metrics_enabled: bool,
     /// Enable response compression (gzip, brotli) based on client Accept-Encoding.
     pub compression_enabled: bool,
+    /// Set an `X-Request-Id` correlation header on every response (default on).
+    /// Propagates a non-blank inbound `X-Request-Id`, otherwise mints a UUID v4.
+    pub request_id_enabled: bool,
     /// HTTP keep-alive timeout in seconds. How long an idle connection stays open.
     pub http_keep_alive_timeout: u64,
     /// TCP keep-alive idle time in seconds. How long before probes start on idle connections.
@@ -185,6 +188,7 @@ impl Default for Config {
             ssl_key: None,
             metrics_enabled: false,
             compression_enabled: false,
+            request_id_enabled: true,
             http_keep_alive_timeout: DEFAULT_HTTP_KEEP_ALIVE_TIMEOUT_SECS,
             tcp_keepalive_time: DEFAULT_TCP_KEEPALIVE_SECS,
             tcp_keepalive_interval: DEFAULT_TCP_KEEPALIVE_INTERVAL_SECS,
@@ -261,6 +265,10 @@ impl Config {
                     }
                     "compression_enabled" => {
                         config.compression_enabled =
+                            value.eq_ignore_ascii_case("true") || value == "1"
+                    }
+                    "request_id_enabled" => {
+                        config.request_id_enabled =
                             value.eq_ignore_ascii_case("true") || value == "1"
                     }
                     "http_keep_alive_timeout" => {
@@ -436,6 +444,13 @@ impl Config {
             config,
             compression_enabled,
             "RUCHO_COMPRESSION_ENABLED",
+            env_reader,
+            bool
+        );
+        load_env_var!(
+            config,
+            request_id_enabled,
+            "RUCHO_REQUEST_ID_ENABLED",
             env_reader,
             bool
         );
@@ -710,6 +725,7 @@ impl Config {
     /// - `ssl_key` (`RUCHO_SSL_KEY`)
     /// - `metrics_enabled` (`RUCHO_METRICS_ENABLED`)
     /// - `compression_enabled` (`RUCHO_COMPRESSION_ENABLED`)
+    /// - `request_id_enabled` (`RUCHO_REQUEST_ID_ENABLED`)
     pub fn load() -> Self {
         Self::load_from_paths(None, None)
     }
@@ -1162,6 +1178,47 @@ mod tests {
         );
 
         assert!(config.compression_enabled);
+    }
+
+    #[test]
+    fn test_request_id_enabled_default_true() {
+        let env = empty_env();
+        let non_existent_etc = PathBuf::from("/tmp/non_existent_request_id_test_etc.conf");
+        let non_existent_cwd = PathBuf::from("/tmp/non_existent_request_id_test_cwd.conf");
+        let config =
+            Config::load_from_paths_with_env(Some(non_existent_etc), Some(non_existent_cwd), &env);
+
+        assert!(config.request_id_enabled);
+    }
+
+    #[test]
+    fn test_load_request_id_disabled_from_file() {
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "request_id_enabled = false");
+
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
+        );
+
+        assert!(!config.request_id_enabled);
+    }
+
+    #[test]
+    fn test_env_overrides_file_for_request_id() {
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "request_id_enabled = true");
+
+        let env = mock_env(HashMap::from([("RUCHO_REQUEST_ID_ENABLED", "false")]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
+        );
+
+        assert!(!config.request_id_enabled);
     }
 
     // --- Chaos config tests ---

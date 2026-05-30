@@ -6,6 +6,7 @@
 pub mod chaos_layer;
 pub mod http;
 pub mod metrics_layer;
+pub mod request_id;
 pub mod shutdown;
 pub mod tcp;
 pub mod timing_layer;

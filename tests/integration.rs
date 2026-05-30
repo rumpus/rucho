@@ -72,6 +72,7 @@ async fn spawn_full_app() -> String {
         config.compression_enabled,
         chaos,
         config.max_body_size_bytes,
+        config.request_id_enabled,
     );
 
     tokio::spawn(async move {
@@ -628,6 +629,84 @@ async fn test_full_app_echo_works_through_full_stack() {
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["method"], "GET");
+}
+
+// --- Request-ID middleware (X-Request-Id) ---
+
+/// Returns true if `s` has the canonical 8-4-4-4-12 hex UUID shape.
+///
+/// The integration crate can't depend on the `uuid` crate (it's a normal, not
+/// dev, dependency), so we validate the shape structurally instead of parsing.
+fn looks_like_uuid(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('-').collect();
+    parts.len() == 5
+        && [8usize, 4, 4, 4, 12]
+            .iter()
+            .zip(&parts)
+            .all(|(&len, part)| part.len() == len && part.bytes().all(|b| b.is_ascii_hexdigit()))
+}
+
+#[tokio::test]
+async fn test_request_id_present_and_uuid_when_absent() {
+    let base = spawn_full_app().await;
+    let resp = reqwest::get(format!("{base}/get")).await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let id = resp
+        .headers()
+        .get("x-request-id")
+        .expect("every response must carry x-request-id")
+        .to_str()
+        .unwrap();
+    assert!(looks_like_uuid(id), "generated id should be a UUID: {id}");
+}
+
+#[tokio::test]
+async fn test_request_id_propagated_from_client() {
+    let base = spawn_full_app().await;
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("{base}/get"))
+        .header("x-request-id", "kong-correlation-abc")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(
+        resp.headers().get("x-request-id").unwrap(),
+        "kong-correlation-abc",
+        "an inbound X-Request-Id must be propagated unchanged"
+    );
+}
+
+#[tokio::test]
+async fn test_request_id_present_on_404() {
+    // Outermost placement means even unmatched routes get a correlation id.
+    let base = spawn_full_app().await;
+    let resp = reqwest::get(format!("{base}/no-such-route")).await.unwrap();
+
+    assert_eq!(resp.status(), 404);
+    assert!(
+        resp.headers().get("x-request-id").is_some(),
+        "404 responses must still carry x-request-id"
+    );
+}
+
+#[tokio::test]
+async fn test_request_id_does_not_clobber_handler_set_value() {
+    // /response-headers lets a caller drive response headers; the request-id
+    // middleware must not overwrite an x-request-id the handler set.
+    let base = spawn_full_app().await;
+    let resp = reqwest::get(format!("{base}/response-headers?x-request-id=handler-set"))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers().get("x-request-id").unwrap(),
+        "handler-set",
+        "a handler-set x-request-id must win over the middleware"
+    );
 }
 
 #[tokio::test]

@@ -72,6 +72,7 @@ async fn main() {
                     config.compression_enabled,
                     chaos,
                     config.max_body_size_bytes,
+                    config.request_id_enabled,
                 );
                 rucho::server::run_server(&config, app).await;
             }
