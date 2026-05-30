@@ -483,14 +483,21 @@ compressed stream on the way out.
 
 ```rust
 pub async fn timing_middleware(mut request: Request, next: Next) -> Response<Body> {
-    request.extensions_mut().insert(RequestTiming::now());
-    next.run(request).await
+    let timing = RequestTiming::now();
+    request.extensions_mut().insert(timing);
+    let mut response = next.run(request).await;
+    // Stamp X-Response-Time (e.g. "1.234ms") on the way out.
+    if let Ok(value) = HeaderValue::from_str(&format!("{:.3}ms", timing.elapsed_ms())) {
+        response.headers_mut().insert("x-response-time", value);
+    }
+    response
 }
 ```
 
-Creates a `RequestTiming { start: Instant::now() }` and inserts it into the
-request's extensions map. Handlers can extract this via
-`Option<Extension<RequestTiming>>`.
+Creates a `RequestTiming { start: Instant::now() }`, inserts it into the
+request's extensions map (handlers extract it via
+`Option<Extension<RequestTiming>>`), and stamps an `X-Response-Time` header on
+the response.
 
 ### Step 7: chaos_middleware (if enabled)
 
@@ -1027,18 +1034,32 @@ negotiation and correctly skips an already-encoded body — no double-encoding).
 
 ### 6.1 Timing Middleware
 
-**File:** `src/server/timing_layer.rs` (22 lines total)
+**File:** `src/server/timing_layer.rs`
 
 ```rust
-// Full source — src/server/timing_layer.rs
-use axum::{body::Body, extract::Request, middleware::Next, response::Response};
+// src/server/timing_layer.rs
+use axum::{body::Body, extract::Request, http::HeaderValue, middleware::Next, response::Response};
 use crate::utils::timing::RequestTiming;
 
+const RESPONSE_TIME_HEADER: &str = "x-response-time";
+
 pub async fn timing_middleware(mut request: Request, next: Next) -> Response<Body> {
-    request.extensions_mut().insert(RequestTiming::now());
-    next.run(request).await
+    let timing = RequestTiming::now();
+    request.extensions_mut().insert(timing);
+
+    let mut response = next.run(request).await;
+
+    // Always-valid ASCII, so the header never fails to build.
+    if let Ok(value) = HeaderValue::from_str(&format!("{:.3}ms", timing.elapsed_ms())) {
+        response.headers_mut().insert(RESPONSE_TIME_HEADER, value);
+    }
+    response
 }
 ```
+
+Besides the extension, the middleware sets an `X-Response-Time: <ms>ms` header
+on every response, exposing the same elapsed time to clients/gateways without
+parsing the JSON body.
 
 **`RequestTiming` struct** (`src/utils/timing.rs`):
 
