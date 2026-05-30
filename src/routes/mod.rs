@@ -9,6 +9,7 @@
 //! - [`core_routes`] - Main API endpoints (GET, POST, PUT, PATCH, DELETE, etc.)
 //! - [`delay`] - Delay endpoint for testing timeouts
 //! - [`drip`] - Slow-streaming bytes endpoint for testing inter-byte timeouts
+//! - [`encoding`] - Forced content-encoding endpoints (/gzip, /deflate, /brotli)
 //! - [`healthz`] - Health check endpoint
 //! - [`image`] - Sample image endpoint (png/jpeg/svg/webp)
 //! - [`metrics`] - Metrics endpoint (JSON)
@@ -30,6 +31,8 @@ pub mod core_routes;
 pub mod delay;
 /// Module for the slow-streaming drip endpoint (`/drip`).
 pub mod drip;
+/// Module for the forced content-encoding endpoints (`/gzip`, `/deflate`, `/brotli`).
+pub mod encoding;
 /// Module for the health check endpoint (`/healthz`).
 pub mod healthz;
 /// Module for the sample-image endpoint (`/image/:format`).

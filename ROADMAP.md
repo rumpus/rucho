@@ -70,7 +70,7 @@ Make request inspection more correct, complete, and honest than httpbin & go-htt
 
 Controllable upstream knobs to observe Kong Gateway / Kong Mesh behavior the gateway/mesh cannot self-generate.
 
-- [ ] **[M]** Forced content-encoding trio `/gzip`, `/deflate`, `/brotli` — return a JSON body compressed with that codec + the matching `Content-Encoding`, *regardless of `Accept-Encoding`*. Tests Kong's Response-Transformer / RT-Advanced decode-and-rewrite path against an already-encoded upstream body (documented breakage: Kong/kong#13741, #1200). `flate2` + `brotli` are already transitive via tower-http → promote to direct deps (near-zero cost). One PR (trio). Fixed paths → no metrics-normalize change
+- [x] **[M]** Forced content-encoding trio `/gzip`, `/deflate`, `/brotli` — JSON echo compressed with each codec + matching `Content-Encoding`, regardless of `Accept-Encoding` (tests Kong's Response-Transformer decode path). `flate2`+`brotli` promoted to direct deps; `CompressionLayer` verified not to double-encode (PR #142)
 - [ ] **[M]** `X-Response-Time` response header from `RequestTiming` — matches Kong's own plugin output; lets you compare upstream-measured vs gateway-measured latency
 - [x] **[M]** `/redirect/:n` emits an `X-Redirect-Count` header (remaining hops) on each 302 — observe chain progress without parsing the URL (PR #140)
 - [ ] **[M]** Connection-control knob (e.g. `/anything?connection=close`) — force upstream `Connection: close` per request to observe Kong connection pooling / keep-alive reuse; the gateway cannot self-generate upstream teardown
@@ -146,13 +146,13 @@ Tell the dual-mission story and end the doc sprawl.
 
 Ranked by payoff for the dual mission:
 
-1. **Forced-encoding trio `/gzip`·`/brotli`·`/deflate`** — highest-value remaining endpoint; drives Kong Response-Transformer decode path; codecs already vendored
-2. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
-3. **`/cookies/set` attribute flags + `parse_cookies` RFC tolerance** — echo-fidelity cookie correctness
-4. **`/healthz/ready` + `/healthz/live` + request-ID middleware** — K8s/mesh probe parity + correlation IDs
-5. **`log_format = json` + read-only-FS compat** — structured logging + container/mesh deploy robustness
+1. **Metrics cardinality cap + `/cache` conditional requests** — close the unbounded-metrics-key vector; add conditional-request (304) fidelity
+2. **`/cookies/set` attribute flags + `parse_cookies` RFC tolerance** — echo-fidelity cookie correctness
+3. **`/healthz/ready` + `/healthz/live` + request-ID middleware** — K8s/mesh probe parity + correlation IDs
+4. **`log_format = json` + read-only-FS compat** — structured logging + container/mesh deploy robustness
+5. **Echo HTTP version + TLS info in `/get`/`/anything`** — inspection fidelity beyond go-httpbin
 
-_Done: `windows-latest` CI matrix (PR #136) · "Why rucho?" + Kong upstream/mesh docs (PR #137) · `spawn_full_app()` + library refactor (PR #138) · multi-arch Docker (PR #139) · `/status` reason phrase + `/redirect` `X-Redirect-Count` (PR #140)._
+_Done: `windows-latest` CI (PR #136) · "Why rucho?" + Kong docs (PR #137) · `spawn_full_app()` + library refactor (PR #138) · multi-arch Docker (PR #139) · `/status` + `/redirect` (PR #140) · amd64-only PR CI (PR #141) · forced-encoding trio (PR #142)._
 
 ---
 

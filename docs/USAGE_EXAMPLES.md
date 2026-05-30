@@ -28,6 +28,7 @@ All examples assume rucho is running at `http://localhost:8080` (the default).
 - [XML & HTML Documents](#xml--html-documents)
 - [Sample Images](#sample-images)
 - [Byte Ranges](#byte-ranges)
+- [Forced Content Encodings](#forced-content-encodings)
 - [Chaos Engineering](#chaos-engineering)
 - [Health Checks & Monitoring](#health-checks--monitoring)
 - [Using rucho as a Kong Upstream](#using-rucho-as-a-kong-upstream)
@@ -1003,6 +1004,29 @@ curl -i -H 'Range: bytes=100-200' http://localhost:8080/range/26
 # A gateway that proxies ranges correctly returns 206 + Content-Range,
 # not 200 with the full body
 curl -i -H 'Range: bytes=0-9' http://gateway/range/1000000
+```
+
+---
+
+## Forced Content Encodings
+
+`/gzip`, `/deflate`, and `/brotli` each return a JSON echo of the request compressed with that codec and the matching `Content-Encoding` — **regardless of `Accept-Encoding`**. Forcing the encoding gives a controllable upstream that emits an already-encoded body, so you can observe how a gateway proxies or transforms it (Kong's Response-Transformer / RT-Advanced has to decode it to rewrite the JSON).
+
+```bash
+# Fetch + decompress the gzip echo
+curl -s http://localhost:8080/gzip | gunzip
+
+# The encoding is forced even with no Accept-Encoding — confirm the header:
+curl -s -D - -o /dev/null http://localhost:8080/deflate | grep -i content-encoding
+# → content-encoding: deflate
+```
+
+### Through a gateway: does a body-rewriting plugin survive an encoded upstream?
+
+```bash
+# Point Kong's response-transformer at /brotli and watch whether it can
+# decode + re-encode the brotli body (a known RT-Advanced failure mode):
+curl -i http://gateway/brotli
 ```
 
 ---

@@ -34,7 +34,7 @@ pub struct Payload(serde_json::Value);
 /// # Returns
 ///
 /// A `serde_json::Value` containing the headers as a JSON object
-fn serialize_headers(headers: &HeaderMap) -> serde_json::Value {
+pub(crate) fn serialize_headers(headers: &HeaderMap) -> serde_json::Value {
     headers
         .iter()
         .map(|(k, v)| {
@@ -243,6 +243,22 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         path: "/range/:n",
         method: "GET",
         description: "Returns n bytes with Accept-Ranges + Range support (206 partial content).",
+    },
+    EndpointInfo {
+        path: "/gzip",
+        method: "GET",
+        description: "Returns a gzip-encoded JSON echo of the request (forced Content-Encoding).",
+    },
+    EndpointInfo {
+        path: "/deflate",
+        method: "GET",
+        description:
+            "Returns a deflate-encoded JSON echo of the request (forced Content-Encoding).",
+    },
+    EndpointInfo {
+        path: "/brotli",
+        method: "GET",
+        description: "Returns a brotli-encoded JSON echo of the request (forced Content-Encoding).",
     },
 ];
 

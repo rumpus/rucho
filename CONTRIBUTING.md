@@ -154,6 +154,7 @@ src/
 │   ├── core_routes.rs   # Core echo + utility endpoints
 │   ├── delay.rs         # /delay/:n endpoint
 │   ├── drip.rs          # /drip slow-streaming endpoint
+│   ├── encoding.rs      # /gzip + /deflate + /brotli endpoints
 │   ├── healthz.rs       # /healthz endpoint
 │   ├── image.rs         # /image/:format endpoint
 │   ├── metrics.rs       # /metrics endpoint handler
