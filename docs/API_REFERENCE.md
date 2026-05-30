@@ -389,17 +389,26 @@ Returns all cookies from the request as a JSON object.
 
 Sets cookies from query parameters and redirects to `/cookies`.
 
-Each query parameter becomes a `Set-Cookie` response header with `Path=/`.
+Each non-reserved query parameter becomes a `Set-Cookie` response header (default `Path=/`). Reserved keys add attributes applied to every cookie set in the request:
 
-**Query parameters:** Arbitrary `name=value` pairs.
+| Reserved key | Effect |
+|--------------|--------|
+| `secure` | adds `Secure` |
+| `httponly` | adds `HttpOnly` |
+| `samesite=<Strict\|Lax\|None>` | adds `SameSite=…` |
+| `max_age=<seconds>` | adds `Max-Age=…` |
+| `path=<path>` | overrides `Path` (default `/`) |
+| `domain=<domain>` | adds `Domain=…` |
 
 **Response:** `302 Found` with `Location: /cookies` and `Set-Cookie` headers.
 
 ```bash
 curl -c - http://localhost:8080/cookies/set?name=rucho&lang=rust
 # Set-Cookie: name=rucho; Path=/
-# Set-Cookie: lang=rust; Path=/
-# Location: /cookies
+
+# With attributes:
+curl -i 'http://localhost:8080/cookies/set?session=abc&secure&httponly&samesite=Strict&max_age=3600'
+# Set-Cookie: session=abc; Path=/; Max-Age=3600; SameSite=Strict; Secure; HttpOnly
 ```
 
 ### GET /cookies/delete
