@@ -20,32 +20,48 @@ It's also purpose-built as a **controllable testing upstream behind [Kong Gatewa
 
 ## Features
 
+### Echo & inspection
+
 - HTTP echo endpoints for all major methods (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
-- Dynamic HTTP status simulation (`/status/:code`)
-- Configurable response delay (`/delay/:n`, max 300s)
-- Chained HTTP redirects (`/redirect/:n`, max 20 hops)
+- Dynamic HTTP status simulation (`/status/:code`) — returns the code plus its canonical reason phrase
+- Request inspection — headers, client IP, User-Agent, random UUID (`/headers`, `/ip`, `/user-agent`, `/uuid`)
 - Cookie inspection, setting, and deletion (`/cookies`, `/cookies/set`, `/cookies/delete`)
 - Base64 decoding with UTF-8 detection (`/base64/:encoded`, max 4 KiB)
-- Non-JSON content types (`/xml` → `application/xml`, `/html` → `text/html`) for testing gateway content-type handling
-- Sample images (`/image/:format` — png, jpeg, svg, webp) for testing gateway binary/image handling
-- Byte-range requests (`/range/:n` — `Accept-Ranges`, 206 partial content) for testing gateway range/resumable-download handling
-- Forced content encodings (`/gzip`, `/deflate`, `/brotli`) — return a body in that `Content-Encoding` regardless of `Accept-Encoding`, for testing gateway decode/transform behavior
-- Conditional caching (`/cache` → `ETag`/`Last-Modified` + `304`; `/cache/:n` → `Cache-Control: max-age`) for testing gateway cache behavior
+- TLS-connection echo — over HTTPS, `/get` and `/anything` report the negotiated `tls` version, cipher, and ALPN (and client cert under mTLS); neither httpbin nor go-httpbin exposes this
+
+### Controllable upstream behaviors (gateway / mesh testing)
+
+- Configurable response delay (`/delay/:n`, max 300s)
+- Chained HTTP redirects (`/redirect/:n`, max 20 hops)
+- Non-JSON content types (`/xml` → `application/xml`, `/html` → `text/html`) for gateway content-type handling
+- Sample images (`/image/:format` — png, jpeg, svg, webp) for gateway binary/image handling
+- Byte-range requests (`/range/:n` — `Accept-Ranges`, 206 partial content) for range/resumable-download proxying
+- Forced content encodings (`/gzip`, `/deflate`, `/brotli`) — emit that `Content-Encoding` regardless of `Accept-Encoding`, for gateway decode/transform testing
+- Conditional caching (`/cache` → `ETag`/`Last-Modified` + `304`; `/cache/:n` → `Cache-Control: max-age`)
 - Gateway plugin-testing trio:
   - `/response-headers?key=value` — echo query params as response headers
   - `/bytes/:n` — random bytes as `application/octet-stream` (max 10 MiB)
   - `/drip?duration=N&numbytes=M` — slow byte stream for inter-byte timeout testing
-- Configurable request body size cap (`max_body_size_bytes`, default 2 MiB)
+- Chaos engineering mode — failure / delay / corruption injection for resilience testing
+
+### Protocol & connection
+
 - TCP and UDP echo listeners for protocol testing
-- HTTPS support via Rustls with HTTP/2
-- TLS-connection echo — over HTTPS, `/get` and `/anything` report the negotiated `tls` version, cipher, and ALPN (and client cert under mTLS); neither httpbin nor go-httpbin exposes this
-- Response compression (gzip, brotli) - optional, client-negotiated
-- Connection keep-alive tuning (TCP keep-alive, TCP_NODELAY, header timeout)
-- Chaos engineering mode for resilience testing
+- HTTPS via Rustls with HTTP/2
+- Connection keep-alive tuning (TCP keep-alive, `TCP_NODELAY`, header read timeout)
+- Configurable request body size cap (`max_body_size_bytes`, default 2 MiB)
+- Response compression (gzip, brotli) — **off by default** (`compression_enabled`). An echo/inspection server returns bodies verbatim so you can see exactly what was sent, and as a gateway upstream you usually want the *gateway* to own content-encoding rather than the upstream double-compressing. Opt in to exercise client-negotiated compression.
+
+### Observability
+
 - Request timing — `timing.duration_ms` in JSON responses and an `X-Response-Time` header on every response
 - `X-Request-Id` correlation header on every response — propagates a non-blank inbound id (e.g. from a mesh sidecar), else mints a UUID v4 (`request_id_enabled`, default on)
-- OpenAPI/Swagger documentation
-- CLI for server management (start, stop, status)
+- Request metrics (`/metrics`) — all-time and rolling one-hour request/success/failure counts and per-endpoint hits (opt-in via `metrics_enabled`)
+- OpenAPI / Swagger documentation (`/swagger-ui`, `/api-docs/openapi.json`)
+
+### Deployment & ops
+
+- CLI for server management (`start`, `stop`, `status`)
 - Configuration via files and environment variables
 - Docker and systemd support
 - Graceful shutdown on SIGINT + SIGTERM (drains in-flight requests; container/mesh-friendly)
