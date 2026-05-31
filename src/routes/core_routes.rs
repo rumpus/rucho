@@ -546,7 +546,7 @@ pub async fn head_handler() -> impl IntoResponse {
     Response::builder()
         .status(axum::http::StatusCode::OK)
         .body(axum::body::Body::empty())
-        .unwrap()
+        .expect("infallible: OK status with an empty body")
 }
 
 // Handler for /endpoints
@@ -565,21 +565,16 @@ pub async fn head_handler() -> impl IntoResponse {
     get,
     path = "/endpoints",
     responses(
-        (status = 200, description = "Lists all available API endpoints", body = Vec<EndpointInfo>),
-        (status = 500, description = "Failed to serialize endpoint data")
+        (status = 200, description = "Lists all available API endpoints", body = Vec<EndpointInfo>)
     )
 )]
 pub async fn endpoints_handler(timing: Option<Extension<RequestTiming>>) -> Response {
-    match serde_json::to_value(API_ENDPOINTS) {
-        Ok(json_value) => {
-            let duration_ms = timing.map(|t| t.elapsed_ms());
-            format_json_response_with_timing(json!({"endpoints": json_value}), duration_ms)
-        }
-        Err(_) => format_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Failed to serialize endpoint data.",
-        ),
-    }
+    // Serializing a `&'static [EndpointInfo]` (plain serializable structs) cannot
+    // fail, so there is no error path to handle.
+    let json_value = serde_json::to_value(API_ENDPOINTS)
+        .expect("infallible: API_ENDPOINTS is a static slice of plain serializable structs");
+    let duration_ms = timing.map(|t| t.elapsed_ms());
+    format_json_response_with_timing(json!({ "endpoints": json_value }), duration_ms)
 }
 
 // Handler for /uuid
@@ -925,7 +920,7 @@ pub async fn options_handler() -> impl IntoResponse {
             "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
         )
         .body(axum::body::Body::empty())
-        .unwrap()
+        .expect("infallible: valid status, Allow header, and empty body")
 }
 
 #[cfg(test)]
