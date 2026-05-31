@@ -1,117 +1,99 @@
 # Rucho Configuration File
 #
-# This is a sample configuration file. Lines starting with '#' are comments.
-# You can copy this file to /etc/rucho/rucho.conf for a system-wide configuration
-# or to ./rucho.conf (in the directory where you run rucho) for a local override.
-# Environment variables (e.g., RUCHO_PREFIX) will override any values set in these files.
+# Copy this file to /etc/rucho/rucho.conf (system-wide) or ./rucho.conf (local
+# override). Environment variables (e.g. RUCHO_PREFIX) override values set here.
+#
+# Every setting below is shown COMMENTED OUT at its default value, so this file
+# documents the full configuration surface and, copied as-is, changes nothing.
+# Uncomment a line and edit it to override that default.
 
 # Default prefix for installation or data paths.
-# Example: prefix = /opt/rucho
-prefix = /usr/local/rucho
+# prefix = /usr/local/rucho
 
-# Logging level.
-# Supported levels (case-insensitive): TRACE, DEBUG, INFO, NOTICE, WARN, ERROR
-# Example: log_level = info
-log_level = info
+# Logging level (case-insensitive): TRACE, DEBUG, INFO, NOTICE, WARN, ERROR
+# log_level = info
 
-# Log output format: "text" (human-readable, default) or "json" (structured,
-# for mesh/aggregator deployments like Loki/Datadog/ELK).
-# Example: log_format = json
-log_format = text
+# Log output format: "text" (human-readable) or "json" (structured, for
+# mesh/aggregator deployments like Loki/Datadog/ELK).
+# log_format = text
 
 # Path to the PID file backing `rucho stop`/`status`. A write failure here is
 # non-fatal — the server still starts (read-only filesystems, missing dir).
 # Point it at a writable location (e.g. /tmp/rucho.pid) under `--read-only`.
-# Example: pid_file = /tmp/rucho.pid
-pid_file = /var/run/rucho/rucho.pid
+# pid_file = /var/run/rucho/rucho.pid
 
-# Primary server listen address and port.
-# Use 'ssl' suffix to enable TLS, e.g., 0.0.0.0:8043 ssl
-# Example: server_listen_primary = 127.0.0.1:8000
-server_listen_primary = 0.0.0.0:8080
+# Primary listen address and port. Add an 'ssl' suffix to enable TLS, e.g.
+# 0.0.0.0:8043 ssl (requires ssl_cert/ssl_key below).
+# server_listen_primary = 0.0.0.0:8080
 
-# Secondary server listen address and port.
-# Use 'ssl' suffix to enable TLS, e.g., 0.0.0.0:9043 ssl
-# Example: server_listen_secondary = 127.0.0.1:9000
-server_listen_secondary = 0.0.0.0:9090
+# Secondary listen address and port. Same 'ssl' suffix rule.
+# server_listen_secondary = 0.0.0.0:9090
 
-# TCP echo listener address (optional).
-# When set, starts a TCP echo server for protocol testing.
-# Example: server_listen_tcp = 0.0.0.0:7777
+# TCP echo listener address. Unset by default; set it to start a TCP echo
+# server for protocol testing.
+# server_listen_tcp = 0.0.0.0:7777
 
-# UDP echo listener address (optional).
-# When set, starts a UDP echo server for protocol testing.
-# Example: server_listen_udp = 0.0.0.0:7778
+# UDP echo listener address. Unset by default; set it to start a UDP echo
+# server for protocol testing.
+# server_listen_udp = 0.0.0.0:7778
 
-# SSL certificate and key paths (required if using 'ssl' suffix in server_listen_*)
-# Example: ssl_cert = /path/to/your/cert.pem
-# Example: ssl_key = /path/to/your/key.pem
+# SSL certificate and key paths. Unset by default; required when any
+# server_listen_* uses the 'ssl' suffix.
+# ssl_cert = /path/to/cert.pem
+# ssl_key = /path/to/key.pem
 
-# Enable metrics endpoint (/metrics).
-# When enabled, the server exposes request statistics at /metrics.
-# Example: metrics_enabled = true
-metrics_enabled = false
+# Expose request statistics at /metrics.
+# metrics_enabled = false
 
-# Enable response compression (gzip, brotli).
-# When enabled, responses are compressed based on client Accept-Encoding header.
-# Example: compression_enabled = true
-compression_enabled = false
+# Enable response compression (gzip, brotli), negotiated via Accept-Encoding.
+# Off by default so echo bodies are returned verbatim for inspection.
+# compression_enabled = false
 
-# Set an X-Request-Id correlation header on every response (default on).
-# Propagates a non-blank inbound X-Request-Id (e.g. from a mesh sidecar),
-# otherwise mints a UUID v4. Disable to test an upstream that sends none.
-# Example: request_id_enabled = false
-request_id_enabled = true
+# Set an X-Request-Id correlation header on every response. Propagates a
+# non-blank inbound X-Request-Id (e.g. from a mesh sidecar), otherwise mints a
+# UUID v4. Disable to test an upstream that sends none.
+# request_id_enabled = true
 
 # --- Connection Keep-Alive Tuning ---
-# These settings control TCP and HTTP connection behavior for performance
-# and resource management. Defaults are suitable for most deployments.
-#
-# HTTP keep-alive timeout (seconds). How long an idle HTTP connection stays open.
-# Default: 75
+# These control TCP and HTTP connection behavior. Defaults suit most deployments.
+
+# HTTP keep-alive timeout (seconds): how long an idle HTTP connection stays open.
 # http_keep_alive_timeout = 75
-#
-# TCP keep-alive idle time (seconds). How long before probes start on idle connections.
-# Default: 60
+
+# TCP keep-alive idle time (seconds): how long before probes start on idle connections.
 # tcp_keepalive_time = 60
-#
-# TCP keep-alive probe interval (seconds). Time between probe packets.
-# Default: 15
+
+# TCP keep-alive probe interval (seconds): time between probe packets.
 # tcp_keepalive_interval = 15
-#
-# TCP keep-alive probe retries (1-10). Failed probes before dropping the connection.
-# Default: 5
+
+# TCP keep-alive probe retries (1-10): failed probes before dropping the connection.
 # tcp_keepalive_retries = 5
-#
+
 # Disable Nagle's algorithm for lower latency on small responses.
-# Default: true
 # tcp_nodelay = true
-#
-# Header read timeout (seconds). Max time to wait for complete request headers.
+
+# Header read timeout (seconds): max time to wait for complete request headers.
 # Protects against slowloris-style attacks.
-# Default: 30
 # header_read_timeout = 30
-#
-# Maximum request body size in bytes. Requests exceeding this return 413
-# Payload Too Large. Protects against OOM from unbounded bodies to /anything
-# and other body-accepting handlers.
-# Default: 2097152 (2 MiB)
+
+# Maximum request body size in bytes. Requests exceeding this return 413 Payload
+# Too Large. Protects against OOM from unbounded bodies to body-accepting handlers.
 # max_body_size_bytes = 2097152
 
 # --- Chaos Engineering Mode ---
-# Chaos mode injects random failures, delays, and response corruption
-# to help test application resilience. Disabled by default.
-#
+# Injects random failures, delays, and response corruption to test resilience.
+# Disabled by default. The example values below show a typical *active* config
+# (not the disabled defaults), so uncomment and tune to taste.
+
 # Enable chaos types (comma-separated): failure, delay, corruption
-# Example: chaos_mode = failure,delay
-# chaos_mode =
-#
+# chaos_mode = failure,delay
+
 # -- Failure injection --
 # Probability of returning a failure response (0.01-1.0)
 # chaos_failure_rate = 0.1
 # HTTP status codes to randomly return (comma-separated, 400-599)
 # chaos_failure_codes = 500,502,503
-#
+
 # -- Delay injection --
 # Probability of adding a delay to the request (0.01-1.0)
 # chaos_delay_rate = 0.2
@@ -119,13 +101,13 @@ request_id_enabled = true
 # chaos_delay_ms = 2000
 # Maximum delay in ms when chaos_delay_ms = random (required if random)
 # chaos_delay_max_ms = 5000
-#
+
 # -- Response corruption --
 # Probability of corrupting the response body (0.01-1.0)
 # chaos_corruption_rate = 0.05
 # Corruption type: empty, truncate, or garbage
 # chaos_corruption_type = empty
-#
+
 # -- Inform header --
-# Add X-Chaos response header to affected requests (default: true)
+# Add an X-Chaos response header to affected responses (default: true)
 # chaos_inform_header = true

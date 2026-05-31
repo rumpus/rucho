@@ -140,10 +140,10 @@ Tell the dual-mission story and end the doc sprawl.
 - [x] **[M]** Replace `docs/API_REFERENCE.md` with a one-pager — 739-line hand-written reference (the source of the v1.4.4 drift bug) slimmed to ~95 lines: `/swagger-ui` + `/api-docs/openapi.json` as the canonical generated spec, a link to the README endpoint table, three example responses (`/get` incl. `tls`, `/anything`, `/status/:code`), and the response-headers table (PR #162)
 - [x] **[M]** Align MSRV — set `rust-version = "1.84"` in `Cargo.toml` (the `rust:1.84` release Docker image builds the project, verifying it compiles) and updated CONTRIBUTING from the stale "1.70+" to "1.84+" (PR #153)
 - [x] **[L]** Grouped README features under sub-headers (Echo & inspection / Controllable upstream behaviors / Protocol & connection / Observability / Deployment & ops); filled in previously-unlisted features (`/metrics`, the inspection endpoints); explained why `compression_enabled` defaults off; noted the gitignored `tasks/` convention in CONTRIBUTING (PR #163)
-- [ ] **[L]** Consolidate USAGE_EXAMPLES curl/Python/JS triplets (curl canonical; others in `<details>`)
+- [~] **[L]** ~~Consolidate USAGE_EXAMPLES curl/Python/JS triplets~~ — **won't do**: ~17 `<details>` wraps across a 1411-line file is high churn for a purely cosmetic gain, and the triplets are useful as-is (maintainer call to skip)
 - [ ] **[L]** Add `SECURITY.md` (disclosure + supported versions) and a lightweight `ARCHITECTURE.md`
 - [ ] **[L]** CHANGELOG: add a "Performance" sub-category; add compare-link references at the bottom
-- [ ] **[L]** `config_samples/rucho.conf.default` — consistent style (every field present, commented with its default)
+- [x] **[L]** `config_samples/rucho.conf.default` — consistent style: every field is now shown commented-out at its default with a one-line description (was a mix of active core fields + commented advanced ones); the file documents the full config surface and is a no-op when copied as-is (PR #164)
 - [ ] **[L]** Evaluate auto-generating internals from `///` doc comments (`cargo doc`); consider splitting INTERNALS by concern
 
 ---
