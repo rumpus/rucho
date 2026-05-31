@@ -385,7 +385,7 @@ Affected responses include an `X-Chaos` header listing which chaos types were ap
 
 ## Examples
 
-For comprehensive examples with curl, Python, and JavaScript, see [docs/USAGE_EXAMPLES.md](docs/USAGE_EXAMPLES.md). For detailed endpoint documentation, see the [API Reference](docs/API_REFERENCE.md).
+For comprehensive examples with curl, Python, and JavaScript, see [docs/USAGE_EXAMPLES.md](docs/USAGE_EXAMPLES.md). For the full API spec, browse the live **`/swagger-ui`** (canonical, generated from the code) — the [API Reference](docs/API_REFERENCE.md) one-pager points there and shows a few example responses.
 
 ```bash
 # Simple GET
