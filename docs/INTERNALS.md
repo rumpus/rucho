@@ -1349,37 +1349,17 @@ pub struct ChaosConfig {
 
 ### 7.2 Complete Field Reference
 
-| Field | Type | Default | Config Key | Env Var |
-|-------|------|---------|-----------|---------|
-| `prefix` | `String` | `"/usr/local/rucho"` | `prefix` | `RUCHO_PREFIX` |
-| `log_level` | `String` | `"info"` | `log_level` | `RUCHO_LOG_LEVEL` |
-| `log_format` | `String` | `"text"` | `log_format` | `RUCHO_LOG_FORMAT` |
-| `server_listen_primary` | `String` | `"0.0.0.0:8080"` | `server_listen_primary` | `RUCHO_SERVER_LISTEN_PRIMARY` |
-| `server_listen_secondary` | `String` | `"0.0.0.0:9090"` | `server_listen_secondary` | `RUCHO_SERVER_LISTEN_SECONDARY` |
-| `server_listen_tcp` | `Option<String>` | `None` | `server_listen_tcp` | `RUCHO_SERVER_LISTEN_TCP` |
-| `server_listen_udp` | `Option<String>` | `None` | `server_listen_udp` | `RUCHO_SERVER_LISTEN_UDP` |
-| `ssl_cert` | `Option<String>` | `None` | `ssl_cert` | `RUCHO_SSL_CERT` |
-| `ssl_key` | `Option<String>` | `None` | `ssl_key` | `RUCHO_SSL_KEY` |
-| `pid_file` | `String` | `"/var/run/rucho/rucho.pid"` | `pid_file` | `RUCHO_PID_FILE` |
-| `metrics_enabled` | `bool` | `false` | `metrics_enabled` | `RUCHO_METRICS_ENABLED` |
-| `compression_enabled` | `bool` | `false` | `compression_enabled` | `RUCHO_COMPRESSION_ENABLED` |
-| `request_id_enabled` | `bool` | `true` | `request_id_enabled` | `RUCHO_REQUEST_ID_ENABLED` |
-| `http_keep_alive_timeout` | `u64` | `75` | `http_keep_alive_timeout` | `RUCHO_HTTP_KEEP_ALIVE_TIMEOUT` |
-| `tcp_keepalive_time` | `u64` | `60` | `tcp_keepalive_time` | `RUCHO_TCP_KEEPALIVE_TIME` |
-| `tcp_keepalive_interval` | `u64` | `15` | `tcp_keepalive_interval` | `RUCHO_TCP_KEEPALIVE_INTERVAL` |
-| `tcp_keepalive_retries` | `u32` | `5` | `tcp_keepalive_retries` | `RUCHO_TCP_KEEPALIVE_RETRIES` |
-| `tcp_nodelay` | `bool` | `true` | `tcp_nodelay` | `RUCHO_TCP_NODELAY` |
-| `header_read_timeout` | `u64` | `30` | `header_read_timeout` | `RUCHO_HEADER_READ_TIMEOUT` |
-| `max_body_size_bytes` | `usize` | `2097152` | `max_body_size_bytes` | `RUCHO_MAX_BODY_SIZE_BYTES` |
-| `chaos.modes` | `Vec<String>` | `[]` | `chaos_mode` | `RUCHO_CHAOS_MODE` |
-| `chaos.failure_rate` | `f64` | `0.0` | `chaos_failure_rate` | `RUCHO_CHAOS_FAILURE_RATE` |
-| `chaos.failure_codes` | `Vec<u16>` | `[]` | `chaos_failure_codes` | `RUCHO_CHAOS_FAILURE_CODES` |
-| `chaos.delay_rate` | `f64` | `0.0` | `chaos_delay_rate` | `RUCHO_CHAOS_DELAY_RATE` |
-| `chaos.delay_ms` | `String` | `""` | `chaos_delay_ms` | `RUCHO_CHAOS_DELAY_MS` |
-| `chaos.delay_max_ms` | `u64` | `0` | `chaos_delay_max_ms` | `RUCHO_CHAOS_DELAY_MAX_MS` |
-| `chaos.corruption_rate` | `f64` | `0.0` | `chaos_corruption_rate` | `RUCHO_CHAOS_CORRUPTION_RATE` |
-| `chaos.corruption_type` | `String` | `""` | `chaos_corruption_type` | `RUCHO_CHAOS_CORRUPTION_TYPE` |
-| `chaos.inform_header` | `bool` | `true` | `chaos_inform_header` | `RUCHO_CHAOS_INFORM_HEADER` |
+To avoid the field list drifting across three places, the canonical reference
+lives in the README:
+
+- **General config** — defaults, env vars, and descriptions: the
+  [Parameters table](../README.md#parameters).
+- **Chaos knobs** (`chaos_*`) — the
+  [Chaos Engineering Mode table](../README.md#chaos-engineering-mode).
+- **Rust types** for each field — the `Config` / `ChaosConfig` struct
+  definitions in §7.1 above.
+- **Runnable example** — `config_samples/rucho.conf.default`, every key with its
+  default, commented.
 
 ### 7.3 Loading Precedence
 

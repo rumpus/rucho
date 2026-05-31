@@ -136,7 +136,7 @@ Tell the dual-mission story and end the doc sprawl.
 - [x] **[H]** "Using rucho as a Kong upstream" section + a declarative `kong.yaml` snippet (PR #137)
 - [x] **[M]** "Using rucho in Kong Mesh" snippet — Kuma sidecar injection + a MeshRetry example (PR #137)
 - [x] **[M]** Deduplicate the project-structure block — README's tree is now the single canonical source; CONTRIBUTING points to it instead of carrying an identical copy. INTERNALS keeps its deeper architecture-oriented tree (a distinct artifact, not a verbatim dup) (PR #160)
-- [ ] **[M]** Deduplicate config-field tables — canonical source is `config_samples/rucho.conf.default`; link, don't re-render
+- [x] **[M]** Deduplicate config-field tables — removed the drift-prone third copy: INTERNALS §7.2 "Complete Field Reference" now points to the README's Parameters + Chaos tables (the canonical doc reference), with types in the §7.1 struct and `config_samples/rucho.conf.default` as the runnable example. (Kept the README table rather than gutting it to a bare link, since it carries the user-facing descriptions — maintainer call) (PR #161)
 - [ ] **[M]** Replace `docs/API_REFERENCE.md` with a one-pager linking `/swagger-ui` as canonical + 3–4 example responses (the hand-written table caused the v1.4.4 missing-endpoint fix)
 - [x] **[M]** Align MSRV — set `rust-version = "1.84"` in `Cargo.toml` (the `rust:1.84` release Docker image builds the project, verifying it compiles) and updated CONTRIBUTING from the stale "1.70+" to "1.84+" (PR #153)
 - [ ] **[L]** Group README features under sub-headers (Protocol / Resilience / Observability / Deployment); explain why `compression_enabled` defaults off; mention the gitignored `tasks/` convention
