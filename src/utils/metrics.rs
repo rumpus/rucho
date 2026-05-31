@@ -7,7 +7,7 @@
 //! - Rolling 1-hour window for all above metrics
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
@@ -74,8 +74,10 @@ pub struct Metrics {
     endpoint_hits: RwLock<HashMap<String, u64>>,
     /// Rolling window buckets for time-based statistics.
     rolling_buckets: RwLock<Vec<TimeBucket>>,
-    /// Index of the current bucket being written to.
-    current_bucket_idx: RwLock<usize>,
+    /// Index of the current bucket being written to. Only ever accessed inside
+    /// the `rolling_buckets` write lock, so an atomic (not its own lock) is
+    /// enough — see `update_rolling_window`.
+    current_bucket_idx: AtomicUsize,
 }
 
 impl Default for Metrics {
@@ -96,7 +98,7 @@ impl Metrics {
             total_failures: AtomicU64::new(0),
             endpoint_hits: RwLock::new(HashMap::new()),
             rolling_buckets: RwLock::new(buckets),
-            current_bucket_idx: RwLock::new(0),
+            current_bucket_idx: AtomicUsize::new(0),
         }
     }
 
@@ -136,16 +138,20 @@ impl Metrics {
         is_failure: bool,
     ) {
         let mut buckets = self.rolling_buckets.write().unwrap();
-        let mut idx = self.current_bucket_idx.write().unwrap();
+        // `current_bucket_idx` is only ever touched here, under the buckets write
+        // lock, which already serializes it — so Relaxed atomics suffice (the
+        // AtomicUsize just provides interior mutability across `&self`).
+        let mut idx = self.current_bucket_idx.load(Ordering::Relaxed);
 
         // Check if current bucket is expired and we need to move to the next
-        if buckets[*idx].is_expired(now) {
-            *idx = (*idx + 1) % ROLLING_WINDOW_BUCKETS;
-            buckets[*idx].reset(now);
+        if buckets[idx].is_expired(now) {
+            idx = (idx + 1) % ROLLING_WINDOW_BUCKETS;
+            buckets[idx].reset(now);
+            self.current_bucket_idx.store(idx, Ordering::Relaxed);
         }
 
         // Record in current bucket
-        let bucket = &mut buckets[*idx];
+        let bucket = &mut buckets[idx];
         bucket.requests += 1;
         if is_success {
             bucket.successes += 1;

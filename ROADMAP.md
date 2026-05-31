@@ -89,9 +89,9 @@ Keep the "fast, robust Rust" promise — hot-path correctness over premature opt
 
 - [x] **[M]** Metrics cardinality cap — `normalize_path` now buckets unknown `/cookies/{action}` → `/cookies/other` and any unmatched path → `/other` (via a `KNOWN_STATIC_PATHS` whitelist); also added the missing `/base64` arm and made every arm zero-allocation (PR #143)
 - [ ] **[M]** Metrics lock contention — swap `RwLock<HashMap>` for `DashMap` / sharded atomics. Only matters past ~10k rps; do it when a benchmark says so (`src/utils/metrics.rs`)
-- [ ] **[L]** Replace `RwLock<usize>` around `current_bucket_idx` with `AtomicUsize` (`src/utils/metrics.rs`)
-- [ ] **[L]** Replace `.unwrap()` in `head_handler` / `options_handler` response builders with `.expect("infallible: …")` — CLAUDE.md "no unwrap in production"
-- [ ] **[L]** Remove the dead `500` branch in `endpoints_handler` — `serde_json::to_value` on a `&'static` slice is infallible
+- [x] **[L]** Replaced `RwLock<usize>` around `current_bucket_idx` with `AtomicUsize` — it was only ever touched inside the `rolling_buckets` write lock, so the lock already serializes it; Relaxed atomics drop a lock acquisition per request (PR #167)
+- [x] **[L]** Replaced `.unwrap()` in `head_handler` / `options_handler` response builders with `.expect("infallible: …")` — CLAUDE.md "no unwrap in production" (PR #167)
+- [x] **[L]** Removed the dead `500` branch in `endpoints_handler` (and its now-impossible `500` from the OpenAPI annotation) — `serde_json::to_value` on a `&'static` slice is infallible (PR #167)
 - [ ] **[L]** Handler boilerplate DRY — a non-macro `echo_with_body(method, headers, body)` helper for POST/PUT/PATCH/DELETE. Deferred is defensible; revisit only if touched
 - [ ] **[L]** Module organization — move `src/tcp_udp_handlers.rs` → `src/server/echo.rs`; consider splitting `src/utils/`; refresh INTERNALS' architecture-walkthrough prose still citing `build_app`/`ApiDoc` under `main.rs`. (`ApiDoc`→`src/openapi.rs` + `build_app`→`src/app.rs` landed in PR #138.)
 
