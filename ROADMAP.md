@@ -141,10 +141,10 @@ Tell the dual-mission story and end the doc sprawl.
 - [x] **[M]** Align MSRV — set `rust-version = "1.84"` in `Cargo.toml` (the `rust:1.84` release Docker image builds the project, verifying it compiles) and updated CONTRIBUTING from the stale "1.70+" to "1.84+" (PR #153)
 - [x] **[L]** Grouped README features under sub-headers (Echo & inspection / Controllable upstream behaviors / Protocol & connection / Observability / Deployment & ops); filled in previously-unlisted features (`/metrics`, the inspection endpoints); explained why `compression_enabled` defaults off; noted the gitignored `tasks/` convention in CONTRIBUTING (PR #163)
 - [~] **[L]** ~~Consolidate USAGE_EXAMPLES curl/Python/JS triplets~~ — **won't do**: ~17 `<details>` wraps across a 1411-line file is high churn for a purely cosmetic gain, and the triplets are useful as-is (maintainer call to skip)
-- [ ] **[L]** Add `SECURITY.md` (disclosure + supported versions) and a lightweight `ARCHITECTURE.md`
+- [x] **[L]** Added a minimal `SECURITY.md` — test-target scope framing, latest-release-only support, and private GitHub vulnerability reporting (no over-promised SLA). `ARCHITECTURE.md` deliberately skipped: `docs/INTERNALS.md` already is the architecture doc, and a second one would re-introduce the sprawl T6 just removed (maintainer call) (PR #166)
 - [x] **[L]** CHANGELOG: added a `### Performance` sub-category (moved the chaos-RNG optimization there from Changed) and compare-link references at the bottom for every tagged release (`v1.0.0`…`v1.4.6` + `Unreleased`); `0.1.0`/`0.0.1` were never tagged so they stay plain (PR #165)
 - [x] **[L]** `config_samples/rucho.conf.default` — consistent style: every field is now shown commented-out at its default with a one-line description (was a mix of active core fields + commented advanced ones); the file documents the full config surface and is a no-op when copied as-is (PR #164)
-- [ ] **[L]** Evaluate auto-generating internals from `///` doc comments (`cargo doc`); consider splitting INTERNALS by concern
+- [~] **[L]** Evaluated auto-generating internals from `///` doc comments — **won't do**: `cargo doc` produces an API reference for public items, but `INTERNALS.md` is a hand-written architecture *narrative* (request lifecycle, middleware stack, design rationale) it can't replace; rucho is a binary so the generated docs aren't published anywhere either. Keeping INTERNALS hand-written. No split for now — it's large but well-sectioned with a ToC; revisit only if it becomes unwieldy
 
 ---
 
