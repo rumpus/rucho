@@ -31,9 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Declared a minimum supported Rust version — `rust-version = "1.84"` in `Cargo.toml`, matching the release Docker image (`rust:1.84`). CONTRIBUTING's stale "Rust 1.70+" prerequisite is corrected to "1.84+".
-- Chaos middleware now uses a per-thread cached RNG (`thread_local!` `StdRng`, seeded once from entropy) instead of constructing and re-seeding a `StdRng` from `thread_rng()` on every request. The v1.4.6 changelog described this optimization, but the implementation had continued to re-seed per request — this lands it for real. Internal only; chaos injection behavior is unchanged.
 - `/status/:code` now returns a JSON body `{ "status", "reason" }` carrying the canonical reason phrase (e.g. `"Not Found"`) instead of an empty body, while the HTTP status line still carries the requested code — an inspection-fidelity improvement over httpbin.
 - `/redirect/:n` now emits an `X-Redirect-Count` response header (remaining hops) on each 302, so clients can observe chain progress without parsing the `Location` URL.
+
+### Performance
+- Chaos middleware now uses a per-thread cached RNG (`thread_local!` `StdRng`, seeded once from entropy) instead of constructing and re-seeding a `StdRng` from `thread_rng()` on every request. The v1.4.6 changelog described this optimization, but the implementation had continued to re-seed per request — this lands it for real. Internal only; chaos injection behavior is unchanged.
 
 ### Fixed
 - Server no longer refuses to start when the PID file can't be written (read-only filesystem, missing parent directory). `handle_start_command` now logs a warning and continues instead of returning failure and aborting startup — so `--read-only` containers run. The PID file only backs `rucho stop`/`status`; signal-based shutdown (SIGTERM / Ctrl+C) is unaffected.
@@ -220,3 +222,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Request tracing and logging
 - CORS support (permissive)
 - Pretty JSON output (`?pretty=true`)
+
+<!-- Version compare links (tagged releases only; 0.1.0 / 0.0.1 were never tagged). -->
+[Unreleased]: https://github.com/rumpus/rucho/compare/v1.4.6...HEAD
+[1.4.6]: https://github.com/rumpus/rucho/compare/v1.4.5...v1.4.6
+[1.4.5]: https://github.com/rumpus/rucho/compare/v1.4.4...v1.4.5
+[1.4.4]: https://github.com/rumpus/rucho/compare/v1.4.3...v1.4.4
+[1.4.3]: https://github.com/rumpus/rucho/compare/v1.4.2...v1.4.3
+[1.4.2]: https://github.com/rumpus/rucho/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/rumpus/rucho/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/rumpus/rucho/compare/v1.3.1...v1.4.0
+[1.3.1]: https://github.com/rumpus/rucho/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/rumpus/rucho/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/rumpus/rucho/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/rumpus/rucho/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/rumpus/rucho/releases/tag/v1.0.0
