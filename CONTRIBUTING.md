@@ -137,6 +137,9 @@ For a deeper, architecture-oriented walkthrough of the same layout (module
 responsibilities, the request lifecycle, the middleware stack), see
 [`docs/INTERNALS.md`](docs/INTERNALS.md).
 
+The `tasks/` directory (local todo/session tracking) is **gitignored** — a
+working convention, not part of the repository, so you won't see it in a clone.
+
 ## Releasing
 
 Releases are automated via GitHub Actions. When a version tag is pushed, the [release workflow](.github/workflows/release.yml) runs fmt/clippy/test, builds a release binary, creates a GitHub release, and pushes a Docker image to Docker Hub.
