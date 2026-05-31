@@ -1097,7 +1097,7 @@ This is passed to `format_json_response_with_timing()` which injects
 
 ### 6.2 Metrics Middleware
 
-**File:** `src/server/metrics_layer.rs` (113 lines including tests)
+**File:** `src/server/metrics_layer.rs`
 
 ```rust
 // src/server/metrics_layer.rs
@@ -1165,7 +1165,7 @@ groups them under canonical route names.
 
 ### 6.3 Chaos Middleware
 
-**File:** `src/server/chaos_layer.rs` (123 lines)
+**File:** `src/server/chaos_layer.rs`
 
 The most complex middleware. Implements a three-stage chaos injection pipeline.
 
@@ -1966,7 +1966,7 @@ pub struct Metrics {
     total_failures: AtomicU64,                       // all-time 4xx/5xx count
     endpoint_hits: RwLock<HashMap<String, u64>>,     // all-time per-endpoint
     rolling_buckets: RwLock<Vec<TimeBucket>>,         // 60 one-minute buckets
-    current_bucket_idx: RwLock<usize>,               // index of active bucket
+    current_bucket_idx: AtomicUsize,                 // index of active bucket
 }
 ```
 
@@ -1976,6 +1976,9 @@ pub struct Metrics {
 - `RwLock<HashMap>` for endpoint hits — allows concurrent readers, exclusive
   writer.
 - `RwLock<Vec<TimeBucket>>` for rolling window — same semantics.
+- `AtomicUsize` for `current_bucket_idx` — only ever touched inside the
+  `rolling_buckets` write lock, so that lock already serializes it; the atomic
+  (`Relaxed`) just provides interior mutability across `&self`.
 
 ### 10.2 TimeBucket Struct
 
@@ -2021,7 +2024,7 @@ record_request(endpoint, status_code)
   |
   +-- update_rolling_window(now, endpoint, is_success, is_failure)
         |
-        +-- lock write on rolling_buckets + current_bucket_idx
+        +-- lock write on rolling_buckets (current_bucket_idx is an AtomicUsize read/written under that lock)
         +-- if current bucket is expired:
         |     advance index: (idx + 1) % 60
         |     reset new current bucket with now
@@ -2447,7 +2450,7 @@ Key external crates and their role in the application:
 | `hyper` | 1.0 | HTTP/1.1 and HTTP/2 protocol implementation (under axum) |
 | `hyper-util` | 0.1 | `TokioTimer` for hyper's timeout system |
 | `tower` | 0.5 | Middleware/service abstraction (tower::Layer, tower::Service) |
-| `tower-http` | 0.6 | Trace, CORS, NormalizePath, Compression middleware layers |
+| `tower-http` | 0.6 | Trace, CORS, NormalizePath, Compression, and AddExtension middleware layers |
 | `axum-server` | 0.7 | TLS-capable HTTP server with graceful shutdown `Handle` |
 | `clap` | 4.4 | CLI argument parsing with derive macros |
 | `serde` | 1.0 | Serialization/deserialization framework |
@@ -2471,6 +2474,7 @@ Key external crates and their role in the application:
 | `tempfile` | 3.8 | *(dev only)* Temporary directories for config tests |
 | `criterion` | 0.5 | *(dev only)* Benchmark framework with async tokio support and HTML reports |
 | `reqwest` | 0.12 | *(dev only)* HTTP client for integration tests (cookie jar, JSON support) |
+| `proptest` | 1 | *(dev only)* Property-based testing (cookies/redirect/chaos invariants) |
 
 ---
 
@@ -2509,11 +2513,13 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/server/shutdown.rs` | `shutdown_signal()` — SIGINT/SIGTERM with 5s grace period |
 | `src/server/chaos_layer.rs` | Chaos engineering middleware (failure/delay/corruption) |
 | `src/server/metrics_layer.rs` | Metrics recording middleware + path normalization |
-| `src/server/timing_layer.rs` | Request timing middleware |
+| `src/server/timing_layer.rs` | Request timing middleware (sets `X-Response-Time`) |
+| `src/server/request_id.rs` | `X-Request-Id` correlation middleware (propagate inbound, else mint UUID v4) |
+| `src/server/tls.rs` | `TlsInfoAcceptor` + `TlsConnectionInfo` — echoes negotiated TLS params over HTTPS |
 | `src/tcp_udp_handlers.rs` | TCP echo loop, UDP echo with exponential backoff |
 | `src/utils/mod.rs` | Utils module re-exports |
 | `src/utils/config.rs` | `Config`, `ChaosConfig`, loading, validation, `load_env_var!` |
-| `src/utils/constants.rs` | All hardcoded constants (19 values) |
+| `src/utils/constants.rs` | All hardcoded default values and limits |
 | `src/utils/error_response.rs` | `format_error_response()` |
 | `src/utils/json_response.rs` | `format_json_response()`, `format_json_response_with_timing()` |
 | `src/utils/metrics.rs` | `Metrics`, `TimeBucket`, rolling window, snapshot structs |
@@ -2522,7 +2528,7 @@ Complete listing of all source files with line counts and primary purpose:
 | `src/utils/timing.rs` | `RequestTiming` struct |
 | `benches/response_benchmarks.rs` | Criterion microbenchmarks for response building functions |
 | `benches/endpoint_benchmarks.rs` | Criterion async benchmarks for full endpoint request cycles via `tower::oneshot` |
-| `tests/integration.rs` | Integration tests — real HTTP server per test via `reqwest` (24 tests) |
+| `tests/integration.rs` | Integration tests — real HTTP server per test via `reqwest` |
 | `debian/man/rucho.1` | Man page (roff format) — installed to `/usr/share/man/man1/` via `.deb` |
 
 ---
