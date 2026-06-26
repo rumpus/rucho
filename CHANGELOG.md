@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-06-26
+
 ### Added
 - `/anything?connection=close` connection-control knob — forces a `Connection: close` response header so the upstream hangs up after replying, letting you observe how a gateway re-establishes vs. reuses its upstream connection pool (something the gateway can't make the upstream do on its own). HTTP/1.1 only — `Connection` is a forbidden header in HTTP/2, so over h2 the directive is reflected in the body but not honored (guarded by `is_http1`). The honored outcome is echoed under a `connection` key in the JSON body. A per-request query directive (no config field), parsed from the raw query string so `/anything` keeps rejecting nothing.
 - `/base64/:encoded` endpoint — decode URL-safe base64 strings and return JSON with decoded content, UTF-8 validity, and byte length. Accepts URL-safe base64 with or without padding; standard base64 is attempted as a fallback. Input capped at 4096 bytes.
@@ -225,7 +227,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pretty JSON output (`?pretty=true`)
 
 <!-- Version compare links (tagged releases only; 0.1.0 / 0.0.1 were never tagged). -->
-[Unreleased]: https://github.com/rumpus/rucho/compare/v1.4.6...HEAD
+[Unreleased]: https://github.com/rumpus/rucho/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/rumpus/rucho/compare/v1.4.6...v1.5.0
 [1.4.6]: https://github.com/rumpus/rucho/compare/v1.4.5...v1.4.6
 [1.4.5]: https://github.com/rumpus/rucho/compare/v1.4.4...v1.4.5
 [1.4.4]: https://github.com/rumpus/rucho/compare/v1.4.3...v1.4.4

@@ -2,7 +2,7 @@
 description: Run rucho's CI-exact pre-commit gate (fmt, clippy, test) and fix anything it surfaces. Use before any commit/push to confirm a change is CI-green.
 ---
 
-Run rucho's CI-exact pre-commit gate and fix anything it surfaces. These three commands match `.github/workflows/ci.yml` exactly, so a locally-green run means CI will pass:
+Run rucho's CI-exact pre-commit gate and fix anything it surfaces. The `clippy` and `test` invocations match `.github/workflows/ci.yml` verbatim; `cargo fmt` formats in place (CI verifies the same formatting with `cargo fmt --all -- --check`). A locally-green run means CI will pass:
 
 ```bash
 cargo fmt
