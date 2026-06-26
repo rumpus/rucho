@@ -42,6 +42,7 @@ It's also purpose-built as a **controllable testing upstream behind [Kong Gatewa
   - `/response-headers?key=value` — echo query params as response headers
   - `/bytes/:n` — random bytes as `application/octet-stream` (max 10 MiB)
   - `/drip?duration=N&numbytes=M` — slow byte stream for inter-byte timeout testing
+- Connection-control knob (`/anything?connection=close`) — forces a `Connection: close` response so the upstream hangs up after replying (HTTP/1.1; ignored over HTTP/2), for observing how a gateway re-establishes vs. reuses upstream connections — something the gateway can't make the upstream do on its own
 - Chaos engineering mode — failure / delay / corruption injection for resilience testing
 
 ### Protocol & connection

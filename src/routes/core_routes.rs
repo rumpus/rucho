@@ -69,6 +69,32 @@ pub(crate) fn http_version_str(version: axum::http::Version) -> &'static str {
     }
 }
 
+/// True for HTTP/1.0 and HTTP/1.1, where a `Connection` header is meaningful.
+///
+/// HTTP/2 forbids the `Connection` header (it is a connection-level concern
+/// owned by the protocol), so the `?connection=close` knob can only be honored
+/// over HTTP/1.x.
+pub(crate) fn is_http1(version: axum::http::Version) -> bool {
+    use axum::http::Version;
+    version == Version::HTTP_11 || version == Version::HTTP_10
+}
+
+/// Scans a raw URL query string for a `connection=close` directive.
+///
+/// The key match is exact (`connection`); the value match is ASCII
+/// case-insensitive (`close`/`CLOSE`). Parses the raw query string directly
+/// rather than via a `Query` extractor so `/anything` never rejects an
+/// otherwise-odd query string (preserving its permissive echo behavior).
+pub(crate) fn wants_connection_close(query: &str) -> bool {
+    query.split('&').any(|pair| {
+        let mut kv = pair.splitn(2, '=');
+        matches!(
+            (kv.next(), kv.next()),
+            (Some("connection"), Some(value)) if value.eq_ignore_ascii_case("close")
+        )
+    })
+}
+
 /// Represents information about an API endpoint.
 #[derive(Serialize, Debug, Clone, Copy, ToSchema)]
 pub struct EndpointInfo {
@@ -390,8 +416,11 @@ pub async fn status_handler(
 #[utoipa::path(
     get, post, put, patch, delete, options, head, // Indicates this path works for all these methods
     path = "/anything",
+    params(
+        ("connection" = Option<String>, Query, description = "Set to `close` to force a `Connection: close` response and hang up the connection afterward (HTTP/1.1 only; ignored over HTTP/2)")
+    ),
     responses(
-        (status = 200, description = "Echoes request details (includes a `tls` object over HTTPS)", body = serde_json::Value)
+        (status = 200, description = "Echoes request details (includes a `tls` object over HTTPS; a `connection` field when `?connection=close` is set)", body = serde_json::Value)
     )
 )]
 pub async fn anything_handler(
@@ -403,11 +432,15 @@ pub async fn anything_handler(
     tls: Option<Extension<std::sync::Arc<TlsConnectionInfo>>>,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
+    let query = uri.query().unwrap_or("");
+    let close_requested = wants_connection_close(query);
+    let http1 = is_http1(version);
+
     let mut resp = json!({
         "method": method.to_string(),
         "http_version": http_version_str(version),
         "path": uri.path(),
-        "query": uri.query().unwrap_or(""),
+        "query": query,
         "headers": serialize_headers(&headers),
         "body": String::from_utf8_lossy(&body),
     });
@@ -420,8 +453,38 @@ pub async fn anything_handler(
         }
     }
 
+    // Connection-control knob: `?connection=close` asks the upstream to hang up
+    // after this response, so a gateway's connection-pool / keep-alive reuse can
+    // be observed against an upstream that voluntarily tears down. Reflect the
+    // outcome in the body so a test can confirm whether rucho honored it.
+    if close_requested {
+        if let Some(obj) = resp.as_object_mut() {
+            let outcome = if http1 {
+                "close"
+            } else {
+                "close (ignored: HTTP/2)"
+            };
+            obj.insert(
+                "connection".to_string(),
+                serde_json::Value::String(outcome.to_string()),
+            );
+        }
+    }
+
     let duration_ms = timing.map(|t| t.elapsed_ms());
-    format_json_response_with_timing(resp, duration_ms)
+    let mut response = format_json_response_with_timing(resp, duration_ms);
+
+    // Hyper honors a per-response `Connection: close` by closing the socket
+    // after writing the response (overriding the listener's keep-alive default).
+    // Only meaningful on HTTP/1.x — `Connection` is a forbidden header in HTTP/2.
+    if close_requested && http1 {
+        response.headers_mut().insert(
+            axum::http::header::CONNECTION,
+            axum::http::HeaderValue::from_static("close"),
+        );
+    }
+
+    response
 }
 
 #[utoipa::path(
@@ -925,8 +988,10 @@ pub async fn options_handler() -> impl IntoResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::http_version_str;
-    use axum::http::Version;
+    use super::{http_version_str, router, wants_connection_close};
+    use axum::body::Body;
+    use axum::http::{header::CONNECTION, Request, StatusCode, Version};
+    use tower::ServiceExt;
 
     #[test]
     fn http_version_str_maps_known_versions() {
@@ -935,5 +1000,71 @@ mod tests {
         assert_eq!(http_version_str(Version::HTTP_11), "HTTP/1.1");
         assert_eq!(http_version_str(Version::HTTP_2), "HTTP/2.0");
         assert_eq!(http_version_str(Version::HTTP_3), "HTTP/3.0");
+    }
+
+    #[test]
+    fn wants_connection_close_detects_directive() {
+        // Present, exact key, value case-insensitive.
+        assert!(wants_connection_close("connection=close"));
+        assert!(wants_connection_close("foo=bar&connection=close"));
+        assert!(wants_connection_close("connection=CLOSE"));
+        assert!(wants_connection_close("connection=close&x=1"));
+        // Absent or non-matching.
+        assert!(!wants_connection_close(""));
+        assert!(!wants_connection_close("connection=keep-alive"));
+        assert!(!wants_connection_close("connectionx=close"));
+        assert!(!wants_connection_close("xconnection=close"));
+        assert!(!wants_connection_close("connection="));
+    }
+
+    #[tokio::test]
+    async fn anything_close_sets_connection_header_on_http1() {
+        // oneshot requests default to HTTP/1.1, so the version guard passes.
+        let response = router()
+            .oneshot(
+                Request::get("/anything?connection=close")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers().get(CONNECTION).unwrap(), "close");
+    }
+
+    #[tokio::test]
+    async fn anything_close_reflects_in_body() {
+        let response = router()
+            .oneshot(
+                Request::get("/anything?connection=close")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["connection"], "close");
+    }
+
+    #[tokio::test]
+    async fn anything_without_close_has_no_connection_header() {
+        let response = router()
+            .oneshot(Request::get("/anything").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(response.headers().get(CONNECTION).is_none());
+        // And no spurious `connection` field in the body.
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(json.get("connection").is_none());
     }
 }
