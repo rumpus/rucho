@@ -12,6 +12,8 @@
 
 /certs/
 
-# Claude Code configuration (local only)
-CLAUDE.md
+# Claude Code — shared config IS tracked (CLAUDE.md, .claude/settings.json, .claude/commands/).
+# Only these local-only bits are ignored:
+/CLAUDE.local.md
+.claude/settings.local.json
 /tasks/
