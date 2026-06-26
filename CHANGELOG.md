@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `DELETE /cookies` — RESTful symmetry with `GET /cookies/delete`: expires each cookie named in the query (`Max-Age=0`) and `302`-redirects to `/cookies`. Registered as the `DELETE` method on the existing `/cookies` path and shares a single `expire_cookies` helper with the GET form.
 - `/metrics` is now documented in the OpenAPI spec / Swagger UI — annotated with `#[utoipa::path]` and registered in `ApiDoc`, with a response description noting it's only mounted when `metrics_enabled`. Previously the endpoint was invisible in Swagger. It stays out of the `/endpoints` runtime list, which reflects always-mounted routes.
+- GitHub releases now attach a `SHA256SUMS` file — checksums for the release binary and `.deb` package (listed by basename) — so downloads can be integrity-verified with `sha256sum -c SHA256SUMS`. Takes effect on the next tagged release.
 
 ### Fixed
 - The HTTPS listener now receives the same TCP socket tuning (keep-alive, `TCP_NODELAY`) as the HTTP listener. `configure_tcp_socket` previously ran only on the HTTP path — the HTTPS path used `axum_server::Server::bind`, which binds internally and skipped it. The HTTPS path now binds + tunes the listener and attaches the TLS-info acceptor via `from_tcp`.

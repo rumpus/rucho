@@ -51,6 +51,14 @@ jobs:
       - name: Build .deb package
         run: cargo deb
 
+      - name: Generate SHA256SUMS
+        run: |
+          # Basenames (no paths) so `sha256sum -c SHA256SUMS` verifies the files
+          # as downloaded alongside the checksum file.
+          ( cd target/release && sha256sum rucho ) > SHA256SUMS
+          ( cd target/debian && sha256sum *.deb ) >> SHA256SUMS
+          cat SHA256SUMS
+
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
@@ -72,7 +80,8 @@ jobs:
             --title "$GITHUB_REF_NAME" \
             --notes-file /tmp/release-notes.md \
             target/release/rucho \
-            target/debian/*.deb
+            target/debian/*.deb \
+            SHA256SUMS
 
   docker:
     name: Docker Push
