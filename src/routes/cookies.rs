@@ -133,6 +133,23 @@ pub async fn set_cookies_handler(
     response
 }
 
+/// Builds a `302`-to-`/cookies` response that expires each named cookie by
+/// setting `Max-Age=0`. Shared by `GET /cookies/delete` and `DELETE /cookies`.
+fn expire_cookies(params: &HashMap<String, String>) -> Response {
+    let mut response = (StatusCode::FOUND, [(header::LOCATION, "/cookies")]).into_response();
+    let response_headers = response.headers_mut();
+
+    for name in params.keys() {
+        if let Ok(cookie_val) =
+            header::HeaderValue::from_str(&format!("{name}=; Max-Age=0; Path=/"))
+        {
+            response_headers.append(header::SET_COOKIE, cookie_val);
+        }
+    }
+
+    response
+}
+
 /// Deletes cookies by setting `Max-Age=0` and redirects to `/cookies`.
 ///
 /// Each query parameter name is used to expire the corresponding cookie.
@@ -154,26 +171,42 @@ pub async fn set_cookies_handler(
 pub async fn delete_cookies_handler(
     axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
 ) -> Response {
-    let mut response = (StatusCode::FOUND, [(header::LOCATION, "/cookies")]).into_response();
-    let response_headers = response.headers_mut();
+    expire_cookies(&params)
+}
 
-    for name in params.keys() {
-        if let Ok(cookie_val) =
-            header::HeaderValue::from_str(&format!("{name}=; Max-Age=0; Path=/"))
-        {
-            response_headers.append(header::SET_COOKIE, cookie_val);
-        }
-    }
-
-    response
+/// Deletes cookies via the `DELETE` method on `/cookies` — RESTful symmetry with
+/// `GET /cookies/delete`. Each query-parameter name expires the matching cookie
+/// (`Max-Age=0`), and the response is a `302` redirect to `/cookies`.
+///
+/// # Example
+///
+/// `DELETE /cookies?foo&theme` expires both cookies and redirects.
+#[utoipa::path(
+    delete,
+    path = "/cookies",
+    params(
+        ("" = HashMap<String, String>, Query, description = "Cookie names to delete")
+    ),
+    responses(
+        (status = 302, description = "Redirects to /cookies after deleting cookies")
+    )
+)]
+pub async fn delete_cookies_method_handler(
+    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+) -> Response {
+    expire_cookies(&params)
 }
 
 /// Creates and returns the Axum router for the cookie endpoints.
 ///
-/// Registers `/cookies`, `/cookies/set`, and `/cookies/delete`.
+/// Registers `/cookies` (GET inspect + DELETE expire), `/cookies/set`, and
+/// `/cookies/delete`.
 pub fn router() -> Router {
     Router::new()
-        .route("/cookies", get(cookies_handler))
+        .route(
+            "/cookies",
+            get(cookies_handler).delete(delete_cookies_method_handler),
+        )
         .route("/cookies/set", get(set_cookies_handler))
         .route("/cookies/delete", get(delete_cookies_handler))
 }
@@ -294,6 +327,40 @@ mod tests {
             .filter_map(|v| v.to_str().ok())
             .collect();
 
+        assert_eq!(set_cookies.len(), 2);
+        assert!(set_cookies
+            .iter()
+            .any(|c| c.contains("foo=") && c.contains("Max-Age=0")));
+        assert!(set_cookies
+            .iter()
+            .any(|c| c.contains("theme=") && c.contains("Max-Age=0")));
+    }
+
+    #[tokio::test]
+    async fn test_delete_method_on_cookies_expires() {
+        // DELETE /cookies mirrors GET /cookies/delete (Max-Age=0 + 302 to /cookies).
+        let app = router();
+        let response = app
+            .oneshot(
+                Request::delete("/cookies?foo&theme")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::FOUND);
+        assert_eq!(
+            response.headers().get(header::LOCATION).unwrap(),
+            "/cookies"
+        );
+
+        let set_cookies: Vec<&str> = response
+            .headers()
+            .get_all(header::SET_COOKIE)
+            .iter()
+            .filter_map(|v| v.to_str().ok())
+            .collect();
         assert_eq!(set_cookies.len(), 2);
         assert!(set_cookies
             .iter()

@@ -135,7 +135,7 @@ src/main.rs
   |
   +-- rucho::cli::commands  (Args, CliCommand, handle_*_command)
   +-- rucho::routes::core_routes  (router, EndpointInfo)
-  +-- rucho::routes::cookies  (router, cookies_handler, set_cookies_handler, delete_cookies_handler)
+  +-- rucho::routes::cookies  (router, cookies_handler, set_cookies_handler, delete_cookies_handler, delete_cookies_method_handler)
   +-- rucho::routes::redirect  (router, redirect_handler)
   +-- rucho::server::chaos_layer  (chaos_middleware)
   +-- rucho::server::metrics_layer  (metrics_middleware)
@@ -704,6 +704,7 @@ The response travels back up through each middleware layer:
 | 35 | `/brotli` | GET | `brotli_handler` | `encoding.rs` |
 | 36 | `/cache` | GET | `cache_handler` | `cache.rs` |
 | 37 | `/cache/:n` | GET | `cache_seconds_handler` | `cache.rs` |
+| 38 | `/cookies` | DELETE | `delete_cookies_method_handler` | `cookies.rs` |
 
 > **`/anything` connection-control knob:** `ANY /anything?connection=close` makes
 > `anything_handler` set a `Connection: close` response header — but only on
@@ -827,7 +828,7 @@ for HEAD requests, but this handler explicitly returns an empty body.)
 
 **`endpoints_handler`** (`src/routes/core_routes.rs`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs` and lists all 37 endpoints with their
+at `src/routes/core_routes.rs` and lists all 38 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
@@ -929,12 +930,12 @@ pub async fn set_cookies_handler(
 Each query parameter becomes a `Set-Cookie` response header with `Path=/`.
 Responds with a 302 redirect to `/cookies` so the client can see the result.
 
-**`delete_cookies_handler`** (`src/routes/cookies.rs`):
+**`delete_cookies_handler`** (`GET /cookies/delete`) and
+**`delete_cookies_method_handler`** (`DELETE /cookies`), both in
+`src/routes/cookies.rs`, delegate to a shared `expire_cookies` helper:
 
 ```rust
-pub async fn delete_cookies_handler(
-    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
-) -> Response {
+fn expire_cookies(params: &HashMap<String, String>) -> Response {
     let mut response = (StatusCode::FOUND, [(header::LOCATION, "/cookies")]).into_response();
     let response_headers = response.headers_mut();
     for name in params.keys() {
@@ -948,8 +949,9 @@ pub async fn delete_cookies_handler(
 }
 ```
 
-Each query parameter name generates a `Set-Cookie` header with `Max-Age=0` to
-expire the cookie. Like `set_cookies_handler`, redirects to `/cookies`.
+Each query-parameter name generates a `Set-Cookie` header with `Max-Age=0` to
+expire the cookie, then redirects to `/cookies`. The `DELETE /cookies` form is
+RESTful symmetry with `GET /cookies/delete` over the same shared logic.
 
 **`get_metrics`** (`src/routes/metrics.rs`):
 
@@ -2393,6 +2395,7 @@ down. Since they're stateless echo handlers, this is acceptable.
         crate::routes::cookies::cookies_handler,
         crate::routes::cookies::set_cookies_handler,
         crate::routes::cookies::delete_cookies_handler,
+        crate::routes::cookies::delete_cookies_method_handler,
         crate::routes::base64::base64_handler,
         crate::routes::bytes::bytes_handler,
         crate::routes::cache::cache_handler,

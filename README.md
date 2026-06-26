@@ -113,6 +113,7 @@ rucho version  # Display version
 | ANY     | `/delay/:n`       | Delay response by n seconds (max 300)                |
 | ANY     | `/redirect/:n`    | Chain of n 302s (max 20; `X-Redirect-Count` header)  |
 | GET     | `/cookies`        | Inspect request cookies                              |
+| DELETE  | `/cookies`        | Delete cookies via query params and redirect         |
 | GET     | `/cookies/set`    | Set cookies (+ secure/httponly/samesite/max_age)     |
 | GET     | `/cookies/delete` | Delete cookies via query params and redirect         |
 | GET     | `/base64/:encoded`| Decode URL-safe base64 (max 4096 bytes)              |

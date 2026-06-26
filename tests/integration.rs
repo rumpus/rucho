@@ -369,6 +369,39 @@ async fn test_cookies_roundtrip() {
 }
 
 #[tokio::test]
+async fn test_delete_cookies_method() {
+    // DELETE /cookies?foo&theme expires both cookies (Max-Age=0) and 302s to /cookies.
+    let base = spawn_app().await;
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let resp = client
+        .delete(format!("{base}/cookies?foo&theme"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 302);
+    assert_eq!(
+        resp.headers().get(reqwest::header::LOCATION).unwrap(),
+        "/cookies"
+    );
+
+    let set_cookies: Vec<String> = resp
+        .headers()
+        .get_all(reqwest::header::SET_COOKIE)
+        .iter()
+        .filter_map(|v| v.to_str().ok().map(String::from))
+        .collect();
+    assert_eq!(set_cookies.len(), 2);
+    assert!(set_cookies.iter().all(|c| c.contains("Max-Age=0")));
+    assert!(set_cookies.iter().any(|c| c.starts_with("foo=")));
+    assert!(set_cookies.iter().any(|c| c.starts_with("theme=")));
+}
+
+#[tokio::test]
 async fn test_base64_decode() {
     let base = spawn_app().await;
     // "Hello, Rucho!" -> SGVsbG8sIFJ1Y2hvIQ==

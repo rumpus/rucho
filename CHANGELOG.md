@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `DELETE /cookies` — RESTful symmetry with `GET /cookies/delete`: expires each cookie named in the query (`Max-Age=0`) and `302`-redirects to `/cookies`. Registered as the `DELETE` method on the existing `/cookies` path and shares a single `expire_cookies` helper with the GET form.
+
 ## [1.5.0] - 2026-06-26
 
 ### Added
