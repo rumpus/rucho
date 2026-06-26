@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `DELETE /cookies` — RESTful symmetry with `GET /cookies/delete`: expires each cookie named in the query (`Max-Age=0`) and `302`-redirects to `/cookies`. Registered as the `DELETE` method on the existing `/cookies` path and shares a single `expire_cookies` helper with the GET form.
+- `/metrics` is now documented in the OpenAPI spec / Swagger UI — annotated with `#[utoipa::path]` and registered in `ApiDoc`, with a response description noting it's only mounted when `metrics_enabled`. Previously the endpoint was invisible in Swagger. It stays out of the `/endpoints` runtime list, which reflects always-mounted routes.
 
 ## [1.5.0] - 2026-06-26
 

@@ -124,7 +124,7 @@ Docker/release ergonomics at **single-maintainer scope** — explicitly *not* pr
 - [ ] **[L]** Parallelize CI `deb` + `docker` jobs (both depend only on `build`)
 - [ ] **[L]** Attach `SHA256SUMS` to GitHub releases — lightweight integrity, no recurring cost
 - [ ] **[L]** Apply TCP socket tuning to the HTTPS listener too — `configure_tcp_socket` currently runs only on the HTTP path, not the `bind_rustls` HTTPS listener (audit finding)
-- [ ] **[L]** Annotate `/metrics` with `#[utoipa::path]` (and optionally list it in `/endpoints`) so it's discoverable in Swagger when enabled — currently invisible in both (audit finding)
+- [x] **[L]** Annotated `/metrics` with `#[utoipa::path]` + registered it in `ApiDoc`, so it's now discoverable in Swagger / `openapi.json` (the response description notes it's only mounted when `metrics_enabled`). Deliberately left out of `/endpoints`, which lists always-mounted routes (PR #175)
 
 ---
 
