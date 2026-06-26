@@ -727,6 +727,13 @@ curl -b cookies.txt http://localhost:8080/cookies
 # {"cookies": {"session": "abc123"}, ...}
 ```
 
+`DELETE /cookies?theme` is an equivalent RESTful alternative to step 3
+(`GET /cookies/delete?theme`) — same `Max-Age=0` expiry and redirect to `/cookies`:
+
+```bash
+curl -b cookies.txt -c cookies.txt -L -X DELETE "http://localhost:8080/cookies?theme"
+```
+
 **Python:**
 
 ```python

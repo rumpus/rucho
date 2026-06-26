@@ -66,7 +66,7 @@ Make request inspection more correct, complete, and honest than httpbin & go-htt
 - [x] **[M]** `/cache` + `/cache/:n` — `/cache` returns `304` on `If-None-Match`/`If-Modified-Since`, else `200` + stable `ETag` + `Last-Modified`; `/cache/:n` sets `Cache-Control: public, max-age=n`. Conditional-request fidelity for watching a gateway/cache plugin react; no new deps (PR #144)
 - [x] **[M]** `parse_cookies` tolerates both `;` and `; ` separators (RFC 6265) — now splits on `;` with whitespace trimming (PR #145)
 - [x] **[M]** `/cookies/set` accepts attribute flags (`secure`, `httponly`, `samesite`, `max_age`, plus `path`/`domain`) via reserved query params — richer `Set-Cookie` fidelity for session inspection (PR #145)
-- [ ] **[L]** Support `DELETE` on `/cookies` — API symmetry with `GET /cookies/delete`
+- [x] **[L]** Support `DELETE` on `/cookies` — `DELETE /cookies?name…` expires the named cookies (`Max-Age=0`) and 302-redirects to `/cookies`, mirroring `GET /cookies/delete` via a shared `expire_cookies` helper (PR #174)
 
 ---
 

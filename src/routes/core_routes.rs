@@ -203,6 +203,11 @@ static API_ENDPOINTS: &[EndpointInfo] = &[
         description: "Returns all cookies from the request as JSON.",
     },
     EndpointInfo {
+        path: "/cookies",
+        method: "DELETE",
+        description: "Deletes (expires) cookies named in the query, then redirects to /cookies.",
+    },
+    EndpointInfo {
         path: "/cookies/set",
         method: "GET",
         description: "Sets cookies from query parameters and redirects to /cookies.",

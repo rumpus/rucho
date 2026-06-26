@@ -33,6 +33,7 @@ use crate::routes::core_routes::EndpointInfo;
         crate::routes::cookies::cookies_handler,
         crate::routes::cookies::set_cookies_handler,
         crate::routes::cookies::delete_cookies_handler,
+        crate::routes::cookies::delete_cookies_method_handler,
         crate::routes::base64::base64_handler,
         crate::routes::bytes::bytes_handler,
         crate::routes::cache::cache_handler,
