@@ -94,6 +94,10 @@ version/cipher an upstream negotiated behind a gateway. It is omitted on plain H
 curl -k --http2 https://localhost:8443/get
 ```
 
+> Quickest way to get an HTTPS listener for this: set `ssl_auto_cert = true` (with an
+> `… ssl` listen address) — rucho generates an ephemeral self-signed cert in memory,
+> no cert files needed. See the README's **HTTPS Configuration** section.
+
 ```json
 {
   "method": "GET",

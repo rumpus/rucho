@@ -1338,6 +1338,7 @@ pub struct Config {
     pub server_listen_udp: Option<String>, // e.g., "0.0.0.0:7778"
     pub ssl_cert: Option<String>,          // path to PEM cert
     pub ssl_key: Option<String>,           // path to PEM key
+    pub ssl_auto_cert: bool,               // generate ephemeral self-signed cert (dev/test)
     pub pid_file: String,                  // PID file path; write is non-fatal
     pub metrics_enabled: bool,
     pub compression_enabled: bool,

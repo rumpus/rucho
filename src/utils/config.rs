@@ -150,6 +150,11 @@ pub struct Config {
     pub ssl_cert: Option<String>,
     /// Optional path to an SSL private key file for HTTPS. Required if any listen address uses "ssl:".
     pub ssl_key: Option<String>,
+    /// Generate an ephemeral in-memory self-signed certificate for HTTPS instead
+    /// of loading `ssl_cert`/`ssl_key` files. Zero-setup HTTPS for dev/test — the
+    /// cert is self-signed (clients must skip verification) and regenerated on
+    /// each start. Explicit `ssl_cert`/`ssl_key` files take precedence.
+    pub ssl_auto_cert: bool,
     /// Path to the PID file backing `rucho stop`/`status`. A write failure here
     /// is non-fatal — the server still starts (read-only filesystems, missing
     /// parent dir). Point it at a writable location (e.g. `/tmp`) if needed.
@@ -194,6 +199,7 @@ impl Default for Config {
             server_listen_udp: None,
             ssl_cert: None,
             ssl_key: None,
+            ssl_auto_cert: false,
             pid_file: PID_FILE_PATH.to_string(),
             metrics_enabled: false,
             compression_enabled: false,
@@ -270,6 +276,9 @@ impl Config {
                     "server_listen_udp" => config.server_listen_udp = Some(value.to_string()),
                     "ssl_cert" => config.ssl_cert = Some(value.to_string()),
                     "ssl_key" => config.ssl_key = Some(value.to_string()),
+                    "ssl_auto_cert" => {
+                        config.ssl_auto_cert = value.eq_ignore_ascii_case("true") || value == "1"
+                    }
                     "pid_file" => config.pid_file = value.to_string(),
                     "metrics_enabled" => {
                         config.metrics_enabled = value.eq_ignore_ascii_case("true") || value == "1"
@@ -445,6 +454,13 @@ impl Config {
         );
         load_env_var!(config, ssl_cert, "RUCHO_SSL_CERT", env_reader, option);
         load_env_var!(config, ssl_key, "RUCHO_SSL_KEY", env_reader, option);
+        load_env_var!(
+            config,
+            ssl_auto_cert,
+            "RUCHO_SSL_AUTO_CERT",
+            env_reader,
+            bool
+        );
         load_env_var!(config, pid_file, "RUCHO_PID_FILE", env_reader);
         load_env_var!(
             config,
@@ -737,6 +753,7 @@ impl Config {
     /// - `server_listen_udp` (`RUCHO_SERVER_LISTEN_UDP`)
     /// - `ssl_cert` (`RUCHO_SSL_CERT`)
     /// - `ssl_key` (`RUCHO_SSL_KEY`)
+    /// - `ssl_auto_cert` (`RUCHO_SSL_AUTO_CERT`)
     /// - `pid_file` (`RUCHO_PID_FILE`)
     /// - `metrics_enabled` (`RUCHO_METRICS_ENABLED`)
     /// - `compression_enabled` (`RUCHO_COMPRESSION_ENABLED`)
@@ -1242,6 +1259,47 @@ mod tests {
         );
 
         assert!(!config.request_id_enabled);
+    }
+
+    #[test]
+    fn test_ssl_auto_cert_default_false() {
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(PathBuf::from("/tmp/non_existent_ssl_auto_etc.conf")),
+            Some(PathBuf::from("/tmp/non_existent_ssl_auto_cwd.conf")),
+            &env,
+        );
+        assert!(!config.ssl_auto_cert);
+    }
+
+    #[test]
+    fn test_load_ssl_auto_cert_from_file() {
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "ssl_auto_cert = true");
+
+        let env = empty_env();
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
+        );
+
+        assert!(config.ssl_auto_cert);
+    }
+
+    #[test]
+    fn test_env_overrides_file_for_ssl_auto_cert() {
+        let t = TestEnv::new();
+        t.create_config_file(&t.cwd_rucho_conf_path, "ssl_auto_cert = false");
+
+        let env = mock_env(HashMap::from([("RUCHO_SSL_AUTO_CERT", "true")]));
+        let config = Config::load_from_paths_with_env(
+            Some(t.non_existent_etc()),
+            Some(t.cwd_rucho_conf_path.clone()),
+            &env,
+        );
+
+        assert!(config.ssl_auto_cert);
     }
 
     #[test]

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `DELETE /cookies` — RESTful symmetry with `GET /cookies/delete`: expires each cookie named in the query (`Max-Age=0`) and `302`-redirects to `/cookies`. Registered as the `DELETE` method on the existing `/cookies` path and shares a single `expire_cookies` helper with the GET form.
 - `/metrics` is now documented in the OpenAPI spec / Swagger UI — annotated with `#[utoipa::path]` and registered in `ApiDoc`, with a response description noting it's only mounted when `metrics_enabled`. Previously the endpoint was invisible in Swagger. It stays out of the `/endpoints` runtime list, which reflects always-mounted routes.
+- `ssl_auto_cert` config field (env: `RUCHO_SSL_AUTO_CERT`, default off) — when enabled, the HTTPS listener serves an ephemeral in-memory self-signed certificate generated via `rcgen` (covering `localhost`/`127.0.0.1`/`::1`) instead of requiring `ssl_cert`/`ssl_key` files. Zero-setup HTTPS for dev/test; the cert is regenerated each start and self-signed (clients must skip verification). Explicit `ssl_cert`/`ssl_key` files take precedence. Adds `rcgen` as a dependency.
 - GitHub releases now attach a `SHA256SUMS` file — checksums for the release binary and `.deb` package (listed by basename) — so downloads can be integrity-verified with `sha256sum -c SHA256SUMS`. Takes effect on the next tagged release.
 
 ### Fixed
