@@ -503,6 +503,33 @@ for path in endpoints:
     print(f"{data['path']} (query: {data['query'] or 'none'})")
 ```
 
+### Scenario: forcing the upstream to close the connection
+
+`?connection=close` makes rucho send a `Connection: close` response header and
+hang up after replying (HTTP/1.1 only — ignored over HTTP/2). Useful for watching
+how a gateway in front of rucho handles upstream connection teardown vs. pooled
+keep-alive reuse — behavior the gateway can't make the upstream produce on its own.
+
+```bash
+# -v shows `< connection: close` and curl closing the socket afterward.
+curl -v --http1.1 "http://localhost:8080/anything?connection=close"
+```
+
+The echo body reflects the honored outcome under a `connection` key:
+
+```json
+{
+  "method": "GET",
+  "http_version": "HTTP/1.1",
+  "path": "/anything",
+  "query": "connection=close",
+  "connection": "close",
+  "headers": { "...": "..." },
+  "body": "",
+  "timing": { "duration_ms": 0.03 }
+}
+```
+
 ---
 
 ## Redirect Testing

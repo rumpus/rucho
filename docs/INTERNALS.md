@@ -695,6 +695,15 @@ The response travels back up through each middleware layer:
 | 36 | `/cache` | GET | `cache_handler` | `cache.rs` |
 | 37 | `/cache/:n` | GET | `cache_seconds_handler` | `cache.rs` |
 
+> **`/anything` connection-control knob:** `ANY /anything?connection=close` makes
+> `anything_handler` set a `Connection: close` response header — but only on
+> HTTP/1.x (guarded by `is_http1`, since HTTP/2 forbids the header). Hyper honors
+> the header by closing the socket after the response, so a gateway in front can
+> be observed re-establishing rather than reusing the upstream connection. The
+> honored outcome is also echoed under a `connection` key in the JSON body. It's
+> a per-request query directive (no config toggle), parsed from the raw query
+> string so `/anything` never rejects an odd query.
+
 ### 5.2 Echo Handlers
 
 All echo handlers share a common pattern:

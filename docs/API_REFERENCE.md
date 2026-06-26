@@ -68,6 +68,11 @@ describing the negotiated connection (omitted on plain HTTP):
 }
 ```
 
+Add `?connection=close` to force a `Connection: close` response (HTTP/1.1 only;
+ignored over HTTP/2): the server hangs up after replying and echoes
+`"connection": "close"` in the body — for observing how a gateway handles
+upstream connection teardown and keep-alive reuse.
+
 ### `ANY /status/:code` — return a chosen status code
 
 Returns the requested status line with a JSON body carrying the canonical reason

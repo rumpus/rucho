@@ -148,6 +148,32 @@ async fn test_anything_echoes_http_version() {
 }
 
 #[tokio::test]
+async fn test_anything_connection_close_knob() {
+    // `?connection=close` forces a `Connection: close` response over HTTP/1.1.
+    // The end-to-end socket teardown is hyper's contract (verified manually with
+    // `curl -v`); here we confirm the real-server path returns 200 and reflects
+    // the honored outcome in the body. The `connection` response header is
+    // hop-by-hop and may be consumed by the reqwest/hyper client before it
+    // reaches our `headers()` view, so we assert it only when surfaced.
+    let base = spawn_app().await;
+    let resp = reqwest::get(format!("{base}/anything?connection=close"))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    if let Some(conn) = resp.headers().get(reqwest::header::CONNECTION) {
+        assert_eq!(conn, "close");
+    }
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["connection"], "close");
+
+    // Without the knob, no `connection` field appears in the echo.
+    let resp = reqwest::get(format!("{base}/anything")).await.unwrap();
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(body.get("connection").is_none());
+}
+
+#[tokio::test]
 async fn test_post_echoes_http_version() {
     let base = spawn_app().await;
     let resp = reqwest::Client::new()
