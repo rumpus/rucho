@@ -63,6 +63,55 @@ pub async fn try_load_rustls_config(
     }
 }
 
+/// Generates an ephemeral, in-memory self-signed `RustlsConfig` for zero-setup
+/// HTTPS (the `ssl_auto_cert` option).
+///
+/// The certificate covers `localhost`, `127.0.0.1`, and `::1`. It is generated
+/// fresh on every process start (not persisted) and is **self-signed**, so
+/// clients must skip verification (e.g. `curl -k`). Intended for dev/test only;
+/// use real `ssl_cert`/`ssl_key` files in production.
+///
+/// # Returns
+///
+/// `Some(RustlsConfig)` on success, or `None` (with an error logged) if cert
+/// generation or parsing fails.
+pub async fn generate_self_signed_rustls_config() -> Option<RustlsConfig> {
+    let subject_alt_names = vec![
+        "localhost".to_string(),
+        "127.0.0.1".to_string(),
+        "::1".to_string(),
+    ];
+
+    let cert_key = match rcgen::generate_simple_self_signed(subject_alt_names) {
+        Ok(ck) => ck,
+        Err(e) => {
+            tracing::error!("Failed to generate self-signed certificate: {}", e);
+            return None;
+        }
+    };
+
+    let cert_pem = cert_key.cert.pem();
+    let key_pem = cert_key.key_pair.serialize_pem();
+
+    match RustlsConfig::from_pem(cert_pem.into_bytes(), key_pem.into_bytes()).await {
+        Ok(config) => {
+            tracing::warn!(
+                "ssl_auto_cert: serving HTTPS with an ephemeral self-signed certificate \
+                (localhost / 127.0.0.1 / ::1). Clients must skip verification (e.g. `curl -k`). \
+                For dev/test only — use ssl_cert/ssl_key files in production."
+            );
+            Some(config)
+        }
+        Err(e) => {
+            tracing::error!(
+                "Failed to build RustlsConfig from the generated self-signed certificate: {}",
+                e
+            );
+            None
+        }
+    }
+}
+
 /// Parses a server listen address string to extract the address and SSL flag.
 ///
 /// The input string can be in the format "IP:PORT" or "IP:PORT ssl".

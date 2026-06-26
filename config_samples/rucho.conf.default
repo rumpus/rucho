@@ -41,6 +41,9 @@
 # server_listen_* uses the 'ssl' suffix.
 # ssl_cert = /path/to/cert.pem
 # ssl_key = /path/to/key.pem
+# Zero-setup HTTPS: generate an ephemeral in-memory self-signed cert (dev/test
+# only; clients must skip verification). Explicit ssl_cert/ssl_key take precedence.
+# ssl_auto_cert = false
 
 # Expose request statistics at /metrics.
 # metrics_enabled = false

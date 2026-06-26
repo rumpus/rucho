@@ -934,6 +934,65 @@ fn insecure_https_client() -> reqwest::Client {
         .unwrap()
 }
 
+/// Spawns the REAL `build_app()` over HTTPS using a self-signed certificate
+/// generated in-memory by `generate_self_signed_rustls_config()` (the
+/// `ssl_auto_cert` path), returning the `https://127.0.0.1:PORT` base URL.
+async fn spawn_https_app_auto_cert() -> String {
+    let rustls_config = rucho::utils::server_config::generate_self_signed_rustls_config()
+        .await
+        .expect("generate self-signed TLS config");
+    let acceptor = rucho::server::tls::TlsInfoAcceptor::new(rustls_config);
+
+    let config = rucho::utils::config::Config::default();
+    let metrics = Some(std::sync::Arc::new(rucho::utils::metrics::Metrics::new()));
+    let chaos = std::sync::Arc::new(config.chaos.clone());
+    let app = rucho::app::build_app(
+        metrics,
+        config.compression_enabled,
+        chaos,
+        config.max_body_size_bytes,
+        config.request_id_enabled,
+    );
+
+    let handle = axum_server::Handle::new();
+    let bind_handle = handle.clone();
+    tokio::spawn(async move {
+        axum_server::Server::bind("127.0.0.1:0".parse().unwrap())
+            .acceptor(acceptor)
+            .handle(bind_handle)
+            .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>())
+            .await
+            .unwrap()
+    });
+
+    let addr = handle.listening().await.expect("HTTPS listener bound");
+    format!("https://{addr}")
+}
+
+#[tokio::test]
+async fn test_ssl_auto_cert_serves_https() {
+    // The in-memory generated self-signed cert yields a working TLS handshake,
+    // and the handlers see the negotiated TLS info.
+    let base = spawn_https_app_auto_cert().await;
+    let client = insecure_https_client();
+    let resp = client.get(format!("{base}/get")).send().await.unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(
+        body["tls"].is_object(),
+        "expected tls info over auto-cert HTTPS, got: {body}"
+    );
+    assert!(
+        body["tls"]["version"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("TLSv1."),
+        "unexpected tls.version: {:?}",
+        body["tls"]["version"]
+    );
+}
+
 #[tokio::test]
 async fn test_get_echoes_tls_info_over_https() {
     let base = spawn_https_app().await;

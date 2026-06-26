@@ -151,12 +151,21 @@ async fn setup_https_listener(
     handle: Handle,
     server_handles: &mut Vec<JoinHandle<Result<(), std::io::Error>>>,
 ) {
-    match server_config::try_load_rustls_config(
+    // Pick the TLS cert source: explicit ssl_cert/ssl_key files take precedence;
+    // if none are usable and ssl_auto_cert is enabled, generate an ephemeral
+    // in-memory self-signed certificate for zero-setup HTTPS.
+    let rustls_config = match server_config::try_load_rustls_config(
         config.ssl_cert.as_deref(),
         config.ssl_key.as_deref(),
     )
     .await
     {
+        Some(cfg) => Some(cfg),
+        None if config.ssl_auto_cert => server_config::generate_self_signed_rustls_config().await,
+        None => None,
+    };
+
+    match rustls_config {
         Some(rustls_config) => {
             // Bind and tune the TCP socket ourselves (mirroring the HTTP path) so
             // the HTTPS listener gets the same keep-alive / TCP_NODELAY settings,
@@ -201,8 +210,8 @@ async fn setup_https_listener(
         }
         None => {
             tracing::error!(
-                "Failed to load Rustls config for {}: HTTPS server not started. \
-                Check SSL certificate/key configuration and paths.",
+                "No TLS configuration for {}: provide ssl_cert + ssl_key files, or set \
+                ssl_auto_cert = true. HTTPS server not started.",
                 sock_addr
             );
         }

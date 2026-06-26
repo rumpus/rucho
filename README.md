@@ -167,6 +167,7 @@ Rucho loads configuration in this order (later overrides earlier):
 | `server_listen_udp`         | (none)               | `RUCHO_SERVER_LISTEN_UDP`      | UDP echo listener address      |
 | `ssl_cert`                  | (none)               | `RUCHO_SSL_CERT`               | Path to SSL certificate        |
 | `ssl_key`                   | (none)               | `RUCHO_SSL_KEY`                | Path to SSL private key        |
+| `ssl_auto_cert`             | `false`              | `RUCHO_SSL_AUTO_CERT`          | Ephemeral self-signed cert for zero-setup HTTPS (dev/test) |
 | `metrics_enabled`           | `false`              | `RUCHO_METRICS_ENABLED`        | Enable /metrics endpoint       |
 | `compression_enabled`       | `false`              | `RUCHO_COMPRESSION_ENABLED`    | Enable gzip/brotli compression |
 | `request_id_enabled`        | `true`               | `RUCHO_REQUEST_ID_ENABLED`     | X-Request-Id correlation header (propagates inbound, else mints UUID v4) |
@@ -189,6 +190,13 @@ To enable HTTPS, add `ssl` suffix to the listen address:
 server_listen_primary = 0.0.0.0:443 ssl
 ssl_cert = /path/to/cert.pem
 ssl_key = /path/to/key.pem
+```
+
+For **zero-setup HTTPS** in dev/test, skip the cert files and set `ssl_auto_cert = true` — rucho generates an ephemeral self-signed certificate (covering `localhost` / `127.0.0.1` / `::1`) in memory on startup. Clients must skip verification (e.g. `curl -k`); explicit `ssl_cert`/`ssl_key` still take precedence.
+
+```ini
+server_listen_primary = 127.0.0.1:8443 ssl
+ssl_auto_cert = true
 ```
 
 ### TCP/UDP Echo Listeners
