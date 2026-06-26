@@ -123,7 +123,7 @@ Docker/release ergonomics at **single-maintainer scope** — explicitly *not* pr
 - [ ] **[L]** Alpine image variant (smaller image)
 - [ ] **[L]** Parallelize CI `deb` + `docker` jobs (both depend only on `build`)
 - [ ] **[L]** Attach `SHA256SUMS` to GitHub releases — lightweight integrity, no recurring cost
-- [ ] **[L]** Apply TCP socket tuning to the HTTPS listener too — `configure_tcp_socket` currently runs only on the HTTP path, not the `bind_rustls` HTTPS listener (audit finding)
+- [x] **[L]** Apply TCP socket tuning to the HTTPS listener — the HTTPS path now binds + `configure_tcp_socket`s the listener (keep-alive, `TCP_NODELAY`) before attaching the TLS-info acceptor via `from_tcp`, matching the HTTP path (it had used `Server::bind`, which binds internally and skipped the tuning) (PR #176)
 - [x] **[L]** Annotated `/metrics` with `#[utoipa::path]` + registered it in `ApiDoc`, so it's now discoverable in Swagger / `openapi.json` (the response description notes it's only mounted when `metrics_enabled`). Deliberately left out of `/endpoints`, which lists always-mounted routes (PR #175)
 
 ---
