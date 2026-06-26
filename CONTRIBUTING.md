@@ -157,7 +157,7 @@ To cut a new release:
    git push origin v<version>
    ```
 
-The tag push triggers the workflow, which creates the GitHub release with the binary and pushes `rumpus/rucho:<version>` and `rumpus/rucho:latest` to Docker Hub.
+The tag push triggers the workflow, which creates the GitHub release with the binary and `.deb` package, and pushes `rumpus/rucho:<version>` and `rumpus/rucho:latest` to Docker Hub.
 
 ## Reporting Issues
 

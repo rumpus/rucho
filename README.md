@@ -219,13 +219,16 @@ debian/man/                      # Debian package extras
 tests/                           # Integration tests (cargo test)
 └── integration.rs               # HTTP integration tests (reqwest)
 src/
-├── main.rs              # Application entrypoint
+├── main.rs              # Application entrypoint + CLI dispatch
 ├── lib.rs               # Library exports
+├── app.rs               # build_app() — assembles routes + middleware stack
+├── openapi.rs           # ApiDoc — OpenAPI spec aggregator
 ├── cli/                 # CLI argument parsing and commands
 │   ├── mod.rs
 │   └── commands.rs      # start, stop, status, version handlers
 ├── routes/              # HTTP route handlers
 │   ├── mod.rs
+│   ├── assets/          # Embedded PNG/JPEG/WebP fixtures for /image
 │   ├── base64.rs        # /base64/:encoded endpoint
 │   ├── bytes.rs         # /bytes/:n endpoint
 │   ├── cache.rs         # /cache + /cache/:n endpoints

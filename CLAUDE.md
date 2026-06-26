@@ -45,7 +45,7 @@ The full source tree is in **[README.md → Project Structure](README.md#project
 - Document all public functions with `///` doc comments
 - Use `format_json_response()` / `format_error_response()` — never build raw `Response` in handlers
 - No `.unwrap()` in production code (tests are fine)
-- New config fields: add to `Config` struct, `Default` impl, file parser, `load_env_overrides()`, and `config_samples/rucho.conf.default`
+- New config fields: add to `Config` struct, `Default` impl, the file parser, the `load_env_var!` block in `load_from_paths_with_env()` (`src/utils/config.rs`), and `config_samples/rucho.conf.default`
 - Keep `config_samples/rucho.conf.default` in sync — CI doesn't check this, so it's easy to forget
 
 ## Patterns — Copy These
@@ -62,7 +62,7 @@ The full source tree is in **[README.md → Project Structure](README.md#project
 1. **Forget route registration** — new handler works in unit tests but 404s at runtime because `build_app()` doesn't merge it
 2. **Forget OpenAPI** — endpoint works but missing from `/swagger-ui` because `ApiDoc` paths list wasn't updated
 3. **Break config_samples/** — add a config field but forget to add it to `rucho.conf.default`
-4. **Allocations in hot paths** — response formatting and metrics paths are perf-sensitive; use `Cow<str>` where possible (see `normalize_path()` in metrics)
+4. **Allocations in hot paths** — response formatting and metrics paths are perf-sensitive; use `Cow<str>` where possible (see `normalize_path()` in `src/server/metrics_layer.rs`)
 5. **Forget to update INTERNALS.md endpoint table** — `docs/INTERNALS.md` has a numbered table of all endpoints; new endpoints often get added to the router/OpenAPI but not the table
 
 ## Adding a New Endpoint
@@ -73,7 +73,7 @@ _Shortcut: `/add-endpoint <route>` runs this full checklist._
 4. Register in `build_app()` in `src/app.rs`: `.merge(rucho::routes::<name>::router())`
 5. Add handler path to `ApiDoc` `#[openapi(paths(...))]` in `src/openapi.rs`
 6. Add integration test in `tests/integration.rs`
-7. Docs to update: README endpoint table + project tree, CHANGELOG `[Unreleased]`, ROADMAP tick + Suggested Priority Order rotation, `docs/API_REFERENCE.md`, `docs/INTERNALS.md` endpoint table, `docs/USAGE_EXAMPLES.md`, `CONTRIBUTING.md` routes block
+7. Docs to update: README endpoint table + project tree, CHANGELOG `[Unreleased]`, ROADMAP tick + Suggested Priority Order rotation, `docs/API_REFERENCE.md`, `docs/INTERNALS.md` endpoint table, `docs/USAGE_EXAMPLES.md`
 
 ---
 

@@ -47,7 +47,7 @@ Items are tagged **[H]** / **[M]** / **[L]** by priority.
 - [x] Global request body-size cap — `DefaultBodyLimit` (`max_body_size_bytes`, default 2 MiB) on the whole router; closes the OOM vector (PR #109)
 
 ### Infrastructure
-- [x] Docker, Docker Compose, systemd, optimized multi-stage Dockerfile (189 MB), Docker Hub publishing
+- [x] Docker, Docker Compose, systemd, optimized multi-stage Dockerfile (~189 MB), Docker Hub publishing
 - [x] OpenAPI/Swagger UI; config files + env vars; PID file; GitHub Actions CI; permissive CORS
 - [x] `/metrics` (JSON, toggleable — not annotated in OpenAPI/`/endpoints` since it's toggle-gated; see T5); request tracing; request/response timing in echo responses
 
@@ -93,7 +93,7 @@ Keep the "fast, robust Rust" promise — hot-path correctness over premature opt
 - [x] **[L]** Replaced `.unwrap()` in `head_handler` / `options_handler` response builders with `.expect("infallible: …")` — CLAUDE.md "no unwrap in production" (PR #167)
 - [x] **[L]** Removed the dead `500` branch in `endpoints_handler` (and its now-impossible `500` from the OpenAPI annotation) — `serde_json::to_value` on a `&'static` slice is infallible (PR #167)
 - [ ] **[L]** Handler boilerplate DRY — a non-macro `echo_with_body(method, headers, body)` helper for POST/PUT/PATCH/DELETE. Deferred is defensible; revisit only if touched
-- [ ] **[L]** Module organization — move `src/tcp_udp_handlers.rs` → `src/server/echo.rs`; consider splitting `src/utils/`; refresh INTERNALS' architecture-walkthrough prose still citing `build_app`/`ApiDoc` under `main.rs`. (`ApiDoc`→`src/openapi.rs` + `build_app`→`src/app.rs` landed in PR #138.)
+- [ ] **[L]** Module organization — move `src/tcp_udp_handlers.rs` → `src/server/echo.rs`; consider splitting `src/utils/`. (INTERNALS' architecture prose that still cited `build_app`/`ApiDoc` under `main.rs` was corrected in the v1.5.0 docs sweep; the code move itself — `ApiDoc`→`src/openapi.rs`, `build_app`→`src/app.rs` — landed in PR #138.)
 
 ---
 
@@ -112,7 +112,7 @@ Coverage that backs the "more robust than httpbin" claim, and CI that catches th
 
 ## T5 — Build & Distribution
 
-Docker/release ergonomics at **single-maintainer scope** — explicitly *not* production-team tooling (see `feedback_side_project_tooling_scope.md`).
+Docker/release ergonomics at **single-maintainer scope** — explicitly *not* production-team tooling (see the **Non-Goals → Supply-chain / production-team tooling** section below).
 
 - [x] **[H]** Multi-arch Docker image (`linux/amd64,linux/arm64`) via `docker buildx` + QEMU — `release.yml` pushes a multi-arch manifest at release time; PR CI does a fast amd64-only sanity build (arm64 validated at release, so PRs stay fast) (PRs #139, #141)
 - [x] **[H]** SIGTERM graceful-shutdown handler — `shutdown.rs` now races `ctrl_c` with `tokio::signal::unix` `SignalKind::terminate()`, so Docker/K8s/Kong-Mesh SIGTERM drains in-flight requests (5s grace) instead of hard-killing. Unix-gated; non-Unix keeps SIGINT-only (PR #148)

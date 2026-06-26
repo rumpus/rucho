@@ -5,8 +5,8 @@
 > path in the codebase. It is intended as a developer reference — not user-facing
 > API docs.
 >
-> **Version:** 1.4.6
-> **Last updated:** 2026-02-17
+> **Version:** 1.5.0
+> **Last updated:** 2026-06-26
 
 ---
 
@@ -290,17 +290,27 @@ async fn main() {
 
 ### 3.1 Route Registration
 
-`build_app()` at `src/main.rs` constructs the Axum `Router`:
+`build_app()` at `src/app.rs` constructs the Axum `Router`:
 
 ```rust
-// src/main.rs
+// src/app.rs
 let mut app = Router::new()
     .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-    .merge(rucho::routes::core_routes::router())  // 16 core routes
-    .merge(rucho::routes::healthz::router())       // /healthz
-    .merge(rucho::routes::delay::router())         // /delay/:n
-    .merge(rucho::routes::redirect::router())      // /redirect/:n
-    .merge(rucho::routes::cookies::router());      // /cookies, /cookies/set, /cookies/delete
+    .merge(crate::routes::core_routes::router())      // core echo + inspection routes
+    .merge(crate::routes::healthz::router())          // /healthz
+    .merge(crate::routes::delay::router())            // /delay/:n
+    .merge(crate::routes::redirect::router())         // /redirect/:n
+    .merge(crate::routes::cookies::router())          // /cookies, /cookies/set, /cookies/delete
+    .merge(crate::routes::base64::router())           // /base64/:encoded
+    .merge(crate::routes::bytes::router())            // /bytes/:n
+    .merge(crate::routes::cache::router())            // /cache, /cache/:n
+    .merge(crate::routes::drip::router())             // /drip
+    .merge(crate::routes::encoding::router())         // /gzip, /deflate, /brotli
+    .merge(crate::routes::response_headers::router()) // /response-headers
+    .merge(crate::routes::content_types::router())    // /xml, /html
+    .merge(crate::routes::image::router())            // /image/:format
+    .merge(crate::routes::range::router())            // /range/:n
+    .layer(DefaultBodyLimit::max(max_body_size_bytes));
 ```
 
 The core routes router (`src/routes/core_routes.rs`) registers:
@@ -327,9 +337,9 @@ Router::new()
 
 Conditional routes added in `build_app()`:
 
-- **`/metrics`** (GET) — only if `config.metrics_enabled` is true (`src/main.rs`)
+- **`/metrics`** (GET) — only if `config.metrics_enabled` is true (`src/app.rs`)
 - **Metrics middleware** — wraps all routes when metrics is enabled
-- **Chaos middleware** — wraps routes when `chaos.is_enabled()` (`src/main.rs`)
+- **Chaos middleware** — wraps routes when `chaos.is_enabled()` (`src/app.rs`)
 
 ### 3.2 Middleware Layer Order
 
@@ -817,7 +827,7 @@ for HEAD requests, but this handler explicitly returns an empty body.)
 
 **`endpoints_handler`** (`src/routes/core_routes.rs`):
 Serializes the static `API_ENDPOINTS` array into JSON. The array is defined
-at `src/routes/core_routes.rs` and lists all 36 endpoints with their
+at `src/routes/core_routes.rs` and lists all 37 endpoints with their
 path, method, and description.
 
 ### 5.5 Infrastructure Handlers
@@ -1336,6 +1346,7 @@ pub struct Config {
     pub tcp_keepalive_retries: u32,
     pub tcp_nodelay: bool,
     pub header_read_timeout: u64,          // seconds
+    pub max_body_size_bytes: usize,        // default 2 MiB; over-limit → 413
     pub chaos: ChaosConfig,
 }
 ```
@@ -2358,43 +2369,56 @@ down. Since they're stateless echo handlers, this is acceptable.
 
 ## 14. OpenAPI / Swagger Integration
 
-**File:** `src/main.rs`
+**File:** `src/openapi.rs`
 
 ```rust
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        rucho::routes::core_routes::root_handler,
-        rucho::routes::core_routes::get_handler,
-        rucho::routes::core_routes::head_handler,
-        rucho::routes::core_routes::post_handler,
-        rucho::routes::core_routes::put_handler,
-        rucho::routes::core_routes::patch_handler,
-        rucho::routes::core_routes::delete_handler,
-        rucho::routes::core_routes::options_handler,
-        rucho::routes::core_routes::status_handler,
-        rucho::routes::core_routes::anything_handler,
-        rucho::routes::core_routes::anything_path_handler,
-        rucho::routes::core_routes::endpoints_handler,
-        rucho::routes::delay::delay_handler,
-        rucho::routes::healthz::healthz_handler,
-        rucho::routes::redirect::redirect_handler,
-        rucho::routes::cookies::cookies_handler,
-        rucho::routes::cookies::set_cookies_handler,
-        rucho::routes::cookies::delete_cookies_handler,
-        rucho::routes::core_routes::uuid_handler,
-        rucho::routes::core_routes::ip_handler,
-        rucho::routes::core_routes::user_agent_handler,
-        rucho::routes::core_routes::headers_handler,
+        crate::routes::core_routes::root_handler,
+        crate::routes::core_routes::get_handler,
+        crate::routes::core_routes::head_handler,
+        crate::routes::core_routes::post_handler,
+        crate::routes::core_routes::put_handler,
+        crate::routes::core_routes::patch_handler,
+        crate::routes::core_routes::delete_handler,
+        crate::routes::core_routes::options_handler,
+        crate::routes::core_routes::status_handler,
+        crate::routes::core_routes::anything_handler,
+        crate::routes::core_routes::anything_path_handler,
+        crate::routes::core_routes::endpoints_handler,
+        crate::routes::delay::delay_handler,
+        crate::routes::healthz::healthz_handler,
+        crate::routes::redirect::redirect_handler,
+        crate::routes::cookies::cookies_handler,
+        crate::routes::cookies::set_cookies_handler,
+        crate::routes::cookies::delete_cookies_handler,
+        crate::routes::base64::base64_handler,
+        crate::routes::bytes::bytes_handler,
+        crate::routes::cache::cache_handler,
+        crate::routes::cache::cache_seconds_handler,
+        crate::routes::drip::drip_handler,
+        crate::routes::encoding::gzip_handler,
+        crate::routes::encoding::deflate_handler,
+        crate::routes::encoding::brotli_handler,
+        crate::routes::response_headers::response_headers_handler,
+        crate::routes::content_types::xml_handler,
+        crate::routes::content_types::html_handler,
+        crate::routes::image::image_handler,
+        crate::routes::range::range_handler,
+        crate::routes::core_routes::uuid_handler,
+        crate::routes::core_routes::ip_handler,
+        crate::routes::core_routes::user_agent_handler,
+        crate::routes::core_routes::headers_handler,
     ),
     components(
-        schemas(EndpointInfo, rucho::routes::core_routes::Payload)
+        schemas(EndpointInfo, crate::routes::core_routes::Payload)
     ),
     tags(
         (name = "Rucho", description = "Rucho API")
     )
 )]
-struct ApiDoc;
+pub struct ApiDoc;
 ```
 
 **How it works:**
@@ -2407,7 +2431,7 @@ struct ApiDoc;
 3. The `components(schemas(...))` section registers reusable schema types.
 4. The `tags(...)` section defines API grouping for the Swagger UI.
 
-**Router mount** (`src/main.rs`):
+**Router mount** (`src/app.rs`):
 
 ```rust
 .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))

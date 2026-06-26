@@ -10,7 +10,7 @@ Add the endpoint `$ARGUMENTS` to rucho. Follow the **"Adding a New Endpoint"** c
 3. Register the router in `build_app()` in **`src/app.rs`** — `.merge(rucho::routes::<name>::router())`.
 4. Add the handler path to the `ApiDoc` `#[openapi(paths(...))]` in **`src/openapi.rs`**.
 5. Integration test in `tests/integration.rs` (use the `spawn_app()` helper).
-6. Doc sweep: README endpoint table + project tree · `CHANGELOG [Unreleased]` · `ROADMAP` tick + priority rotation · `docs/API_REFERENCE.md` · `docs/INTERNALS.md` endpoint table · `docs/USAGE_EXAMPLES.md` · `CONTRIBUTING.md` routes block.
+6. Doc sweep: README endpoint table + project tree · `CHANGELOG [Unreleased]` · `ROADMAP` tick + priority rotation · `docs/API_REFERENCE.md` · `docs/INTERNALS.md` endpoint table · `docs/USAGE_EXAMPLES.md`.
 
 Watch the two classic traps (CLAUDE.md → **Common Mistakes**): forgetting the `build_app()` merge → the handler 404s at runtime even though unit tests pass; forgetting the `ApiDoc` path → it's missing from `/swagger-ui`.
 

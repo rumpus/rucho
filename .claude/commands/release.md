@@ -14,6 +14,6 @@ Cut release **v$ARGUMENTS** of rucho. This ends in an irreversible tag-push that
 4. Run the CI-exact gate — `/precommit`.
 5. Commit `chore: Prepare v$ARGUMENTS release`, push the branch, open the PR. **Stop here and wait for the maintainer to merge.**
 6. After merge: `git checkout main && git pull`, then `git tag v$ARGUMENTS && git push origin v$ARGUMENTS`.
-7. The tag push runs `.github/workflows/release.yml`: fmt/clippy/test safety gate → release binary → GitHub release (CHANGELOG body + binary) → multi-arch Docker image (`rumpus/rucho:$ARGUMENTS` + `:latest`).
+7. The tag push runs `.github/workflows/release.yml`: fmt/clippy/test safety gate → release binary + `.deb` package → GitHub release (CHANGELOG body + binary + `.deb`) → multi-arch Docker image (`rumpus/rucho:$ARGUMENTS` + `:latest`).
 
 **Prerequisites:** repo secrets `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` must be configured.
