@@ -1629,7 +1629,9 @@ run_server()
           +-- if is_ssl:
           |     setup_https_listener()  src/server/http.rs
           |       +-- try_load_rustls_config()  load TLS certs
-          |       +-- Server::bind().acceptor(TlsInfoAcceptor::new(cfg))
+          |       +-- TcpListener::bind() -> into_std()
+          |       +-- configure_tcp_socket()    set keepalive + nodelay (same as HTTP)
+          |       +-- Server::from_tcp().acceptor(TlsInfoAcceptor::new(cfg))
           |       |     wraps axum_server's RustlsAcceptor; reads the handshaken
           |       |     ServerConnection and injects a TlsConnectionInfo extension
           |       |     so /get & /anything can echo `tls` (src/server/tls.rs)
@@ -1646,10 +1648,11 @@ run_server()
                   +-- tokio::spawn(server_future)
 ```
 
-**Note:** For HTTP listeners, the flow is:
+**Note:** Both HTTP and HTTPS listeners share the same flow:
 `tokio::net::TcpListener::bind()` -> `into_std()` -> `configure_tcp_socket()`
--> `axum_server::Server::from_tcp()`. The conversion to `std::net::TcpListener`
-is necessary because `socket2::SockRef` requires a standard library socket.
+-> `axum_server::Server::from_tcp()` (the HTTPS path then chains `.acceptor()`).
+The conversion to `std::net::TcpListener` is necessary because `socket2::SockRef`
+requires a standard library socket.
 
 ### 8.3 TCP Socket Configuration
 

@@ -158,13 +158,41 @@ async fn setup_https_listener(
     .await
     {
         Some(rustls_config) => {
+            // Bind and tune the TCP socket ourselves (mirroring the HTTP path) so
+            // the HTTPS listener gets the same keep-alive / TCP_NODELAY settings,
+            // then attach the TLS-info acceptor via `from_tcp`. `Server::bind`
+            // would bind internally and skip `configure_tcp_socket`.
+            let std_listener = match tokio::net::TcpListener::bind(sock_addr).await {
+                Ok(listener) => match listener.into_std() {
+                    Ok(std_listener) => std_listener,
+                    Err(e) => {
+                        tracing::error!(
+                            "Failed to convert tokio listener to std for {}: {}. \
+                            Skipping this HTTPS listener.",
+                            sock_addr,
+                            e
+                        );
+                        return;
+                    }
+                },
+                Err(e) => {
+                    tracing::error!(
+                        "Failed to bind HTTPS listener for {}: {}. Skipping this listener.",
+                        sock_addr,
+                        e
+                    );
+                    return;
+                }
+            };
+            configure_tcp_socket(&std_listener, config);
+
             tracing::info!("Starting HTTPS server on https://{}", sock_addr);
             // Use a TLS-info-injecting acceptor (instead of `bind_rustls`) so the
             // negotiated TLS parameters reach the `/get` and `/anything` handlers
             // as a request extension. ALPN/HTTP-2 and graceful shutdown are
             // unaffected — the wrapper delegates the handshake to `RustlsAcceptor`.
             let acceptor = crate::server::tls::TlsInfoAcceptor::new(rustls_config);
-            let mut server = axum_server::Server::bind(sock_addr).acceptor(acceptor);
+            let mut server = axum_server::Server::from_tcp(std_listener).acceptor(acceptor);
             configure_http_builder(&mut server, config);
             let server_future = server
                 .handle(handle)
