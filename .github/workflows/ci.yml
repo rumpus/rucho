@@ -40,7 +40,12 @@ jobs:
 
   check-windows:
     name: Check (Windows)
-    runs-on: windows-latest
+    # Pinned to windows-2022: windows-latest moved to a newer MSVC toolchain
+    # (Visual Studio 18 / MSVC 14.51) that the rustls `aws-lc-sys` C build can't
+    # drive yet via its pinned cmake/cc ("C atomics require C11 or later";
+    # "couldn't determine visual studio generator"). The 2022 image's VS2022
+    # toolchain builds it cleanly. Revisit once aws-lc-sys/cmake/cc catch up.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v6
 
