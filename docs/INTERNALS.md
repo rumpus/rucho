@@ -2413,6 +2413,7 @@ down. Since they're stateless echo handlers, this is acceptable.
         crate::routes::core_routes::ip_handler,
         crate::routes::core_routes::user_agent_handler,
         crate::routes::core_routes::headers_handler,
+        crate::routes::metrics::get_metrics,
     ),
     components(
         schemas(EndpointInfo, crate::routes::core_routes::Payload)

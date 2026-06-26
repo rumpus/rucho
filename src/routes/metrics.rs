@@ -40,6 +40,13 @@ use crate::utils::metrics::Metrics;
 ///   }
 /// }
 /// ```
+#[utoipa::path(
+    get,
+    path = "/metrics",
+    responses(
+        (status = 200, description = "Request statistics as JSON: `all_time` totals plus a rolling `last_hour` window, each with total/success/failure counts and per-endpoint hits. Only mounted when `metrics_enabled` is set — otherwise the route returns 404.", body = serde_json::Value)
+    )
+)]
 pub async fn get_metrics(State(metrics): State<Arc<Metrics>>) -> impl IntoResponse {
     let snapshot = metrics.snapshot();
     (StatusCode::OK, Json(snapshot))
