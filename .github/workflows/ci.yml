@@ -70,18 +70,18 @@ jobs:
         run: cargo check --all-targets --all-features
 
   msrv:
-    name: MSRV (1.85)
+    name: MSRV (1.88)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      # Pin the declared MSRV (rust-version = "1.85" in Cargo.toml) so a break
+      # Pin the declared MSRV (rust-version = "1.88" in Cargo.toml) so a break
       # — e.g. from a dependency bump or a newer std/edition API — fails here at
-      # PR time instead of only at the rust:1.85 release Docker build. Checks the
+      # PR time instead of only at the rust:1.88 release Docker build. Checks the
       # shipped crate (lib + bins); dev-deps (criterion/proptest/reqwest) are
       # excluded since their MSRVs aren't part of rucho's contract.
-      - name: Install Rust 1.85
-        uses: dtolnay/rust-toolchain@1.85.0
+      - name: Install Rust 1.88
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Cache cargo registry
         uses: actions/cache@v5
