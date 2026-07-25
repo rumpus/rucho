@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Dependency refresh (`cargo update`) — the first full lockfile refresh since Dependabot was removed in PR #129; 268 transitive crates moved to current releases. No direct dependency version requirements in `Cargo.toml` changed, and no source changes were needed. Notable: `aws-lc-sys` 0.29 → 0.43, `cc` 1.2 → 1.4, `cmake` 0.1.54 → 0.1.58, `tower-http` → 0.6.11, `axum-server` → 0.7.3, `reqwest` → 0.12.28.
+- **MSRV raised from 1.84 to 1.85** (`rust-version` in `Cargo.toml`, the `rust:1.85-bookworm` build image, the CI MSRV job, and CONTRIBUTING). Required by the dependency refresh: transitive crates (`rand_core`, `time-core`) now ship with `edition2024`, which Cargo only supports from 1.85. Rucho is distributed as a binary (Docker image / `.deb`), so this affects only building from source.
 
 ### Fixed
 - CI's Windows check runs on `windows-latest` again. It was pinned to `windows-2022` in PR #172 because the image's newer MSVC (VS18 / 14.51) broke the transitive `aws-lc-sys` C build through its then-pinned `cmake`/`cc`. The dependency refresh above fixes the root cause, so the workaround pin is removed.
