@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-25
+
 ### Added
 - `DELETE /cookies` — RESTful symmetry with `GET /cookies/delete`: expires each cookie named in the query (`Max-Age=0`) and `302`-redirects to `/cookies`. Registered as the `DELETE` method on the existing `/cookies` path and shares a single `expire_cookies` helper with the GET form.
 - `/metrics` is now documented in the OpenAPI spec / Swagger UI — annotated with `#[utoipa::path]` and registered in `ApiDoc`, with a response description noting it's only mounted when `metrics_enabled`. Previously the endpoint was invisible in Swagger. It stays out of the `/endpoints` runtime list, which reflects always-mounted routes.
@@ -241,7 +243,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pretty JSON output (`?pretty=true`)
 
 <!-- Version compare links (tagged releases only; 0.1.0 / 0.0.1 were never tagged). -->
-[Unreleased]: https://github.com/rumpus/rucho/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/rumpus/rucho/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/rumpus/rucho/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/rumpus/rucho/compare/v1.4.6...v1.5.0
 [1.4.6]: https://github.com/rumpus/rucho/compare/v1.4.5...v1.4.6
 [1.4.5]: https://github.com/rumpus/rucho/compare/v1.4.4...v1.4.5

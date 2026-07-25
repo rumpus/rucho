@@ -1,5 +1,5 @@
 .\" Man page for rucho(1)
-.TH RUCHO 1 "2026-06-26" "rucho 1.5.0" "Rucho Manual"
+.TH RUCHO 1 "2026-07-25" "rucho 1.6.0" "Rucho Manual"
 .SH NAME
 rucho \- HTTP echo server and request inspector
 .SH SYNOPSIS
@@ -47,13 +47,26 @@ _
 /status/:code	Return specified HTTP status code
 /delay/:n	Delay response by n seconds (max 300)
 /redirect/:n	Chain of n HTTP 302 redirects (max 20)
-/cookies	Inspect request cookies
+/cookies	Inspect request cookies (DELETE expires them)
 /cookies/set	Set cookies via query params
 /cookies/delete	Delete cookies via query params
 /uuid	Random UUID v4
 /ip	Client IP address
 /user\-agent	User-Agent header echo
 /headers	All request headers
+/base64/:encoded	Decode URL-safe base64 (max 4 KiB)
+/bytes/:n	n random bytes (max 10 MiB)
+/range/:n	n bytes with Range / 206 partial content
+/drip	Slow byte stream over a duration
+/response\-headers	Echo query params as response headers
+/xml	Sample XML document
+/html	Sample HTML document
+/image/:format	Sample image (png, jpeg, svg, webp)
+/gzip	gzip-encoded JSON echo
+/deflate	deflate-encoded JSON echo
+/brotli	brotli-encoded JSON echo
+/cache	Conditional request (304 / ETag)
+/cache/:n	Cache-Control: max-age=n
 /healthz	Health check
 /metrics	Request statistics (when enabled)
 /endpoints	List all endpoints
@@ -84,6 +97,7 @@ server_listen_tcp	(none)	TCP echo listener address
 server_listen_udp	(none)	UDP echo listener address
 ssl_cert	(none)	Path to SSL certificate
 ssl_key	(none)	Path to SSL private key
+ssl_auto_cert	false	Ephemeral self-signed cert (dev/test)
 log_level	info	Log level (trace/debug/info/warn/error)
 metrics_enabled	false	Enable /metrics endpoint
 compression_enabled	false	Enable gzip/brotli compression
@@ -116,6 +130,10 @@ Path to SSL certificate file
 .TP
 .B RUCHO_SSL_KEY
 Path to SSL private key file
+.TP
+.B RUCHO_SSL_AUTO_CERT
+Serve an ephemeral self-signed certificate instead of ssl_cert/ssl_key
+(dev/test only; default: false)
 .TP
 .B RUCHO_CHAOS_MODE
 Enable chaos engineering (comma-separated: failure,delay,corruption)
