@@ -2501,6 +2501,7 @@ Key external crates and their role in the application:
 | `rustls` | 0.23 | Modern TLS library (replaces OpenSSL); `ServerConnection` is read for the `tls` echo |
 | `tokio-rustls` | 0.26 | Tokio integration for rustls (aligned with axum-server's rustls 0.23) |
 | `rustls-pemfile` | 2.2 | PEM file parsing for certificates and keys |
+| `rcgen` | 0.13 | Ephemeral self-signed certificate generation for `ssl_auto_cert` |
 | `socket2` | 0.5 | Low-level socket options (keepalive, nodelay) via `SockRef` |
 | `utoipa` | 4 | OpenAPI spec generation from code annotations |
 | `utoipa-swagger-ui` | 7 | Swagger UI serving as an axum route |

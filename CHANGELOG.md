@@ -13,7 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ssl_auto_cert` config field (env: `RUCHO_SSL_AUTO_CERT`, default off) — when enabled, the HTTPS listener serves an ephemeral in-memory self-signed certificate generated via `rcgen` (covering `localhost`/`127.0.0.1`/`::1`) instead of requiring `ssl_cert`/`ssl_key` files. Zero-setup HTTPS for dev/test; the cert is regenerated each start and self-signed (clients must skip verification). Explicit `ssl_cert`/`ssl_key` files take precedence. Adds `rcgen` as a dependency.
 - GitHub releases now attach a `SHA256SUMS` file — checksums for the release binary and `.deb` package (listed by basename) — so downloads can be integrity-verified with `sha256sum -c SHA256SUMS`. Takes effect on the next tagged release.
 
+### Changed
+- Dependency refresh (`cargo update`) — the first full lockfile refresh since Dependabot was removed in PR #129; 268 transitive crates moved to current releases. No direct dependency version requirements in `Cargo.toml` changed, and no source changes were needed. Notable: `aws-lc-sys` 0.29 → 0.43, `cc` 1.2 → 1.4, `cmake` 0.1.54 → 0.1.58, `tower-http` → 0.6.11, `axum-server` → 0.7.3, `reqwest` → 0.12.28.
+- **MSRV raised from 1.84 to 1.88** (`rust-version` in `Cargo.toml`, the `rust:1.88-bookworm` build image, the CI MSRV job, and CONTRIBUTING). Required by the dependency refresh: `time`/`time-core` (pulled in by `rcgen`) declare `rust-version = 1.88`, and the `icu_*` / `idna_adapter` chain requires 1.86. 1.88 is the lowest version that satisfies the refreshed lockfile. Rucho is distributed as a binary (Docker image / `.deb`), so this affects only building from source.
+
 ### Fixed
+- CI's Windows check runs on `windows-latest` again. It was pinned to `windows-2022` in PR #172 because the image's newer MSVC (VS18 / 14.51) broke the transitive `aws-lc-sys` C build through its then-pinned `cmake`/`cc`. The dependency refresh above fixes the root cause, so the workaround pin is removed.
 - The HTTPS listener now receives the same TCP socket tuning (keep-alive, `TCP_NODELAY`) as the HTTP listener. `configure_tcp_socket` previously ran only on the HTTP path — the HTTPS path used `axum_server::Server::bind`, which binds internally and skipped it. The HTTPS path now binds + tunes the listener and attaches the TLS-info acceptor via `from_tcp`.
 
 ## [1.5.0] - 2026-06-26
